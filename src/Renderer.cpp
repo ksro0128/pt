@@ -25,6 +25,36 @@ void Renderer::init(GLFWwindow* window) {
 	m_extent = {1024, 1024};
 	createDefaultModels();
 
+	minipbrt::Loader loader;
+	if (!loader.load("assets/bmw-m6/bmw-m6.pbrt")) {
+		std::cerr << "Failed to load scene" << std::endl;
+		return;
+	}
+	// loader.load("assets/bathroom/bathroom.pbrt");
+
+	minipbrt::Scene* scene = loader.take_scene();
+	if (scene == nullptr) {
+		std::cerr << "Failed to load scene" << std::endl;
+		return;
+	}
+	// 씬에 있는 요소들 싹다 cout 해보기
+	{
+		// 개수 체크
+		std::cout << "light size: " << scene->lights.size() << std::endl;
+		std::cout << "object size: " << scene->objects.size() << std::endl;
+		std::cout << "material size: " << scene->materials.size() << std::endl;
+		std::cout << "texture size: " << scene->textures.size() << std::endl;
+		std::cout << "shape size: " << scene->shapes.size() << std::endl;
+		std::cout << "instance size: " << scene->instances.size() << std::endl;
+		std::cout << "area light size: " << scene->areaLights.size() << std::endl;
+		std::cout << "accelerator size: " << scene->accelerator << std::endl;
+		std::cout << "camera size: " << scene->camera << std::endl;
+	}
+
+
+	// minipbrt 로 로드한 씬을 출력 해보기 잘 되었나
+
+
 	// descriptorset layout
 	m_globalLayout = DescriptorSetLayout::createGlobalDescriptorSetLayout(m_context.get());
 	m_objectMaterialLayout = DescriptorSetLayout::createObjectMaterialDescriptorSetLayout(m_context.get());

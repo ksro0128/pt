@@ -20,6 +20,7 @@
 #include "Scene.h"
 #include "AccelerationStructure.h"
 #include "RayTracingPipeline.h"
+#include "minipbrt.h"
 
 class Renderer {
 public:
