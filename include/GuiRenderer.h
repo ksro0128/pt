@@ -26,14 +26,6 @@ public:
     ImVec2 getViewportSize() const { return m_viewportSize; }
 	bool isBenchmarkRunning() const { return m_benchmarkRunning; }
 
-	std::function<bool()> getRTEnabled;
-	std::function<void(bool)> setRTEnabled;
-	std::function<void(const Material&)> addMaterial;
-	std::function<Material&(int32_t)> getMaterial;
-	std::function<void(int32_t)> setRTMode;
-	std::function<void(int32_t)> setReflectionSampleCount;
-	std::function<void(int32_t)> setReflectionMaxBounce;
-
 private:
     VulkanContext* context;
     VkDescriptorPool m_descriptorPool;

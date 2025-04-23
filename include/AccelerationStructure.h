@@ -37,12 +37,12 @@ private:
 class TopLevelAS : public AccelerationStructure {
 public:
 	static std::unique_ptr<TopLevelAS> createTopLevelAS(VulkanContext* context, std::vector<std::unique_ptr<BottomLevelAS>>& blasList,
-		std::vector<ModelBuffer>& modelBuffers, std::vector<ObjectInstance>& objDescs);
+		std::vector<ShapeGPU>& shapeList);
 	static std::unique_ptr<TopLevelAS> createEmptyTopLevelAS(VulkanContext* context);
 	void rebuild(std::vector<std::unique_ptr<BottomLevelAS>>& blasList,
-		std::vector<ModelBuffer>& modelBuffers, std::vector<ObjectInstance>& objDescs);
+		std::vector<ShapeGPU>& shapeList);
 private:
 	void initTLAS(VulkanContext* context, std::vector<std::unique_ptr<BottomLevelAS>>& blasList,
-		std::vector<ModelBuffer>& modelBuffers, std::vector<ObjectInstance>& objDescs);
+		std::vector<ShapeGPU>& shapeList);
 	void initEmptyTLAS(VulkanContext* context);
 };

@@ -8,7 +8,6 @@
 #include "Mesh.h"
 #include "Model.h"
 #include "Texture.h"
-#include "ModelLoader.h"
 #include "Object.h"
 #include "DescriptorSetLayout.h"
 #include "DescriptorSet.h"
@@ -39,23 +38,31 @@ private:
 	VkExtent2D m_extent;
 	uint32_t currentFrame = 0;
 
-	// pipeline switch
-	bool m_rtEnabled = false;
-	int m_rtMode = 0;
-	int m_reflectionSampleCount = 1;
-	int m_reflectionMaxBounce = 1;
+
 
 	// resources list
 	std::vector<std::unique_ptr<Mesh>> m_meshList;
-	std::vector<std::unique_ptr<Texture>> m_textureList;
-	std::vector<Material> m_materialList;
 	std::vector<Model> m_modelList;
-	std::unordered_map<std::string, int32_t> m_texturePathMap;
 	std::vector<std::unique_ptr<BottomLevelAS>> m_blasList;
 	std::vector<std::unique_ptr<TopLevelAS>> m_tlas;
 	std::unique_ptr<TopLevelAS> m_emptyTLAS;
 	
+	
+	std::vector<std::unique_ptr<Texture>> m_textureList;
+	std::unordered_map<std::string, int32_t> m_textureNameMap;
+	std::vector<MaterialGPU> m_materialList;
+	std::unordered_map<std::string, int32_t> m_materialNameMap;
+	std::vector<UberGPU> m_uberList;
+	std::vector<MatteGPU> m_matteList;
+	std::vector<MetalGPU> m_metalList;
+	std::vector<GlassGPU> m_glassList;
+	std::vector<MirrorGPU> m_mirrorList;
+	std::vector<SubstrateGPU> m_substrateList;
+	std::vector<PlasticGPU> m_plasticList;
 
+	std::vector<AreaLightGPU> m_areaLightList;
+
+	std::vector<ShapeGPU> m_shapeList;
 
 	// descriptorset layout
 	std::unique_ptr<DescriptorSetLayout> m_globalLayout;
@@ -102,8 +109,6 @@ private:
 	std::array<std::unique_ptr<DescriptorSet>, MAX_FRAMES_IN_FLIGHT> m_shadowDescSets;
 	std::vector<std::unique_ptr<DescriptorSet>> m_rtDescSets;
 
-
-
 	// pipeline
 	std::unique_ptr<Pipeline> m_gbufferPipeline;
 	std::unique_ptr<Pipeline> m_lightPassPipeline;
@@ -120,29 +125,24 @@ private:
 	// scene
 	std::unique_ptr<Scene> m_scene;
 
-	// camera
-	Camera m_camera;
-	bool m_mousePressed = false;
-	double m_lastMouseX = 0.0, m_lastMouseY = 0.0;
-	float m_yaw = -90.0f;
-	float m_pitch = 0.0f;
-	float m_mouseSensitivity = 0.2f;
-	float m_moveSpeed = 3.0f;
+	// new
+	minipbrt::Scene* m_pbrtScene = nullptr;
+	CameraGPU m_camera;
 
-	int m_frameCount = 0;
+	void loadScene(std::string scenePath);
+	//
+
+
+
+
 
 	void cleanup();
 	void init(GLFWwindow* window);
 	void recreateSwapChain();
 	void recreateViewport(ImVec2 newExtent);
-	
 	void loadModel(const std::string& modelPath);
 	void createDefaultModels();
-
-
 	void createObjDesc(std::vector<ObjectInstance>& ObjDescs, std::vector<ModelBuffer>& modelBuffers);
-
-
 	void updateTLAS(std::vector<ObjectInstance>& objDescs, std::vector<ModelBuffer>& modelBuffers);
 
 

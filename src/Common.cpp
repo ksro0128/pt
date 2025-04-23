@@ -18,21 +18,3 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
 		func(instance, debugMessenger, pAllocator);
 	}
 }
-
-
-void printMaterial(const Material& mat) {
-	std::cout << "Material Info:\n";
-	std::cout << "  Albedo Tex Index    : " << mat.albedoTexIndex << "\n";
-	std::cout << "  Normal Tex Index    : " << mat.normalTexIndex << "\n";
-	std::cout << "  Metallic Tex Index  : " << mat.metallicTexIndex << "\n";
-	std::cout << "  Roughness Tex Index : " << mat.roughnessTexIndex << "\n";
-	std::cout << "  AO Tex Index        : " << mat.aoTexIndex << "\n";
-	std::cout << "  Emissive Tex Index  : " << mat.emissiveTexIndex << "\n";
-	std::cout << "  Base Color          : (" << mat.baseColor.r << ", " << mat.baseColor.g
-		<< ", " << mat.baseColor.b << ", " << mat.baseColor.a << ")\n";
-	std::cout << "  Metallic Factor     : " << mat.metallic << "\n";
-	std::cout << "  Roughness Factor    : " << mat.roughness << "\n";
-	std::cout << "  AO Factor           : " << mat.ao << "\n";
-	std::cout << "  Emissive Factor     : (" << mat.emissiveFactor.r << ", "
-		<< mat.emissiveFactor.g << ", " << mat.emissiveFactor.b << ")\n";
-}

@@ -23,254 +23,608 @@ void Renderer::init(GLFWwindow* window) {
 	m_syncObjects = SyncObjects::createSyncObjects(m_context.get());
 	m_commandBuffers = CommandBuffers::createCommandBuffers(m_context.get());
 	m_extent = {1024, 1024};
-	createDefaultModels();
 
-	minipbrt::Loader loader;
-	if (!loader.load("assets/bmw-m6/bmw-m6.pbrt")) {
-		std::cerr << "Failed to load scene" << std::endl;
-		return;
+	loadScene("assets/bathroom/bathroom.pbrt");
+
+	std::cout << "mesh list size: " << m_meshList.size() << std::endl;
+	std::cout << "shape list size: " << m_shapeList.size() << std::endl;
+
+	m_blasList.resize(m_meshList.size());
+	for (int i = 0; i < m_meshList.size(); i++) {
+		m_blasList[i] = BottomLevelAS::createBottomLevelAS(m_context.get(), m_meshList[i].get());
 	}
-	// loader.load("assets/bathroom/bathroom.pbrt");
+	m_emptyTLAS = TopLevelAS::createEmptyTopLevelAS(m_context.get());
 
-	minipbrt::Scene* scene = loader.take_scene();
-	if (scene == nullptr) {
-		std::cerr << "Failed to load scene" << std::endl;
-		return;
-	}
-	// 씬에 있는 요소들 싹다 cout 해보기
-	{
-		// 개수 체크
-		std::cout << "light size: " << scene->lights.size() << std::endl;
-		std::cout << "object size: " << scene->objects.size() << std::endl;
-		std::cout << "material size: " << scene->materials.size() << std::endl;
-		std::cout << "texture size: " << scene->textures.size() << std::endl;
-		std::cout << "shape size: " << scene->shapes.size() << std::endl;
-		std::cout << "instance size: " << scene->instances.size() << std::endl;
-		std::cout << "area light size: " << scene->areaLights.size() << std::endl;
-		std::cout << "accelerator size: " << scene->accelerator << std::endl;
-		std::cout << "camera size: " << scene->camera << std::endl;
-	}
-
-
-	// minipbrt 로 로드한 씬을 출력 해보기 잘 되었나
-
-
-	// descriptorset layout
-	m_globalLayout = DescriptorSetLayout::createGlobalDescriptorSetLayout(m_context.get());
-	m_objectMaterialLayout = DescriptorSetLayout::createObjectMaterialDescriptorSetLayout(m_context.get());
-	m_bindlessLayout = DescriptorSetLayout::createBindlessDescriptorSetLayout(m_context.get());
-	m_attachmentLayout = DescriptorSetLayout::createAttachmentDescriptorSetLayout(m_context.get());
-	m_shadowLayout = DescriptorSetLayout::createShadowDescriptorSetLayout(m_context.get());
-	m_rayTracingLayout = DescriptorSetLayout::createRayTracingDescriptorSetLayout(m_context.get());
-
-	// buffers
+	m_tlas.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_cameraBuffers[i] = UniformBuffer::createUniformBuffer(m_context.get(), sizeof(CameraBuffer));
-		m_lightBuffers[i] = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(LightBuffer));
-		m_objectInstanceBuffers[i] = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(ObjectInstance) * MAX_OBJECT_COUNT * 2);
-		m_modelBuffers[i] = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(ModelBuffer) * MAX_OBJECT_COUNT);
-		m_materialBuffers[i] = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(Material) * MAX_MATERIAL_COUNT * 2);
-		m_lightMatrixBuffers[i] = UniformBuffer::createUniformBuffer(m_context.get(), sizeof(LightMatrix) * 13);
-		m_renderOptionsBuffers[i] = UniformBuffer::createUniformBuffer(m_context.get(), sizeof(RenderOptions));
+		m_tlas[i] = TopLevelAS::createTopLevelAS(m_context.get(), m_blasList, m_shapeList);
 	}
 
-	// renderpass
-	m_gbufferRenderPass = RenderPass::createGbufferRenderPass(m_context.get());
+
 	m_imguiRenderPass = RenderPass::createImGuiRenderPass(m_context.get(), m_swapChain.get());
-	m_lightPassRenderPass = RenderPass::createLightPassRenderPass(m_context.get());
-	m_shadowMapRenderPass = RenderPass::createShadowMapRenderPass(m_context.get());
-
-	// attachment
-	m_gbufferAttachments.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_gbufferAttachments[i].albedo = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-		m_gbufferAttachments[i].normal = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-		m_gbufferAttachments[i].position = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-		m_gbufferAttachments[i].pbr = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-		m_gbufferAttachments[i].emissive = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-		m_gbufferAttachments[i].depth = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
-	}
-
-	m_outputTextures.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_outputTextures[i] = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	}
-
-	m_shadowMapTextures.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_shadowMapTextures[i].resize(7); // directional light : 3 (csm), spot light : 4
-		for (int j = 0; j < 7; j++) {
-			m_shadowMapTextures[i][j] = Texture::createAttachmentTexture(m_context.get(), 2048, 2048, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
-		}
-	}
-
-	m_shadowCubeMapTextures.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_shadowCubeMapTextures[i] = Texture::createCubeMapTexture(m_context.get(), 2048, 2048, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
-	}
-
-	m_rtReflectionTextures.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_rtReflectionTextures[i] = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	}
-
-	// framebuffer
-	m_gbufferFrameBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-	m_outputFrameBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_gbufferFrameBuffers[i] = FrameBuffer::createGbufferFrameBuffer(m_context.get(), m_gbufferRenderPass.get(), m_gbufferAttachments[i], m_extent);
-		m_outputFrameBuffers[i] = FrameBuffer::createOutputFrameBuffer(m_context.get(), m_lightPassRenderPass.get(), m_outputTextures[i].get(), m_extent);
-	}
-
 	m_imguiFrameBuffers.resize(m_swapChain->getSwapChainImages().size());
 	for (int i = 0; i < m_swapChain->getSwapChainImages().size(); i++) {
 		m_imguiFrameBuffers[i] = FrameBuffer::createImGuiFrameBuffer(m_context.get(), m_imguiRenderPass.get(), m_swapChain->getSwapChainImageViews()[i], m_swapChain->getSwapChainExtent());
 	}
-
-	m_shadowMapFrameBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_shadowMapFrameBuffers[i].resize(7);
-		for (int j = 0; j < 7; j++) {
-			m_shadowMapFrameBuffers[i][j] = FrameBuffer::createShadowMapFrameBuffer(m_context.get(), m_shadowMapRenderPass.get(), m_shadowMapTextures[i][j].get(), {2048, 2048});
-		}
-	}
-
-	m_shadowCubeMapFrameBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_shadowCubeMapFrameBuffers[i].resize(6);
-		for (int j = 0; j < 6; j++) {
-			m_shadowCubeMapFrameBuffers[i][j] = FrameBuffer::createShadowCubeMapFrameBuffer(m_context.get(), m_shadowMapRenderPass.get(), m_shadowCubeMapTextures[i].get(), {2048, 2048}, j);
-		}
-	}
-
-
-	// descriptorset
-	m_attachmentDescSets.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_globlaDescSets[i] = DescriptorSet::createGlobalDescriptorSet(m_context.get(), m_globalLayout.get(), m_cameraBuffers[i].get(), m_lightBuffers[i].get(), m_renderOptionsBuffers[i].get());
-		m_objectMaterialDescSets[i] = DescriptorSet::createObjectMaterialDescriptorSet(m_context.get(), m_objectMaterialLayout.get(), m_objectInstanceBuffers[i].get());
-		m_bindlessDescSets[i] = DescriptorSet::createBindlessDescriptorSet(m_context.get(), m_bindlessLayout.get(), m_modelBuffers[i].get(), m_materialBuffers[i].get(), m_textureList);
-		m_attachmentDescSets[i] = DescriptorSet::createAttachmentDescriptorSet(m_context.get(), m_attachmentLayout.get(), m_gbufferAttachments[i]);
-		std::vector<Texture*> shadowTextures;
-		for (int j = 0; j < m_shadowMapTextures[i].size(); j++) {
-			shadowTextures.push_back(m_shadowMapTextures[i][j].get());
-		}
-		m_shadowDescSets[i] = DescriptorSet::createShadowDescriptorSet(m_context.get(), m_shadowLayout.get(), m_lightMatrixBuffers[i].get(), shadowTextures, m_shadowCubeMapTextures[i].get());
-	}
-
-	// pipeline
-	m_gbufferPipeline = Pipeline::createGbufferPipeline(m_context.get(), m_gbufferRenderPass.get(), {m_globalLayout.get(), m_objectMaterialLayout.get(), m_bindlessLayout.get()});
-	m_lightPassPipeline = Pipeline::createLightPassPipeline(m_context.get(), m_lightPassRenderPass.get(), { m_globalLayout.get(), m_attachmentLayout.get(), m_shadowLayout.get(), m_rayTracingLayout.get()});
-	m_shadowMapPipeline = Pipeline::createShadowMapPipeline(m_context.get(), m_shadowMapRenderPass.get(), { m_objectMaterialLayout.get(), m_bindlessLayout.get() });
-	m_reflectionPipeline = RayTracingPipeline::createReflectionPipeline(m_context.get(), { m_globalLayout.get(), m_rayTracingLayout.get(), m_objectMaterialLayout.get(), m_bindlessLayout.get(), m_attachmentLayout.get() });
-	m_giPipeline = RayTracingPipeline::createGIPipeline(m_context.get(), { m_globalLayout.get(), m_rayTracingLayout.get(), m_objectMaterialLayout.get(), m_bindlessLayout.get(), m_attachmentLayout.get() });
-
-	printAllResources();
-
-
-	// gui renderer
 	m_guiRenderer = GuiRenderer::createGuiRenderer(m_context.get(), window, m_imguiRenderPass.get(), m_swapChain.get());
-	m_guiRenderer->setRTEnabled = [this](bool enabled) { m_rtEnabled = enabled; };
-	m_guiRenderer->getRTEnabled = [this]() { return m_rtEnabled; };
-	m_guiRenderer->addMaterial = [this](const Material& material) {
-		m_materialList.push_back(material);
-		m_materialBuffers[0]->updateStorageBuffer(&m_materialList[0], sizeof(Material) * m_materialList.size());
-		m_materialBuffers[1]->updateStorageBuffer(&m_materialList[0], sizeof(Material) * m_materialList.size());
-		};
-	m_guiRenderer->setRTMode = [this](int32_t mode) {
-		m_rtMode = mode;
-		};
-	m_guiRenderer->getMaterial = [this](int32_t index) -> Material& {
-		m_materialBuffers[0]->updateStorageBuffer(&m_materialList[0], sizeof(Material)* m_materialList.size());
-		m_materialBuffers[1]->updateStorageBuffer(&m_materialList[0], sizeof(Material)* m_materialList.size());
-		if (index < 0 || index >= m_materialList.size()) {
-			std::cerr << "Material index out of range!" << std::endl;
-			return m_materialList[0];
-		}
-		return m_materialList[index];
-		};
-	m_guiRenderer->setReflectionSampleCount = [this](int32_t count) {
-		m_reflectionSampleCount = count;
-	};
-	m_guiRenderer->setReflectionMaxBounce = [this](int32_t bounce) {
-		m_reflectionMaxBounce = bounce;
-	};
-
-	m_scene = Scene::createScene(m_modelList.size(), m_materialList.size(), m_textureList.size());
-
-	//descriptor set update
-	std::vector<Material> materials;
-	for (int32_t i = 0; i < m_materialList.size(); i++) {
-		materials.push_back(m_materialList[i]);
-	}
-	m_materialBuffers[0]->updateStorageBuffer(&materials[0], sizeof(Material) * materials.size());
-	m_materialBuffers[1]->updateStorageBuffer(&materials[0], sizeof(Material) * materials.size());
-
-
-	auto cmd = VulkanUtil::beginSingleTimeCommands(m_context.get());
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		for (int j = 0; j < 7; j++) {
-			transferImageLayout(cmd, m_shadowMapTextures[i][j].get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-				0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
-		}
-		transferImageLayout(cmd, m_shadowCubeMapTextures[i].get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-			0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 6);
-
-		transferImageLayout(cmd,
-			m_rtReflectionTextures[i].get(),
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			0, VK_ACCESS_SHADER_READ_BIT,
-			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-	}
-	VulkanUtil::endSingleTimeCommands(m_context.get(), cmd);
-
-	// create bottom level acceleration structure
-	for (auto& mesh : m_meshList) {
-		std::cout << "create blas" << std::endl;
-		auto blas = BottomLevelAS::createBottomLevelAS(m_context.get(), mesh.get());
-		m_blasList.push_back(std::move(blas));
-	}
-
-	// create top level acceleration structure
-
-	std::vector<ObjectInstance> objDescs;
-	std::vector<ModelBuffer> modelBuffers;
-
-	createObjDesc(objDescs, modelBuffers);
-
-	m_tlas.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_tlas[i] = TopLevelAS::createTopLevelAS(m_context.get(), m_blasList, modelBuffers, objDescs);
-
-	}
-
-	m_emptyTLAS = TopLevelAS::createEmptyTopLevelAS(m_context.get());
-
-	m_rtDescSets.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_rtDescSets[i] = DescriptorSet::createRayTracingDescriptorSet(m_context.get(), m_rayTracingLayout.get(), m_rtReflectionTextures[i].get(), m_tlas[i]->getHandle());
-	}
-
-	m_guiRenderer->createViewPortDescriptorSet({m_outputTextures[0].get(), m_outputTextures[1].get()});
-	m_guiRenderer->createRayTracingDescriptorSet({ m_rtReflectionTextures[0].get(), m_rtReflectionTextures[1].get() });
-	m_guiRenderer->createAlbedoDescriptorSet({m_gbufferAttachments[0].albedo.get(), m_gbufferAttachments[1].albedo.get()});
-	m_guiRenderer->createPositionDescriptorSet({m_gbufferAttachments[0].position.get(), m_gbufferAttachments[1].position.get()});
-	m_guiRenderer->createNormalDescriptorSet({m_gbufferAttachments[0].normal.get(), m_gbufferAttachments[1].normal.get()});
-	m_guiRenderer->createPbrDescriptorSet({m_gbufferAttachments[0].pbr.get(), m_gbufferAttachments[1].pbr.get()});
-	m_guiRenderer->createEmissiveDescriptorSet({ m_gbufferAttachments[0].emissive.get(), m_gbufferAttachments[1].emissive.get() });
 }
 
+glm::mat4 toGlm(const minipbrt::Transform& t) {
+    glm::mat4 result(1.0f);
+    for (int i = 0; i < 4; ++i)
+        for (int j = 0; j < 4; ++j)
+            result[j][i] = t.start[i][j]; // minipbrt는 col-major이므로 이 순서
+    return result;
+}
+
+void Renderer::loadScene(std::string scenePath) {
+	minipbrt::Loader loader;
+	if (loader.load(scenePath.c_str()) == false) {
+		std::cout << "Failed to load scene!" << std::endl;
+		return;
+	}
+
+	m_pbrtScene = loader.take_scene();
+	const auto* pbrtCam = static_cast<minipbrt::PerspectiveCamera*>(m_pbrtScene->camera);
+	const glm::mat4 camToWorld = toGlm(pbrtCam->cameraToWorld);
+
+	m_camera.camPos = glm::vec3(camToWorld[3]);
+	m_camera.camDir = glm::normalize(glm::vec3(camToWorld[2]) * -1.0f);
+	m_camera.camUp = glm::normalize(glm::vec3(camToWorld[1]));
+	m_camera.camRight = glm::normalize(glm::vec3(camToWorld[0]));
+	if (pbrtCam->type() == minipbrt::CameraType::Perspective) {
+		m_camera.fovY = static_cast<minipbrt::PerspectiveCamera*>(m_pbrtScene->camera)->fov;
+	}
+	
+	std::cout << "Camera Position: " << m_camera.camPos.x << ", " << m_camera.camPos.y << ", " << m_camera.camPos.z << std::endl;
+	std::cout << "Camera Direction: " << m_camera.camDir.x << ", " << m_camera.camDir.y << ", " << m_camera.camDir.z << std::endl;
+	std::cout << "Camera Up: " << m_camera.camUp.x << ", " << m_camera.camUp.y << ", " << m_camera.camUp.z << std::endl;
+	std::cout << "Camera Right: " << m_camera.camRight.x << ", " << m_camera.camRight.y << ", " << m_camera.camRight.z << std::endl;
+	std::cout << "Camera FOV: " << m_camera.fovY << std::endl;
+
+
+	for (auto& mat : m_pbrtScene->materials) {
+
+		MaterialGPU material;
+		material.type = static_cast<int>(mat->type());
+		m_materialNameMap[mat->name] = m_materialList.size();
+		if (mat->type() == minipbrt::MaterialType::Uber) {
+			std::cout << "Uber Material" << std::endl;
+			material.index = m_uberList.size();
+			m_materialList.push_back(material);
+
+			const auto* uberMat = static_cast<const minipbrt::UberMaterial*>(mat);
+			UberGPU uber;
+			uber.Kd.r         = uberMat->Kd.value[0];
+			uber.Kd.g         = uberMat->Kd.value[1];
+			uber.Kd.b         = uberMat->Kd.value[2];
+			uber.KdIdx      = static_cast<int>(uberMat->Kd.texture);
+
+			uber.Ks.r         = uberMat->Ks.value[0];
+			uber.Ks.g         = uberMat->Ks.value[1];
+			uber.Ks.b         = uberMat->Ks.value[2];
+			uber.KsIdx      = static_cast<int>(uberMat->Ks.texture);
+
+			uber.Kr.r         = uberMat->Kr.value[0];
+			uber.Kr.g         = uberMat->Kr.value[1];
+			uber.Kr.b         = uberMat->Kr.value[2];
+			uber.KrIdx      = static_cast<int>(uberMat->Kr.texture);
+
+			uber.Kt.r         = uberMat->Kt.value[0];
+			uber.Kt.g         = uberMat->Kt.value[1];
+			uber.Kt.b         = uberMat->Kt.value[2];
+			uber.KtIdx      = static_cast<int>(uberMat->Kt.texture);
+
+			uber.opacity.r    = uberMat->opacity.value[0];
+			uber.opacity.g    = uberMat->opacity.value[1];
+			uber.opacity.b    = uberMat->opacity.value[2];
+			uber.opacityIdx = static_cast<int>(uberMat->opacity.texture);
+
+			uber.eta        = uberMat->eta.value;
+			uber.etaIdx     = static_cast<int>(uberMat->eta.texture);
+
+			uber.uroughness    = uberMat->uroughness.value;
+			uber.uroughnessIdx = static_cast<int>(uberMat->uroughness.texture);
+
+			uber.vroughness    = uberMat->vroughness.value;
+			uber.vroughnessIdx = static_cast<int>(uberMat->vroughness.texture);
+
+			uber.remaproughness = uberMat->remaproughness ? 1 : 0;
+			m_uberList.push_back(uber);
+
+
+			std::cout << "Uber Material Kd: " << uber.Kd.r << ", " << uber.Kd.g << ", " << uber.Kd.b << std::endl;
+			std::cout << "Uber Material KdIdx: " << uber.KdIdx << std::endl;
+			std::cout << "Uber Material Ks: " << uber.Ks.r << ", " << uber.Ks.g << ", " << uber.Ks.b << std::endl;
+			std::cout << "Uber Material Kr: " << uber.Kr.r << ", " << uber.Kr.g << ", " << uber.Kr.b << std::endl;
+			std::cout << "Uber Material Kt: " << uber.Kt.r << ", " << uber.Kt.g << ", " << uber.Kt.b << std::endl;
+			std::cout << "Uber Material Opacity: " << uber.opacity.r << ", " << uber.opacity.g << ", " << uber.opacity.b << std::endl;
+			std::cout << "Uber Material Eta: " << uber.eta << std::endl;
+			std::cout << "Uber Material Uroughness: " << uber.uroughness << std::endl;
+			std::cout << "Uber Material Vroughness: " << uber.vroughness << std::endl;
+			std::cout << "Uber Material Remaproughness: " << uber.remaproughness << std::endl;
+			std::cout << "-------------------------" << std::endl;
+		}
+		else if (mat->type() == minipbrt::MaterialType::Matte) {
+			std::cout << "Matte Material" << std::endl;
+			material.index = m_matteList.size();
+			m_materialList.push_back(material);
+
+			const auto* matteMat = static_cast<const minipbrt::MatteMaterial*>(mat);
+			MatteGPU matte;
+			matte.Kd.r = matteMat->Kd.value[0];
+			matte.Kd.g = matteMat->Kd.value[1];
+			matte.Kd.b = matteMat->Kd.value[2];
+			matte.KdIdx = static_cast<int>(matteMat->Kd.texture);
+			matte.sigma = matteMat->sigma.value;
+			m_matteList.push_back(matte);
+
+			std::cout << "Matte Material Kd: " << matte.Kd.r << ", " << matte.Kd.g << ", " << matte.Kd.b << std::endl;
+			std::cout << "Matte Material Sigma: " << matte.sigma << std::endl;
+			std::cout << "-------------------------" << std::endl;
+		}
+		else if (mat->type() == minipbrt::MaterialType::Metal) {
+			std::cout << "Metal Material" << std::endl;
+			material.index = m_metalList.size();
+			m_materialList.push_back(material);
+
+			const auto* metalMat = static_cast<const minipbrt::MetalMaterial*>(mat);
+			MetalGPU metal;
+
+			metal.eta.r = metalMat->eta.value[0];
+			metal.eta.g = metalMat->eta.value[1];
+			metal.eta.b = metalMat->eta.value[2];
+			metal.etaIdx = static_cast<int>(metalMat->eta.texture);
+
+			metal.k.r = metalMat->k.value[0];
+			metal.k.g = metalMat->k.value[1];
+			metal.k.b = metalMat->k.value[2];
+			metal.kIdx = static_cast<int>(metalMat->k.texture);
+
+			metal.uroughness = metalMat->uroughness.value;
+			metal.uroughnessIdx = static_cast<int>(metalMat->uroughness.texture);
+
+			metal.vroughness = metalMat->vroughness.value;
+			metal.vroughnessIdx = static_cast<int>(metalMat->vroughness.texture);
+
+			metal.remaproughness = metalMat->remaproughness ? 1 : 0;
+			m_metalList.push_back(metal);
+
+			std::cout << "Metal Material Eta: " << metal.eta.r << ", " << metal.eta.g << ", " << metal.eta.b << std::endl;
+			std::cout << "Metal Material K: " << metal.k.r << ", " << metal.k.g << ", " << metal.k.b << std::endl;
+			std::cout << "Metal Material Uroughness: " << metal.uroughness << std::endl;
+			std::cout << "Metal Material Vroughness: " << metal.vroughness << std::endl;
+			std::cout << "Metal Material Remaproughness: " << metal.remaproughness << std::endl;
+			std::cout << "-------------------------" << std::endl;
+
+		}
+		else if (mat->type() == minipbrt::MaterialType::Glass) {
+			std::cout << "Glass Material" << std::endl;
+			material.index = m_glassList.size();
+			m_materialList.push_back(material);
+
+			const auto* glassMat = static_cast<const minipbrt::GlassMaterial*>(mat);
+			GlassGPU glass;
+			glass.Kr.r = glassMat->Kr.value[0];
+			glass.Kr.g = glassMat->Kr.value[1];
+			glass.Kr.b = glassMat->Kr.value[2];
+			glass.KrIdx = static_cast<int>(glassMat->Kr.texture);
+
+			glass.Kt.r = glassMat->Kt.value[0];
+			glass.Kt.g = glassMat->Kt.value[1];
+			glass.Kt.b = glassMat->Kt.value[2];
+			glass.KtIdx = static_cast<int>(glassMat->Kt.texture);
+
+			glass.eta = glassMat->eta.value;
+			glass.etaIdx = static_cast<int>(glassMat->eta.texture);
+
+			glass.uroughness = glassMat->uroughness.value;
+			glass.uroughnessIdx = static_cast<int>(glassMat->uroughness.texture);
+
+			glass.vroughness = glassMat->vroughness.value;
+			glass.vroughnessIdx = static_cast<int>(glassMat->vroughness.texture);
+
+			glass.remaproughness = glassMat->remaproughness ? 1 : 0;
+
+			m_glassList.push_back(glass);
+
+			std::cout << "Glass Material Kr: " << glass.Kr.r << ", " << glass.Kr.g << ", " << glass.Kr.b << std::endl;
+			std::cout << "Glass Material Kt: " << glass.Kt.r << ", " << glass.Kt.g << ", " << glass.Kt.b << std::endl;
+			std::cout << "Glass Material Eta: " << glass.eta << std::endl;
+			std::cout << "Glass Material Uroughness: " << glass.uroughness << std::endl;
+			std::cout << "Glass Material Vroughness: " << glass.vroughness << std::endl;
+			std::cout << "Glass Material Remaproughness: " << glass.remaproughness << std::endl;
+			std::cout << "-------------------------" << std::endl;
+		}
+		else if (mat->type() == minipbrt::MaterialType::Mirror) {
+			std::cout << "Mirror Material" << std::endl;
+			material.index = m_mirrorList.size();
+			m_materialList.push_back(material);
+
+			const auto* mirrorMat = static_cast<const minipbrt::MirrorMaterial*>(mat);
+
+			MirrorGPU mirror;
+
+			mirror.Kr.r = mirrorMat->Kr.value[0];
+			mirror.Kr.g = mirrorMat->Kr.value[1];
+			mirror.Kr.b = mirrorMat->Kr.value[2];
+			mirror.KrIdx = static_cast<int>(mirrorMat->Kr.texture);
+
+			m_mirrorList.push_back(mirror);
+			
+			std::cout << "Mirror Material Kr: " << mirror.Kr.r << ", " << mirror.Kr.g << ", " << mirror.Kr.b << std::endl;
+			std::cout << "-------------------------" << std::endl;
+
+		}
+		else if (mat->type() == minipbrt::MaterialType::Substrate) {
+			std::cout << "Substrate Material" << std::endl;
+			material.index = m_substrateList.size();
+			m_materialList.push_back(material);
+			
+			const auto* substrateMat = static_cast<const minipbrt::SubstrateMaterial*>(mat);
+			SubstrateGPU substrate;
+			substrate.Kd.r = substrateMat->Kd.value[0];
+			substrate.Kd.g = substrateMat->Kd.value[1];
+			substrate.Kd.b = substrateMat->Kd.value[2];
+			substrate.KdIdx = static_cast<int>(substrateMat->Kd.texture);
+
+			substrate.Ks.r = substrateMat->Ks.value[0];
+			substrate.Ks.g = substrateMat->Ks.value[1];
+			substrate.Ks.b = substrateMat->Ks.value[2];
+			substrate.KsIdx = static_cast<int>(substrateMat->Ks.texture);
+
+			substrate.uroughness = substrateMat->uroughness.value;
+			substrate.uroughnessIdx = static_cast<int>(substrateMat->uroughness.texture);
+
+			substrate.vroughness = substrateMat->vroughness.value;
+			substrate.vroughnessIdx = static_cast<int>(substrateMat->vroughness.texture);
+
+			substrate.remaproughness = substrateMat->remaproughness ? 1 : 0;
+			m_substrateList.push_back(substrate);
+
+			std::cout << "Substrate Material Kd: " << substrate.Kd.r << ", " << substrate.Kd.g << ", " << substrate.Kd.b << std::endl;
+			std::cout << "Substrate Material KdIdx: " << substrate.KdIdx << std::endl;
+			std::cout << "Substrate Material Ks: " << substrate.Ks.r << ", " << substrate.Ks.g << ", " << substrate.Ks.b << std::endl;
+			std::cout << "Substrate Material Uroughness: " << substrate.uroughness << std::endl;
+			std::cout << "Substrate Material Vroughness: " << substrate.vroughness << std::endl;
+			std::cout << "Substrate Material Remaproughness: " << substrate.remaproughness << std::endl;
+			std::cout << "-------------------------" << std::endl;
+
+		}
+		else if (mat->type() == minipbrt::MaterialType::Fourier) {
+			std::cout << "Fourier Material -> Matte Material" << std::endl;
+			material.index = m_matteList.size();
+			m_materialList.push_back(material);
+
+			MatteGPU matte;
+			m_matteList.push_back(matte);
+
+			std::cout << "Fourier Material Kd: " << matte.Kd.r << ", " << matte.Kd.g << ", " << matte.Kd.b << std::endl;
+			std::cout << "Fourier Material Sigma: " << matte.sigma << std::endl;
+			std::cout << "-------------------------" << std::endl;
+
+		}
+		else if (mat->type() == minipbrt::MaterialType::Plastic) {
+			std::cout << "Plastic Material" << std::endl;
+			material.index = m_plasticList.size();
+			m_materialList.push_back(material);
+
+			const auto* plasticMat = static_cast<const minipbrt::PlasticMaterial*>(mat);
+			PlasticGPU plastic;
+
+			plastic.Kd.r = plasticMat->Kd.value[0];
+			plastic.Kd.g = plasticMat->Kd.value[1];
+			plastic.Kd.b = plasticMat->Kd.value[2];
+			plastic.KdIdx = static_cast<int>(plasticMat->Kd.texture);
+
+			plastic.Ks.r = plasticMat->Ks.value[0];
+			plastic.Ks.g = plasticMat->Ks.value[1];
+			plastic.Ks.b = plasticMat->Ks.value[2];
+			plastic.KsIdx = static_cast<int>(plasticMat->Ks.texture);
+
+			plastic.roughness = plasticMat->roughness.value;
+			plastic.roughnessIdx = static_cast<int>(plasticMat->roughness.texture);
+
+			plastic.remaproughness = plasticMat->remaproughness ? 1 : 0;
+
+			m_plasticList.push_back(plastic);
+
+			std::cout << "Plastic Material Kd: " << plastic.Kd.r << ", " << plastic.Kd.g << ", " << plastic.Kd.b << std::endl;
+			std::cout << "Plastic Material Ks: " << plastic.Ks.r << ", " << plastic.Ks.g << ", " << plastic.Ks.b << std::endl;
+			std::cout << "Plastic Material Roughness: " << plastic.roughness << std::endl;
+			std::cout << "Plastic Material Remaproughness: " << plastic.remaproughness << std::endl;
+			std::cout << "-------------------------" << std::endl;
+		}
+		else {
+			std::cout << "Unknown Material" << static_cast<int>(mat->type()) << std::endl;
+		}
+	}
+
+	for (auto& tex : m_pbrtScene->textures) {
+		std::cout << "texture name: " << tex->name << std::endl;
+		m_textureNameMap[tex->name] = m_textureList.size();
+		if (tex->type() == minipbrt::TextureType::ImageMap) {
+			std::cout << "ImageMap Texture" << std::endl;
+			const auto* imageMapTex = static_cast<const minipbrt::ImageMapTexture*>(tex);
+			std::cout << "ImageMap Texture file: " << imageMapTex->filename << std::endl;
+			auto texture = Texture::createTexture(m_context.get(), imageMapTex->filename, TextureFormatType::ColorSRGB);
+			m_textureList.push_back(std::move(texture));
+		}
+		else if (tex->type() == minipbrt::TextureType::FBM) {
+			std::cout << "FBM Texture" << std::endl;
+			auto texture = Texture::createDefaultTexture(m_context.get(), glm::vec4(0.5f, 0.5f, 0.5f, 1.0f));
+			m_textureList.push_back(std::move(texture));
+		}
+		else {
+			std::cout << "Unknown Texture" << static_cast<int>(tex->type()) << std::endl;
+			auto texture = Texture::createDefaultTexture(m_context.get(), glm::vec4(0.5f, 0.5f, 0.5f, 1.0f));
+			m_textureList.push_back(std::move(texture));
+		}
+	}
+
+	//cout texture name map
+	for (auto& tex : m_textureNameMap) {
+		std::cout << "Texture Name: " << tex.first << ", Index: " << tex.second << std::endl;
+	}
+
+	// area light
+	for (auto& aL : m_pbrtScene->areaLights) {
+		AreaLightGPU areaLight;
+		areaLight.scale.r = aL->scale[0];
+		areaLight.scale.g = aL->scale[1];
+		areaLight.scale.b = aL->scale[2];
+
+		auto diffuseAreaLight = static_cast<minipbrt::DiffuseAreaLight*>(aL);
+		areaLight.L.r = diffuseAreaLight->L[0];
+		areaLight.L.g = diffuseAreaLight->L[1];
+		areaLight.L.b = diffuseAreaLight->L[2];
+		areaLight.twosided = diffuseAreaLight->twosided ? 1 : 0;
+		areaLight.samples = diffuseAreaLight->samples;
+		m_areaLightList.push_back(areaLight);
+
+		std::cout << "Area Light Scale: " << areaLight.scale.r << ", " << areaLight.scale.g << ", " << areaLight.scale.b << std::endl;
+		std::cout << "Area Light L: " << areaLight.L.r << ", " << areaLight.L.g << ", " << areaLight.L.b << std::endl;
+		std::cout << "Area Light Twosided: " << areaLight.twosided << std::endl;
+		std::cout << "Area Light Samples: " << areaLight.samples << std::endl;
+		std::cout << "-------------------------" << std::endl;
+	}
+
+
+	//shape
+	for (auto& shape : m_pbrtScene->shapes) {
+		if (shape->type() == minipbrt::ShapeType::PLYMesh) {
+			std::cout << "PLYMesh Shape" << std::endl;
+
+			ShapeGPU s;
+			s.modelMatrix = toGlm(shape->shapeToWorld);
+			s.materialIdx = shape->material;
+			s.areaLightIdx = shape->areaLight;
+			s.reverseOrientation = shape->reverseOrientation ? 1 : 0;
+
+			auto plyMesh = static_cast<minipbrt::PLYMesh*>(shape);
+			s.alphaIdx = plyMesh->alpha;
+			s.shadowAlphaIdx = plyMesh->shadowalpha;
+			
+			std::cout << "PLYMesh Shape file: " << plyMesh->filename << std::endl;
+			std::cout << "can load ply mesh: " << plyMesh->can_convert_to_triangle_mesh() << std::endl;
+			if (!plyMesh->can_convert_to_triangle_mesh()) {
+				std::cout << "Cannot convert to triangle mesh" << std::endl;
+				continue;
+			}
+			auto mesh = plyMesh->triangle_mesh();
+			std::cout << "Mesh Vertices: " << mesh->num_vertices << std::endl;
+			std::cout << "Mesh Indices: " << mesh->num_indices << std::endl;
+
+			std::vector<Vertex> vertices(mesh->num_vertices);
+			for (int i = 0; i < mesh->num_vertices; i++) {
+				if (mesh->P != nullptr) {
+					vertices[i].pos.x = mesh->P[3 * i + 0];
+					vertices[i].pos.y = mesh->P[3 * i + 1];
+					vertices[i].pos.z = mesh->P[3 * i + 2];
+				}
+				if (mesh->N != nullptr) {
+					vertices[i].normal.x = mesh->N[3 * i + 0];
+					vertices[i].normal.y = mesh->N[3 * i + 1];
+					vertices[i].normal.z = mesh->N[3 * i + 2];
+				}
+				if (mesh->S != nullptr) {
+					vertices[i].tangent.x = mesh->S[3 * i + 0];
+					vertices[i].tangent.y = mesh->S[3 * i + 1];
+					vertices[i].tangent.z = mesh->S[3 * i + 2];
+				}
+				if (mesh->uv != nullptr) {
+					vertices[i].texCoord.x = mesh->uv[2 * i + 0];
+					vertices[i].texCoord.y = mesh->uv[2 * i + 1];
+				}
+			}
+
+			std::vector<uint32_t> indices(mesh->num_indices);
+			for (int i = 0; i < mesh->num_indices; i++) {
+				indices[i] = mesh->indices[i];
+			}
+
+			auto meshClass = Mesh::createMesh(m_context.get(), vertices, indices);
+			s.vertexAddress = meshClass->getVertexBuffer()->getDeviceAddress();
+			s.indexAddress = meshClass->getIndexBuffer()->getDeviceAddress();
+			m_meshList.push_back(std::move(meshClass));
+
+			std::cout << "PLYMesh Transform Matrix: " << std::endl;
+			for (int i = 0; i < 4; i++) {
+				for (int j = 0; j < 4; j++) {
+					std::cout << s.modelMatrix[i][j] << " ";
+				}
+				std::cout << std::endl;
+			}
+			std::cout << "PLYMesh Shape Vertex Address: " << s.vertexAddress << std::endl;
+			std::cout << "PLYMesh Shape Index Address: " << s.indexAddress << std::endl;
+			std::cout << "PLYMesh Shape Material Index: " << s.materialIdx << std::endl;
+			std::cout << "PLYMesh Shape Area Light Index: " << s.areaLightIdx << std::endl;
+			std::cout << "PLYMesh Shape Reverse Orientation: " << s.reverseOrientation << std::endl;
+			std::cout << "PLYMesh Shape Alpha Index: " << s.alphaIdx << std::endl;
+			std::cout << "PLYMesh Shape Shadow Alpha Index: " << s.shadowAlphaIdx << std::endl;
+			m_shapeList.push_back(s);
+		}
+		else {
+			std::cout << "Unknown Shape" << static_cast<int>(shape->type()) << std::endl;
+		}
+	}
+
+	// scene size
+	std::cout << "shape size: " << m_pbrtScene->shapes.size() << std::endl;
+	std::cout << "material size: " << m_pbrtScene->materials.size() << std::endl;
+	std::cout << "texture size: " << m_pbrtScene->textures.size() << std::endl;
+	std::cout << "area light size: " << m_pbrtScene->areaLights.size() << std::endl;
+	std::cout << "object size: " << m_pbrtScene->objects.size() << std::endl;
+	std::cout << "instance size: " << m_pbrtScene->instances.size() << std::endl;
+	std::cout << "light size: " << m_pbrtScene->lights.size() << std::endl;
+	std::cout << "medium size: " << m_pbrtScene->mediums.size() << std::endl;
+	std::cout << "-------------------------" << std::endl;
+	std::cout << "Scene loaded!" << std::endl;
+
+
+
+
+	// check all resource
+	// m_textureList: view sampler format
+	for (auto& tex : m_textureList) {
+		std::cout << "texture view: " << tex->getImageView() << std::endl;
+		std::cout << "texture sampler: " << tex->getSampler() << std::endl;
+		std::cout << "texture format: " << static_cast<int>(tex->getFormat()) << std::endl;
+		std::cout << "----------------------------" << std::endl;
+	}
+
+	// m_textureNameMap: texture name, index
+	for (auto& tex : m_textureNameMap) {
+		std::cout << "texture name: " << tex.first << std::endl;
+		std::cout << "texture index: " << tex.second << std::endl;
+		std::cout << "----------------------------" << std::endl;
+	}
+
+	// m_materialList: material type, index
+	for (auto& mat : m_materialList) {
+		std::cout << "material type: " << mat.type << std::endl;
+		std::cout << "material index: " << mat.index << std::endl;
+		std::cout << "----------------------------" << std::endl;
+	}
+
+	// m_materialNameMap
+	for (auto& mat : m_materialNameMap) {
+		std::cout << "material name: " << mat.first << std::endl;
+		std::cout << "material index: " << mat.second << std::endl;
+		std::cout << "----------------------------" << std::endl;
+	}
+
+	// m_uberList: Kd, Ks, Kr, Kt, opacity, eta, uroughness, vroughness, remaproughness
+	for (auto& mat : m_uberList) {
+		std::cout << "Uber Material Kd: " << mat.Kd.r << ", " << mat.Kd.g << ", " << mat.Kd.b << std::endl;
+		std::cout << "Uber Material KdIdx: " << mat.KdIdx << std::endl;
+		std::cout << "Uber Material Ks: " << mat.Ks.r << ", " << mat.Ks.g << ", " << mat.Ks.b << std::endl;
+		std::cout << "Uber Material Kr: " << mat.Kr.r << ", " << mat.Kr.g << ", " << mat.Kr.b << std::endl;
+		std::cout << "Uber Material Kt: " << mat.Kt.r << ", " << mat.Kt.g << ", " << mat.Kt.b << std::endl;
+		std::cout << "Uber Material Opacity: " << mat.opacity.r << ", " << mat.opacity.g << ", " << mat.opacity.b << std::endl;
+		std::cout << "Uber Material Eta: " << mat.eta << std::endl;
+		std::cout << "Uber Material Uroughness: " << mat.uroughness << std::endl;
+		std::cout << "Uber Material Vroughness: " << mat.vroughness << std::endl;
+		std::cout << "Uber Material Remaproughness: " << mat.remaproughness << std::endl;
+		std::cout << "----------------------------" << std::endl;
+	}
+
+	// m_matteList: Kd, sigma
+	for (auto& mat : m_matteList) {
+		std::cout << "Matte Material Kd: " << mat.Kd.r << ", " << mat.Kd.g << ", " << mat.Kd.b << std::endl;
+		std::cout << "Matte Material Sigma: " << mat.sigma << std::endl;
+		std::cout << "----------------------------" << std::endl;
+	}
+
+	// m_metalList: eta, k, uroughness, vroughness, remaproughness
+	for (auto& mat : m_metalList) {
+		std::cout << "Metal Material Eta: " << mat.eta.r << ", " << mat.eta.g << ", " << mat.eta.b << std::endl;
+		std::cout << "Metal Material K: " << mat.k.r << ", " << mat.k.g << ", " << mat.k.b << std::endl;
+		std::cout << "Metal Material Uroughness: " << mat.uroughness << std::endl;
+		std::cout << "Metal Material Vroughness: " << mat.vroughness << std::endl;
+		std::cout << "Metal Material Remaproughness: " << mat.remaproughness << std::endl;
+		std::cout << "----------------------------" << std::endl;
+	}
+
+	// m_glassList: Kr, Kt, eta, uroughness, vroughness, remaproughness
+	for (auto& mat : m_glassList) {
+		std::cout << "Glass Material Kr: " << mat.Kr.r << ", " << mat.Kr.g << ", " << mat.Kr.b << std::endl;
+		std::cout << "Glass Material Kt: " << mat.Kt.r << ", " << mat.Kt.g << ", " << mat.Kt.b << std::endl;
+		std::cout << "Glass Material Eta: " << mat.eta << std::endl;
+		std::cout << "Glass Material Uroughness: " << mat.uroughness << std::endl;
+		std::cout << "Glass Material Vroughness: " << mat.vroughness << std::endl;
+		std::cout << "Glass Material Remaproughness: " << mat.remaproughness << std::endl;
+		std::cout << "----------------------------" << std::endl;
+	}
+
+	// m_mirrorList: Kr
+	for (auto& mat : m_mirrorList) {
+		std::cout << "Mirror Material Kr: " << mat.Kr.r << ", " << mat.Kr.g << ", " << mat.Kr.b << std::endl;
+		std::cout << "----------------------------" << std::endl;
+	}
+
+	// m_substrateList: Kd, Ks, uroughness, vroughness, remaproughness
+	for (auto& mat : m_substrateList) {
+		std::cout << "Substrate Material Kd: " << mat.Kd.r << ", " << mat.Kd.g << ", " << mat.Kd.b << std::endl;
+		std::cout << "Substrate Material KdIdx: " << mat.KdIdx << std::endl;
+		std::cout << "Substrate Material Ks: " << mat.Ks.r << ", " << mat.Ks.g << ", " << mat.Ks.b << std::endl;
+		std::cout << "Substrate Material Uroughness: " << mat.uroughness << std::endl;
+		std::cout << "Substrate Material Vroughness: " << mat.vroughness << std::endl;
+		std::cout << "Substrate Material Remaproughness: " << mat.remaproughness << std::endl;
+		std::cout << "----------------------------" << std::endl;
+	}
+
+	// m_plasticList: Kd, Ks, roughness, remaproughness
+	for (auto& mat : m_plasticList) {
+		std::cout << "Plastic Material Kd: " << mat.Kd.r << ", " << mat.Kd.g << ", " << mat.Kd.b << std::endl;
+		std::cout << "Plastic Material KdIdx: " << mat.KdIdx << std::endl;
+		std::cout << "Plastic Material Ks: " << mat.Ks.r << ", " << mat.Ks.g << ", " << mat.Ks.b << std::endl;
+		std::cout << "Plastic Material KsIdx: " << mat.KsIdx << std::endl;
+		std::cout << "Plastic Material Roughness: " << mat.roughness << std::endl;
+		std::cout << "Plastic Material Remaproughness: " << mat.remaproughness << std::endl;
+		std::cout << "----------------------------" << std::endl;
+	}
+
+	// m_areaLightList: scale, L, twosided, samples
+	for (auto& mat : m_areaLightList) {
+		std::cout << "Area Light Scale: " << mat.scale.r << ", " << mat.scale.g << ", " << mat.scale.b << std::endl;
+		std::cout << "Area Light L: " << mat.L.r << ", " << mat.L.g << ", " << mat.L.b << std::endl;
+		std::cout << "Area Light Twosided: " << mat.twosided << std::endl;
+		std::cout << "Area Light Samples: " << mat.samples << std::endl;
+		std::cout << "----------------------------" << std::endl;
+	}
+
+	// m_shapeList: modelMatrix, materialIdx, areaLightIdx, reverseOrientation
+	for (auto& mat : m_shapeList) {
+		std::cout << "Shape Model Matrix: " << std::endl;
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				std::cout << mat.modelMatrix[i][j] << " ";
+			}
+			std::cout << std::endl;
+		}
+		std::cout << "Shape Material Index: " << mat.materialIdx << std::endl;
+		std::cout << "Shape Area Light Index: " << mat.areaLightIdx << std::endl;
+		std::cout << "Shape Reverse Orientation: " << mat.reverseOrientation << std::endl;
+		std::cout << "----------------------------" << std::endl;
+	}
+
+
+	// m_meshList: vertexBuffer, indexBuffer sizes
+	for (auto& mesh : m_meshList) {
+		std::cout << "Mesh Vertex Buffer Size: " << mesh->getVertexBuffer()->getVertexCount() << std::endl;
+		std::cout << "Mesh Index Buffer Size: " << mesh->getIndexBuffer()->getIndexCount() << std::endl;
+		std::cout << "----------------------------" << std::endl;
+	}
+
+}
+
+
 void Renderer::update(float deltaTime) {
-	updateCamera(deltaTime);
 }
 
 void Renderer::render(float deltaTime) {
 	vkWaitForFences(m_context->getDevice(), 1, &m_syncObjects->getInFlightFences()[currentFrame], VK_TRUE, UINT64_MAX);
-
 	uint32_t imageIndex;
 	VkResult result = vkAcquireNextImageKHR(m_context->getDevice(), m_swapChain->getSwapChain(), UINT64_MAX, 
 		m_syncObjects->getImageAvailableSemaphores()[currentFrame], VK_NULL_HANDLE, &imageIndex);
@@ -284,11 +638,6 @@ void Renderer::render(float deltaTime) {
 		throw std::runtime_error("failed to acquire swap chain image!");
 	}
 
-	ImVec2 newExtent = m_guiRenderer->getViewportSize();
-	if (abs((int)newExtent.x - (int)m_extent.width) >= 1 ||
-		abs((int)newExtent.y - (int)m_extent.height) >= 1) {
-		recreateViewport(newExtent);
-	}
 
 	vkResetFences(m_context->getDevice(), 1, &m_syncObjects->getInFlightFences()[currentFrame]);
 
@@ -301,145 +650,9 @@ void Renderer::render(float deltaTime) {
 		throw std::runtime_error("failed to begin recording command buffer!");
 	}
 
-
-	std::vector<ObjectInstance> objDescs;
-	std::vector<ModelBuffer> modelBuffers;
-
-	createObjDesc(objDescs, modelBuffers);
-
-	updateTLAS(objDescs, modelBuffers);
-
-	//printObjectInstances(objDescs);
-
-
-
-	recordShadowMapCommandBuffer(objDescs);
-
-	for (int i = 0; i < 7; i++) {
-		transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame], m_shadowMapTextures[currentFrame][i].get(),
-			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-			VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-	}
-
-	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame], m_shadowCubeMapTextures[currentFrame].get(),
-		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 6);
-
-
-	// record command buffer
-	recordGbufferCommandBuffer(objDescs);
-
-
-	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame], m_gbufferAttachments[currentFrame].albedo.get(), 
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
-		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, 
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame], m_gbufferAttachments[currentFrame].normal.get()
-		, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame], m_gbufferAttachments[currentFrame].position.get()
-		, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame], m_gbufferAttachments[currentFrame].pbr.get()
-		, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame], m_gbufferAttachments[currentFrame].emissive.get()
-		, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-
-	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
-		m_rtReflectionTextures[currentFrame].get(),
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_IMAGE_LAYOUT_GENERAL,
-		VK_ACCESS_SHADER_READ_BIT,
-		VK_ACCESS_SHADER_WRITE_BIT,
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-
-
-	if (m_rtMode == 0) {
-
-	}
-	else if (m_rtMode == 1) {
-		recordReflectionCommandBuffer();
-	}
-	else if (m_rtMode == 2) {
-		recordGICmdBuffer();
-	}
-	RenderOptions renderOptions;
-	renderOptions.useRTReflection = 0;
-	renderOptions.rtMode = m_rtMode;
-	renderOptions.sampleCount = m_reflectionSampleCount;
-	renderOptions.maxBounce = m_reflectionMaxBounce;
-	m_renderOptionsBuffers[currentFrame]->updateUniformBuffer(&renderOptions, sizeof(RenderOptions));
-
-	
-	recordLightPassCommandBuffer();
-
-
-	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame], m_outputTextures[currentFrame].get(),
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-
-	for (int i = 0; i < 7; i++) {
-		transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame], m_shadowMapTextures[currentFrame][i].get(),
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-			VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
-	}
-
-	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame], m_shadowCubeMapTextures[currentFrame].get(),
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-		VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 6);
-	
-	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
-		m_rtReflectionTextures[currentFrame].get(),
-		VK_IMAGE_LAYOUT_GENERAL,
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_ACCESS_SHADER_WRITE_BIT,
-		VK_ACCESS_SHADER_READ_BIT,
-		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-
+	// start record
 	recordImGuiCommandBuffer(imageIndex, deltaTime);
-
-	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame], m_gbufferAttachments[currentFrame].albedo.get(),
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame], m_gbufferAttachments[currentFrame].normal.get(),
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame], m_gbufferAttachments[currentFrame].position.get(),
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame], m_gbufferAttachments[currentFrame].pbr.get(),
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame], m_gbufferAttachments[currentFrame].emissive.get(),
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame], m_outputTextures[currentFrame].get(),
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-
-
-	// end
+	// end record
 
 	if (vkEndCommandBuffer(m_commandBuffers->getCommandBuffers()[currentFrame]) != VK_SUCCESS) {
 		throw std::runtime_error("failed to record command buffer!");
@@ -506,7 +719,6 @@ void Renderer::recreateSwapChain() {
 	m_imguiFrameBuffers.resize(m_swapChain->getSwapChainImages().size());
 	for (int i = 0; i < m_swapChain->getSwapChainImages().size(); i++) {
 		m_imguiFrameBuffers[i] = FrameBuffer::createImGuiFrameBuffer(m_context.get(), m_imguiRenderPass.get(), m_swapChain->getSwapChainImageViews()[i], m_swapChain->getSwapChainExtent());
-
 	}
 
 }
@@ -514,560 +726,9 @@ void Renderer::recreateSwapChain() {
 void Renderer::recreateViewport(ImVec2 newExtent) {
 	vkDeviceWaitIdle(m_context->getDevice());
 
-	std::cout << "newExtent: " << newExtent.x << " " << newExtent.y << std::endl;
-	std::cout << "m_extent: " << m_extent.width << " " << m_extent.height << std::endl;
-
-	if (newExtent.x <= 0 || newExtent.y <= 0) {
-		return;
-	}
-
-	m_extent.width = static_cast<uint32_t>(newExtent.x);
-	m_extent.height = static_cast<uint32_t>(newExtent.y);
-	
-	m_outputFrameBuffers.clear();
-	m_outputTextures.clear();
-	m_attachmentDescSets.clear();
-	m_gbufferFrameBuffers.clear();
-	m_gbufferAttachments.clear();
-
-	m_rtDescSets.clear();
-	m_rtReflectionTextures.clear();
-
-	m_gbufferAttachments.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_gbufferAttachments[i].albedo = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-		m_gbufferAttachments[i].normal = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-		m_gbufferAttachments[i].position = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-		m_gbufferAttachments[i].pbr = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-		m_gbufferAttachments[i].emissive = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-		m_gbufferAttachments[i].depth = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
-	}
-	
-	m_gbufferFrameBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_gbufferFrameBuffers[i] = FrameBuffer::createGbufferFrameBuffer(m_context.get(), m_gbufferRenderPass.get(), m_gbufferAttachments[i], m_extent);
-	}
-
-	m_attachmentDescSets.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_attachmentDescSets[i] = DescriptorSet::createAttachmentDescriptorSet(m_context.get(), m_attachmentLayout.get(), m_gbufferAttachments[i]);
-	}
-
-	m_outputTextures.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_outputTextures[i] = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	}
-
-	m_outputFrameBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_outputFrameBuffers[i] = FrameBuffer::createOutputFrameBuffer(m_context.get(), m_lightPassRenderPass.get(), m_outputTextures[i].get(), m_extent);
-	}
-
-	m_rtReflectionTextures.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_rtReflectionTextures[i] = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	}
-
-	m_rtDescSets.resize(MAX_FRAMES_IN_FLIGHT);
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		m_rtDescSets[i] = DescriptorSet::createRayTracingDescriptorSet(m_context.get(), m_rayTracingLayout.get(), m_rtReflectionTextures[i].get(), m_tlas[i]->getHandle());
-	}
-	
-
-	auto cmd = VulkanUtil::beginSingleTimeCommands(m_context.get());
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		transferImageLayout(cmd,
-			m_rtReflectionTextures[i].get(),
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			0, VK_ACCESS_SHADER_READ_BIT,
-			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-	}
-	VulkanUtil::endSingleTimeCommands(m_context.get(), cmd);
-
-	m_guiRenderer->createViewPortDescriptorSet({ m_outputTextures[0].get(), m_outputTextures[1].get() });
-	m_guiRenderer->createRayTracingDescriptorSet({ m_rtReflectionTextures[0].get(), m_rtReflectionTextures[1].get() });
-	m_guiRenderer->createAlbedoDescriptorSet({m_gbufferAttachments[0].albedo.get(), m_gbufferAttachments[1].albedo.get()});
-	m_guiRenderer->createPositionDescriptorSet({m_gbufferAttachments[0].position.get(), m_gbufferAttachments[1].position.get()});
-	m_guiRenderer->createNormalDescriptorSet({m_gbufferAttachments[0].normal.get(), m_gbufferAttachments[1].normal.get()});
-	m_guiRenderer->createPbrDescriptorSet({m_gbufferAttachments[0].pbr.get(), m_gbufferAttachments[1].pbr.get()});
-	m_guiRenderer->createEmissiveDescriptorSet({ m_gbufferAttachments[0].emissive.get(), m_gbufferAttachments[1].emissive.get() });
-
 
 }
 
-void Renderer::createDefaultModels()
-{
-	glm::vec4 defaultColor = glm::vec4(1.0f);
-
-	auto defaultTex = Texture::createDefaultTexture(m_context.get(), defaultColor);
-	int32_t texIndex = static_cast<int32_t>(m_textureList.size());
-	m_textureList.push_back(std::move(defaultTex));
-
-	Material defaultMat{};
-	defaultMat.albedoTexIndex = texIndex;
-	defaultMat.baseColor = defaultColor;
-	int32_t matIndex = static_cast<int32_t>(m_materialList.size());
-	m_materialList.push_back(defaultMat);
-
-	Material redMat{};
-	redMat.albedoTexIndex = -1;
-	redMat.baseColor = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-	m_materialList.push_back(redMat);
-
-	Material greenMat{};
-	greenMat.albedoTexIndex = -1;
-	greenMat.baseColor = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
-	m_materialList.push_back(greenMat);
-
-	Material blueMat{};
-	blueMat.albedoTexIndex = -1;
-	blueMat.baseColor = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
-	m_materialList.push_back(blueMat);
-
-	Material iron1{};
-	iron1.baseColor = glm::vec4(0.5f, 0.5f, 0.5f, 1.0f);
-	iron1.metallic = 1.0f;
-	iron1.roughness = 0.1f;
-	m_materialList.push_back(iron1);
-
-	Material iron2{};
-	iron2.baseColor = glm::vec4(0.5f, 0.5f, 0.5f, 1.0f);
-	iron2.metallic = 1.0f;
-	iron2.roughness = 0.2f;
-	m_materialList.push_back(iron2);
-
-	Material iron3{};
-	iron3.baseColor = glm::vec4(0.5f, 0.5f, 0.5f, 1.0f);
-	iron3.metallic = 1.0f;
-	iron3.roughness = 0.3f;
-	m_materialList.push_back(iron3);
-
-	auto createAndRegisterMesh = [&](std::unique_ptr<Mesh> mesh) -> int32_t {
-		int32_t meshIndex = static_cast<int32_t>(m_meshList.size());
-		m_meshList.push_back(std::move(mesh));
-		return meshIndex;
-	};
-
-	// Plane
-	{
-		Model model;
-		model.mesh.push_back(createAndRegisterMesh(Mesh::createPlaneMesh(m_context.get())));
-		model.material.push_back(matIndex);
-		m_modelList.push_back(model);
-	}
-
-	// Box
-	{
-		Model model;
-		model.mesh.push_back(createAndRegisterMesh(Mesh::createBoxMesh(m_context.get())));
-		model.material.push_back(matIndex);
-		m_modelList.push_back(model);
-	}
-
-	// Sphere
-	{
-		Model model;
-		model.mesh.push_back(createAndRegisterMesh(Mesh::createSphereMesh(m_context.get())));
-		model.material.push_back(matIndex);
-		m_modelList.push_back(model);
-	}
-
-	std::cout << "[Renderer] Default Models Loaded: Plane, Box, Sphere" << std::endl;
-}
-
-void Renderer::loadModel(const std::string& modelPath) {
-	Model model = ModelLoader::loadGLTFModel(modelPath, m_context.get(), m_meshList, m_textureList, m_materialList, m_texturePathMap);
-	m_modelList.push_back(model);
-}
-
-
-void Renderer::printAllResources() {
-	std::cout << "======== [Renderer Resources] ========" << std::endl;
-
-	std::cout << "\n[Meshes] Count: " << m_meshList.size() << std::endl;
-	for (size_t i = 0; i < m_meshList.size(); ++i)
-		std::cout << " * Mesh[" << i << "] pointer: " << m_meshList[i].get() << std::endl;
-
-	std::cout << "\n[Textures] Count: " << m_textureList.size() << std::endl;
-	for (size_t i = 0; i < m_textureList.size(); ++i)
-		std::cout << " * Texture[" << i << "] pointer: " << m_textureList[i].get() << std::endl;
-
-	std::cout << "\n[Materials] Count: " << m_materialList.size() << std::endl;
-	for (size_t i = 0; i < m_materialList.size(); ++i) {
-		std::cout << " * Material[" << i << "]" << std::endl;
-		printMaterial(m_materialList[i]);
-	}
-
-	std::cout << "\n[Models] Count: " << m_modelList.size() << std::endl;
-	for (size_t i = 0; i < m_modelList.size(); ++i) {
-		std::cout << " * Model[" << i << "]" << std::endl;
-		printModel(m_modelList[i]);
-	}
-
-	std::cout << "=======================================" << std::endl;
-}
-
-
-void Renderer::createObjDesc(std::vector<ObjectInstance>& ObjDescs, std::vector<ModelBuffer>& modelBuffers) {
-	auto& objects = m_scene->getObjects();
-	std::unordered_map<int32_t, std::vector<int32_t>> objectMap;
-	modelBuffers.resize(objects.size());
-	for (int32_t i = 0; i < objects.size(); i++) {
-		objectMap[objects[i].modelIndex].push_back(i);
-
-		glm::mat4 model = glm::mat4(1.0f);
-		model = glm::translate(model, objects[i].position);
-		model = glm::rotate(model, glm::radians(objects[i].rotation.x), glm::vec3(1, 0, 0));
-		model = glm::rotate(model, glm::radians(objects[i].rotation.y), glm::vec3(0, 1, 0));
-		model = glm::rotate(model, glm::radians(objects[i].rotation.z), glm::vec3(0, 0, 1));
-		model = glm::scale(model, objects[i].scale);
-		modelBuffers[i].model = model;
-	}
-	if (!modelBuffers.empty()) {
-		m_modelBuffers[currentFrame]->updateStorageBuffer(&modelBuffers[0], sizeof(ModelBuffer) * modelBuffers.size());
-	}
-
-	ObjDescs.reserve(objects.size() * 4);
-	for (const auto& [key, value] : objectMap) {
-		for (int32_t i = 0; i < m_modelList[key].mesh.size(); i++) {
-			for (int32_t j = 0; j < value.size(); j++) {
-				int32_t modelMatrixIdx = value[j];
-				int32_t materialIndex;
-				if (objects[modelMatrixIdx].overrideMaterialIndex.size() > i) {
-					materialIndex = objects[modelMatrixIdx].overrideMaterialIndex[i];
-				}
-				else {
-					materialIndex = m_modelList[key].material[i];
-				}
-				int32_t meshIdx = m_modelList[key].mesh[i];
-				uint64_t vertexAddress = m_meshList[meshIdx]->getVertexBuffer()->getDeviceAddress();
-				uint64_t indexAddress = m_meshList[meshIdx]->getIndexBuffer()->getDeviceAddress();
-				ObjDescs.push_back({ vertexAddress, indexAddress, modelMatrixIdx, materialIndex, meshIdx, 0 });
-			}
-		}
-	}
-	if (!ObjDescs.empty()) {
-		m_objectInstanceBuffers[currentFrame]->updateStorageBuffer(&ObjDescs[0], sizeof(ObjectInstance) * ObjDescs.size());
-	}
-}
-
-void Renderer::recordGbufferCommandBuffer(std::vector<ObjectInstance>& objDescs) {
-	VkRenderPassBeginInfo renderPassInfo{};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = m_gbufferRenderPass->getRenderPass();
-	renderPassInfo.framebuffer = m_gbufferFrameBuffers[currentFrame]->getFrameBuffer();
-	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = m_extent;
-
-	std::array<VkClearValue, 6> clearValues{};
-	clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
-	clearValues[1].color = { 0.0f, 0.0f, 0.0f, 1.0f };
-	clearValues[2].color = { 0.0f, 0.0f, 0.0f, 1.0f };
-	clearValues[3].color = { 0.0f, 0.0f, 0.0f, 1.0f };
-	clearValues[4].color = { 0.0f, 0.0f, 0.0f, 1.0f };
-	clearValues[5].depthStencil = { 1.0f, 0 };
-
-	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-	renderPassInfo.pClearValues = clearValues.data();
-
-	vkCmdBeginRenderPass(m_commandBuffers->getCommandBuffers()[currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-	vkCmdBindPipeline(m_commandBuffers->getCommandBuffers()[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_gbufferPipeline->getPipeline());
-
-	VkViewport viewport{};
-	viewport.x = 0.0f;
-	viewport.y = 0.0f;
-	viewport.width = static_cast<float>(m_extent.width);
-	viewport.height = static_cast<float>(m_extent.height);
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
-	vkCmdSetViewport(m_commandBuffers->getCommandBuffers()[currentFrame], 0, 1, &viewport);
-
-	VkRect2D scissor{};
-	scissor.offset = { 0, 0 };
-	scissor.extent = m_extent;
-	vkCmdSetScissor(m_commandBuffers->getCommandBuffers()[currentFrame], 0, 1, &scissor);
-
-	// camera buffer update
-	CameraBuffer cameraBuffer{};
-	cameraBuffer.view = glm::lookAt(m_camera.position, m_camera.position + m_camera.front, m_camera.up);
-	cameraBuffer.proj = glm::perspective(glm::radians(45.0f), (float)m_extent.width / (float)m_extent.height, 0.1f, 100.0f);
-	cameraBuffer.proj[1][1] *= -1;
-	cameraBuffer.camPos = m_camera.position;
-	cameraBuffer.frameCount = m_frameCount++;
-
-	m_cameraBuffers[currentFrame]->updateUniformBuffer(&cameraBuffer, sizeof(CameraBuffer));
-
-	// bind descriptor sets
-	vkCmdBindDescriptorSets(m_commandBuffers->getCommandBuffers()[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_gbufferPipeline->getPipelineLayout(), 0, 1, &m_globlaDescSets[currentFrame]->getDescriptorSet(), 0, nullptr);
-	vkCmdBindDescriptorSets(m_commandBuffers->getCommandBuffers()[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_gbufferPipeline->getPipelineLayout(), 1, 1, &m_objectMaterialDescSets[currentFrame]->getDescriptorSet(), 0, nullptr);
-	vkCmdBindDescriptorSets(m_commandBuffers->getCommandBuffers()[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_gbufferPipeline->getPipelineLayout(), 2, 1, &m_bindlessDescSets[currentFrame]->getDescriptorSet(), 0, nullptr);
-
-	/*int32_t index = 0;
-	for (const auto& [key, value] : modelToMatrixIndices) {
-		for (int32_t i = 0; i < m_modelList[key].mesh.size(); i++) {
-			int32_t startIndex = index;
-			m_meshList[m_modelList[key].mesh[i]]->drawInstance(m_commandBuffers->getCommandBuffers()[currentFrame], value.size(), startIndex);
-			index += value.size();
-		}
-	}*/
-	int32_t currentMeshIdx = -1;
-	uint32_t firstInstance = 0;
-	uint32_t instanceCount = 0;
-
-	for (uint32_t i = 0; i < objDescs.size(); i++) {
-		int32_t meshIdx = objDescs[i].meshIndex;
-		if (meshIdx != currentMeshIdx) {
-			if (instanceCount > 0 && currentMeshIdx >= 0) {
-				m_meshList[currentMeshIdx]->drawInstance(m_commandBuffers->getCommandBuffers()[currentFrame], instanceCount, firstInstance);
-			}
-			currentMeshIdx = meshIdx;
-			firstInstance = i;
-			instanceCount = 1;
-		}
-		else {
-			instanceCount++;
-		}
-	}
-	if (instanceCount > 0 && currentMeshIdx >= 0) {
-		m_meshList[currentMeshIdx]->drawInstance(m_commandBuffers->getCommandBuffers()[currentFrame], instanceCount, firstInstance);
-	}
-	vkCmdEndRenderPass(m_commandBuffers->getCommandBuffers()[currentFrame]);
-}
-
-void Renderer::recordLightPassCommandBuffer() {
-	VkClearValue clearValue{};
-	clearValue.color = { {0.0f, 1.0f, 0.0f, 1.0f} };
-
-	VkRenderPassBeginInfo renderPassInfo{};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = m_lightPassRenderPass->getRenderPass();
-	renderPassInfo.framebuffer = m_outputFrameBuffers[currentFrame]->getFrameBuffer();
-	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = m_extent;
-	renderPassInfo.clearValueCount = 1;
-	renderPassInfo.pClearValues = &clearValue;
-
-	vkCmdBeginRenderPass(m_commandBuffers->getCommandBuffers()[currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-	VkViewport viewport{};
-	viewport.x = 0.0f;
-	viewport.y = 0.0f;
-	viewport.width = static_cast<float>(m_extent.width);
-	viewport.height = static_cast<float>(m_extent.height);
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
-	vkCmdSetViewport(m_commandBuffers->getCommandBuffers()[currentFrame], 0, 1, &viewport);
-
-	VkRect2D scissor{};
-	scissor.offset = { 0, 0 };
-	scissor.extent = m_extent;
-	vkCmdSetScissor(m_commandBuffers->getCommandBuffers()[currentFrame], 0, 1, &scissor);
-
-	vkCmdBindPipeline(m_commandBuffers->getCommandBuffers()[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_lightPassPipeline->getPipeline());
-
-	VkDescriptorSet sets[] = {
-		m_globlaDescSets[currentFrame]->getDescriptorSet(),
-		m_attachmentDescSets[currentFrame]->getDescriptorSet(),
-		m_shadowDescSets[currentFrame]->getDescriptorSet(),
-		m_rtDescSets[currentFrame]->getDescriptorSet()
-	};
-	vkCmdBindDescriptorSets(m_commandBuffers->getCommandBuffers()[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_lightPassPipeline->getPipelineLayout(), 0, 4, sets, 0, nullptr);
-
-	LightBuffer lightBuffer;
-	memset(&lightBuffer, 0, sizeof(LightBuffer));
-	auto& lights = m_scene->getLights();
-	for (uint32_t i = 0; i < lights.size(); i++) {
-		lightBuffer.lights[i] = lights[i];
-	}
-	lightBuffer.ambientColor = m_scene->getAmbientColor();
-	lightBuffer.lightCount = static_cast<uint32_t>(lights.size());
-
-	m_lightBuffers[currentFrame]->updateStorageBuffer(&lightBuffer, sizeof(LightBuffer));
-
-
-	vkCmdDraw(m_commandBuffers->getCommandBuffers()[currentFrame], 6, 1, 0, 0);
-
-	vkCmdEndRenderPass(m_commandBuffers->getCommandBuffers()[currentFrame]);
-}
-
-void Renderer::recordShadowMapCommandBuffer(std::vector<ObjectInstance>& objDescs) {
-	auto& lights = m_scene->getLights();
-
-	int32_t directionalCount = 0;
-	int32_t spotCount = 0;
-	int32_t pointCount = 0;
-
-	std::array<LightMatrix, 13> lightMatrices;
-	memset(&lightMatrices, 0, sizeof(lightMatrices));
-	for (int i = 0; i < lights.size(); ++i) {
-		Light& light = lights[i];
-		light.shadowMapIndex = -1;
-
-		if (!light.castsShadow)
-			continue;
-
-		int type = light.type;
-		int shadowMapIndex = 0;
-
-		if (type == LIGHT_TYPE_POINT && pointCount > 0) // point light 1개만 처리
-			continue;
-
-		if (type == LIGHT_TYPE_DIRECTIONAL && directionalCount > 0)
-			continue;
-
-		if (type == LIGHT_TYPE_SPOT && spotCount > 3)
-			continue;
-
-		if (type == LIGHT_TYPE_DIRECTIONAL) {
-			directionalCount++;
-		}
-
-		if (type == LIGHT_TYPE_SPOT) {
-			shadowMapIndex = 3 + spotCount;
-			spotCount++;
-		}
-
-		if (type == LIGHT_TYPE_POINT) {
-			pointCount++;
-			shadowMapIndex = 7;
-		}
-
-		VkClearValue clearValue{};
-		clearValue.depthStencil = { 1.0f, 0 };
-
-
-		if (type == LIGHT_TYPE_POINT) {
-			for (int j = 0; j < 6; j++) {
-				glm::mat4 lightViewProj = computePointLightMatrix(light, j);
-
-				VkRenderPassBeginInfo renderPassInfo{};
-				renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-				renderPassInfo.renderPass = m_shadowMapRenderPass->getRenderPass();
-				renderPassInfo.framebuffer = m_shadowCubeMapFrameBuffers[currentFrame][j]->getFrameBuffer();
-				renderPassInfo.renderArea.offset = { 0, 0 };
-				renderPassInfo.renderArea.extent = { 2048, 2048 };
-				renderPassInfo.clearValueCount = 1;
-				renderPassInfo.pClearValues = &clearValue;
-
-				vkCmdBeginRenderPass(m_commandBuffers->getCommandBuffers()[currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-				vkCmdBindPipeline(m_commandBuffers->getCommandBuffers()[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_shadowMapPipeline->getPipeline());
-				vkCmdBindDescriptorSets(m_commandBuffers->getCommandBuffers()[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_shadowMapPipeline->getPipelineLayout(), 0, 1, &m_objectMaterialDescSets[currentFrame]->getDescriptorSet(), 0, nullptr);
-				vkCmdBindDescriptorSets(m_commandBuffers->getCommandBuffers()[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_shadowMapPipeline->getPipelineLayout(), 1, 1, &m_bindlessDescSets[currentFrame]->getDescriptorSet(), 0, nullptr);
-				vkCmdPushConstants(
-					m_commandBuffers->getCommandBuffers()[currentFrame],
-					m_shadowMapPipeline->getPipelineLayout(),
-					VK_SHADER_STAGE_VERTEX_BIT,
-					0, sizeof(glm::mat4),
-					&lightViewProj
-				);
-				/*
-				int32_t index = 0;
-				for (const auto& [key, value] : modelToMatrixIndices) {
-					for (int32_t i = 0; i < m_modelList[key].mesh.size(); i++) {
-						int32_t startIndex = index;
-						m_meshList[m_modelList[key].mesh[i]]->drawInstance(m_commandBuffers->getCommandBuffers()[currentFrame], value.size(), startIndex);
-						index += value.size();
-					}
-				}
-				*/
-
-				int32_t currentMeshIdx = -1;
-				uint32_t firstInstance = 0;
-				uint32_t instanceCount = 0;
-
-				for (uint32_t i = 0; i < objDescs.size(); i++) {
-					int32_t meshIdx = objDescs[i].meshIndex;
-					if (meshIdx != currentMeshIdx) {
-						if (instanceCount > 0 && currentMeshIdx >= 0) {
-							m_meshList[currentMeshIdx]->drawInstance(m_commandBuffers->getCommandBuffers()[currentFrame], instanceCount, firstInstance);
-						}
-						currentMeshIdx = meshIdx;
-						firstInstance = i;
-						instanceCount = 1;
-					}
-					else {
-						instanceCount++;
-					}
-				}
-				if (instanceCount > 0 && currentMeshIdx >= 0) {
-					m_meshList[currentMeshIdx]->drawInstance(m_commandBuffers->getCommandBuffers()[currentFrame], instanceCount, firstInstance);
-				}
-				light.shadowMapIndex = shadowMapIndex;
-				lightMatrices[shadowMapIndex + j].mat = lightViewProj;
-				vkCmdEndRenderPass(m_commandBuffers->getCommandBuffers()[currentFrame]);
-			}
-		}
-		else {
-
-			glm::mat4 lightViewProj = computeLightMatrix(light);
-
-			VkRenderPassBeginInfo renderPassInfo{};
-			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-			renderPassInfo.renderPass = m_shadowMapRenderPass->getRenderPass();
-			renderPassInfo.framebuffer = m_shadowMapFrameBuffers[currentFrame][shadowMapIndex]->getFrameBuffer();
-			renderPassInfo.renderArea.offset = { 0, 0 };
-			renderPassInfo.renderArea.extent = { 2048, 2048 };
-			renderPassInfo.clearValueCount = 1;
-			renderPassInfo.pClearValues = &clearValue;
-
-			vkCmdBeginRenderPass(m_commandBuffers->getCommandBuffers()[currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-			vkCmdBindPipeline(m_commandBuffers->getCommandBuffers()[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_shadowMapPipeline->getPipeline());
-			vkCmdBindDescriptorSets(m_commandBuffers->getCommandBuffers()[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_shadowMapPipeline->getPipelineLayout(), 0, 1, &m_objectMaterialDescSets[currentFrame]->getDescriptorSet(), 0, nullptr);
-			vkCmdBindDescriptorSets(m_commandBuffers->getCommandBuffers()[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_shadowMapPipeline->getPipelineLayout(), 1, 1, &m_bindlessDescSets[currentFrame]->getDescriptorSet(), 0, nullptr);
-
-			vkCmdPushConstants(
-				m_commandBuffers->getCommandBuffers()[currentFrame],
-				m_shadowMapPipeline->getPipelineLayout(),
-				VK_SHADER_STAGE_VERTEX_BIT,
-				0, sizeof(glm::mat4),
-				&lightViewProj
-			);
-			/*
-			int32_t index = 0;
-			for (const auto& [key, value] : modelToMatrixIndices) {
-				for (int32_t i = 0; i < m_modelList[key].mesh.size(); i++) {
-					int32_t startIndex = index;
-					m_meshList[m_modelList[key].mesh[i]]->drawInstance(m_commandBuffers->getCommandBuffers()[currentFrame], value.size(), startIndex);
-					index += value.size();
-				}
-			}
-			*/
-
-			int32_t currentMeshIdx = -1;
-			uint32_t firstInstance = 0;
-			uint32_t instanceCount = 0;
-
-			for (uint32_t i = 0; i < objDescs.size(); i++) {
-				int32_t meshIdx = objDescs[i].meshIndex;
-				if (meshIdx != currentMeshIdx) {
-					if (instanceCount > 0 && currentMeshIdx >= 0) {
-						m_meshList[currentMeshIdx]->drawInstance(m_commandBuffers->getCommandBuffers()[currentFrame], instanceCount, firstInstance);
-					}
-					currentMeshIdx = meshIdx;
-					firstInstance = i;
-					instanceCount = 1;
-				}
-				else {
-					instanceCount++;
-				}
-			}
-			if (instanceCount > 0 && currentMeshIdx >= 0) {
-				m_meshList[currentMeshIdx]->drawInstance(m_commandBuffers->getCommandBuffers()[currentFrame], instanceCount, firstInstance);
-			}
-
-
-
-			light.shadowMapIndex = shadowMapIndex;
-			lightMatrices[shadowMapIndex].mat = lightViewProj;
-			vkCmdEndRenderPass(m_commandBuffers->getCommandBuffers()[currentFrame]);
-		}
-
-	}
-	m_lightMatrixBuffers[currentFrame]->updateUniformBuffer(&lightMatrices[0], sizeof(LightMatrix) * lightMatrices.size());
-}
 
 void Renderer::recordImGuiCommandBuffer(uint32_t imageIndex, float deltaTime) {
 	VkRenderPassBeginInfo renderPassInfo{};
@@ -1148,84 +809,6 @@ void Renderer::recordReflectionCommandBuffer() {
 		1);
 }
 
-void Renderer::recordGICmdBuffer() {
-	VkCommandBuffer cmd = m_commandBuffers->getCommandBuffers()[currentFrame];
-	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_giPipeline->getPipeline());
-
-	VkDescriptorSet sets[] = {
-		m_globlaDescSets[currentFrame]->getDescriptorSet(),  // set=0 (camera)
-		m_rtDescSets[currentFrame]->getDescriptorSet(),       // set=1 (outputImage + TLAS)
-		m_objectMaterialDescSets[currentFrame]->getDescriptorSet(), // set=2 (object material)
-		m_bindlessDescSets[currentFrame]->getDescriptorSet(), // set=3 (bindless)
-		m_attachmentDescSets[currentFrame]->getDescriptorSet() // set=4 (gbuffer)
-	};
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
-		m_giPipeline->getPipelineLayout(), 0, 5, sets, 0, nullptr);
-
-	VkStridedDeviceAddressRegionKHR emptyRegion{};
-	g_vkCmdTraceRaysKHR(
-		cmd,
-		&m_giPipeline->getRaygenRegion(),
-		&m_giPipeline->getMissRegion(),
-		&m_giPipeline->getHitRegion(),
-		&emptyRegion,
-		m_extent.width,
-		m_extent.height,
-		1);
-}
-
-
-void Renderer::updateCamera(float deltaTime) {
-
-	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
-		double xpos, ypos;
-		glfwGetCursorPos(window, &xpos, &ypos);
-
-		if (!m_mousePressed) {
-			m_mousePressed = true;
-			m_lastMouseX = xpos;
-			m_lastMouseY = ypos;
-		}
-
-		float xoffset = static_cast<float>(xpos - m_lastMouseX);
-		float yoffset = static_cast<float>(m_lastMouseY - ypos);
-
-		m_lastMouseX = xpos;
-		m_lastMouseY = ypos;
-
-		xoffset *= m_mouseSensitivity;
-		yoffset *= m_mouseSensitivity;
-
-		m_yaw += xoffset;
-		m_pitch += yoffset;
-
-		m_pitch = std::clamp(m_pitch, -89.0f, 89.0f);
-
-		glm::vec3 direction;
-		direction.x = cos(glm::radians(m_yaw)) * cos(glm::radians(m_pitch));
-		direction.y = sin(glm::radians(m_pitch));
-		direction.z = sin(glm::radians(m_yaw)) * cos(glm::radians(m_pitch));
-		m_camera.front = glm::normalize(direction);
-	}
-	else {
-		m_mousePressed = false;
-	}
-
-	glm::vec3 right = glm::normalize(glm::cross(m_camera.front, m_camera.up));
-	glm::vec3 move = glm::vec3(0.0f);
-
-	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) move += m_camera.front;
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) move -= m_camera.front;
-	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) move -= right;
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) move += right;
-	if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) move -= m_camera.up;
-	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) move += m_camera.up;
-
-	if (glm::length(move) > 0.0f) {
-		move = glm::normalize(move);
-		m_camera.position += move * m_moveSpeed * deltaTime;
-	}
-}
 
 glm::mat4 Renderer::computeLightMatrix(Light& light) {
 	glm::mat4 lightView;
@@ -1295,7 +878,7 @@ void Renderer::updateTLAS(std::vector<ObjectInstance>& objDescs, std::vector<Mod
 	}*/
 
 	if (objDescs.size() > 0) {
-		m_tlas[currentFrame]->rebuild(m_blasList, modelBuffers, objDescs);
+		m_tlas[currentFrame]->rebuild(m_blasList, m_shapeList);
 		m_rtDescSets[currentFrame]->updateTLAS(m_tlas[currentFrame]->getHandle());
 	}
 	else {

@@ -8,7 +8,7 @@ std::unique_ptr<Mesh> Mesh::createMesh(VulkanContext* context, std::vector<Verte
 
 void Mesh::init(VulkanContext* context, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices) {
 	this->context = context;
-	calculateTangents(vertices, indices);
+	// calculateTangents(vertices, indices);
 
 	m_vertexBuffer = VertexBuffer::createVertexBuffer(context, vertices);
 	m_indexBuffer = IndexBuffer::createIndexBuffer(context, indices);

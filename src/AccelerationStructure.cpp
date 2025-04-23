@@ -126,51 +126,26 @@ void BottomLevelAS::initBLAS(VulkanContext* context, Mesh* mesh) {
 }
 
 std::unique_ptr<TopLevelAS> TopLevelAS::createTopLevelAS(VulkanContext* context, std::vector<std::unique_ptr<BottomLevelAS>>& blasList,
-	std::vector<ModelBuffer>& modelBuffers, std::vector<ObjectInstance>& objDescs) {
+	std::vector<ShapeGPU>& shapeList) {
 	std::unique_ptr<TopLevelAS> as = std::unique_ptr<TopLevelAS>(new TopLevelAS());
-	as->initTLAS(context, blasList, modelBuffers, objDescs);
+	as->initTLAS(context, blasList, shapeList);
 	return as;
 }
 
 void TopLevelAS::initTLAS(VulkanContext* context, std::vector<std::unique_ptr<BottomLevelAS>>& blasList,
-	std::vector<ModelBuffer>& modelBuffers, std::vector<ObjectInstance>& objDescs) {
+	std::vector<ShapeGPU>& shapeList) {
 	this->context = context;
 
 	std::vector<VkAccelerationStructureInstanceKHR> instances;
 
-	/*
-	for (const auto& [key, value] : modelToMatrixIndices) {
-		for (int32_t i = 0; i < modelList[key].mesh.size(); i++) {
-			for (int32_t j = 0; j < value.size(); j++) {
-				VkAccelerationStructureInstanceKHR instance{};
-				instance.transform = glmToVkTransform(modelBuffers[value[j]].model);
-				int32_t materialIndex;
-				if (objects[value[j]].overrideMaterialIndex.size() > i) {
-					materialIndex = objects[value[j]].overrideMaterialIndex[i];
-				}
-				else {
-					materialIndex = modelList[key].material[i];
-				}
-				instance.instanceCustomIndex = materialIndex;
-				instance.mask = 0xFF;
-				instance.instanceShaderBindingTableRecordOffset = 0;
-				instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
-				instance.accelerationStructureReference = blasList[modelList[key].mesh[i]]->getDeviceAddress();
-				instances.push_back(instance);
-			}
-		}
-	}
-	*/
-	for (int i = 0; i < objDescs.size(); ++i) {
-		const auto& inst = objDescs[i];
-
+	for (int i = 0; i < shapeList.size(); i++) {
 		VkAccelerationStructureInstanceKHR tlasInstance{};
-		tlasInstance.transform = glmToVkTransform(modelBuffers[inst.modelMatrixIndex].model);
-		tlasInstance.instanceCustomIndex = i; // gl_InstanceCustomIndexEXT == i (ObjectInstance[i])
+		tlasInstance.transform = glmToVkTransform(shapeList[i].modelMatrix);
+		tlasInstance.instanceCustomIndex = i;
 		tlasInstance.mask = 0xFF;
 		tlasInstance.instanceShaderBindingTableRecordOffset = 0;
 		tlasInstance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
-		tlasInstance.accelerationStructureReference = blasList[inst.meshIndex]->getDeviceAddress();
+		tlasInstance.accelerationStructureReference = blasList[i]->getDeviceAddress();
 
 		instances.push_back(tlasInstance);
 	}
@@ -281,10 +256,10 @@ void TopLevelAS::initTLAS(VulkanContext* context, std::vector<std::unique_ptr<Bo
 }
 
 void TopLevelAS::rebuild(std::vector<std::unique_ptr<BottomLevelAS>>& blasList,
-	std::vector<ModelBuffer>& modelBuffers, std::vector<ObjectInstance>& objDescs) {
+	std::vector<ShapeGPU>& shapeList) {
 
 	cleanup();
-	initTLAS(context, blasList, modelBuffers, objDescs);
+	initTLAS(context, blasList, shapeList);
 }
 
 std::unique_ptr<TopLevelAS> TopLevelAS::createEmptyTopLevelAS(VulkanContext* context) {

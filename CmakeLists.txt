@@ -94,3 +94,4 @@ add_custom_command(
             $<TARGET_FILE_DIR:MyEngine>/spv
 )
 
+add_compile_options("/utf-8")

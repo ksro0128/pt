@@ -215,27 +215,6 @@ struct alignas(16) ModelBuffer {
 	glm::mat4 model;
 };
 
-struct alignas(16) Material {
-	glm::vec4 baseColor = glm::vec4(1.0f);
-	glm::vec3 emissiveFactor = glm::vec3(0.0f);
-	float roughness = 0.5f;
-	float metallic = 0.0f;
-	float ao = 1.0f;
-
-	int albedoTexIndex = -1;
-	int normalTexIndex = -1;
-	int metallicTexIndex = -1;
-	int roughnessTexIndex = -1;
-	int aoTexIndex = -1;
-	int emissiveTexIndex = -1;
-};
-
-struct Camera {
-	glm::vec3 position = glm::vec3(0.0f, 0.0f, 5.0f);
-	glm::vec3 front = glm::vec3(0.0f, 0.0f, -1.0f);;
-	glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);;
-};
-
 struct alignas(16) LightMatrix {
 	glm::mat4 mat;
 };
@@ -247,4 +226,158 @@ struct alignas(16) RenderOptions {
 	int maxBounce = 1;
 };
 
-void printMaterial(const Material& mat);
+
+struct CameraGPU {
+    glm::vec3 camPos;
+    glm::vec3 camDir;
+    glm::vec3 camUp;
+    glm::vec3 camRight;
+    float fovY;
+	glm::vec3 padding = glm::vec3(0.0f);	
+};
+
+struct alignas(16) MaterialGPU {
+	int type = -1;
+	int index = -1;
+	glm::vec2 pad = glm::vec2(0.0f);
+};
+
+struct alignas(16) UberGPU {
+	glm::vec3 Kd = glm::vec3(0.25f);
+    int KdIdx = -1;
+
+    glm::vec3 Ks = glm::vec3(0.25f);
+    int KsIdx = -1;
+
+    glm::vec3 Kr = glm::vec3(0.0f);
+    int KrIdx = -1;
+
+    glm::vec3 Kt = glm::vec3(0.0f);
+    int KtIdx = -1;
+
+    glm::vec3 opacity = glm::vec3(1.0f);
+    int opacityIdx = -1;
+	
+    float eta = 1.5f;
+	int etaIdx = -1;
+
+    float uroughness = 0.1f;
+	int uroughnessIdx = -1;
+    
+	float vroughness = 0.1f;
+	int vroughnessIdx = -1;
+
+    int remaproughness = 1;
+	float pad0 = 0.0f;
+};
+
+struct alignas(16) MatteGPU {
+	glm::vec3 Kd = glm::vec3(0.5f);
+	int KdIdx = -1;
+
+	float sigma = 0.0f;
+	int sigmaIdx = -1;
+	float pad0 = 0.0f;
+	float pad1 = 0.0f;
+};
+
+struct alignas(16) MetalGPU {
+	glm::vec3 eta = glm::vec3(0.5f);
+	int etaIdx = -1;
+
+	glm::vec3 k = glm::vec3(0.5f);
+	int kIdx = -1;
+
+	float uroughness = 0.01f;
+	int uroughnessIdx = -1;
+	float vroughness = 0.01f;
+	int vroughnessIdx = -1;
+
+	int remaproughness = 1;
+	float pad0 = 0.0f;
+	float pad1 = 0.0f;
+	float pad2 = 0.0f;
+};
+
+struct alignas(16) GlassGPU {
+	glm::vec3 Kr = glm::vec3(1.0f);
+	int KrIdx = -1;
+
+	glm::vec3 Kt = glm::vec3(1.0f);
+	int KtIdx = -1;
+
+	float eta = 1.5f;
+	int etaIdx = -1;
+
+	float uroughness = 0.0f;
+	int uroughnessIdx = -1;
+
+	float vroughness = 0.0f;
+	int vroughnessIdx = -1;
+
+	int remaproughness = 1;
+	float pad0 = 0.0f;
+};
+
+struct alignas(16) MirrorGPU {
+	glm::vec3 Kr = glm::vec3(0.9f);
+	int KrIdx = -1;
+};
+
+struct alignas(16) SubstrateGPU {
+	glm::vec3 Kd = glm::vec3(0.5f);
+	int KdIdx = -1;
+
+	glm::vec3 Ks = glm::vec3(0.5f);
+	int KsIdx = -1;
+
+	float uroughness = 0.1f;
+	int uroughnessIdx = -1;
+
+	float vroughness = 0.1f;
+	int vroughnessIdx = -1;
+
+	int remaproughness = 1;
+	float pad0 = 0.0f;
+	float pad1 = 0.0f;
+	float pad2 = 0.0f;
+};
+
+struct alignas(16) PlasticGPU {
+	glm::vec3 Kd = glm::vec3(0.25f);
+	int KdIdx = -1;
+
+	glm::vec3 Ks = glm::vec3(0.25f);
+	int KsIdx = -1;
+
+	float roughness = 0.1f;
+	int roughnessIdx = -1;
+
+	int remaproughness = 1;
+	float pad0 = 0.0f;
+};
+
+struct alignas(16) ShapeGPU {
+	glm::mat4 modelMatrix = glm::mat4(1.0f);
+	
+	uint64_t vertexAddress = 0;
+	uint64_t indexAddress = 0;
+	
+	int materialIdx = -1;
+	int areaLightIdx = -1;
+	int alphaIdx = -1;
+	int shadowAlphaIdx = -1;
+	
+	int reverseOrientation = 0;
+	float pad0 = 0.0f;
+	float pad1 = 0.0f;
+	float pad2 = 0.0f;
+};
+
+struct alignas(16) AreaLightGPU {
+	glm::vec3 scale = glm::vec3(1.0f);
+	int twosided = 0;
+
+	glm::vec3 L = glm::vec3(1.0f);
+	int samples = 1;
+};
