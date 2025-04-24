@@ -12,6 +12,12 @@ public:
 	static std::unique_ptr<DescriptorSetLayout> createShadowDescriptorSetLayout(VulkanContext* context);
 	static std::unique_ptr<DescriptorSetLayout> createRayTracingDescriptorSetLayout(VulkanContext* context);
 
+	static std::unique_ptr<DescriptorSetLayout> createSet0DescLayout(VulkanContext* context);
+	static std::unique_ptr<DescriptorSetLayout> createSet1DescLayout(VulkanContext* context);
+	static std::unique_ptr<DescriptorSetLayout> createSet2DescLayout(VulkanContext* context);
+	static std::unique_ptr<DescriptorSetLayout> createSet3DescLayout(VulkanContext* context);
+	static std::unique_ptr<DescriptorSetLayout> createSet4DescLayout(VulkanContext* context);
+
 	~DescriptorSetLayout();
 
 	VkDescriptorSetLayout &getDescriptorSetLayout() { return m_layout; }
@@ -26,5 +32,11 @@ private:
 	void initAttachment(VulkanContext* context);
 	void initShadow(VulkanContext* context);
 	void initRayTracing(VulkanContext* context);
+	
+	void initSet0DescLayout(VulkanContext* context);
+	void initSet1DescLayout(VulkanContext* context);
+	void initSet2DescLayout(VulkanContext* context);
+	void initSet3DescLayout(VulkanContext* context);
+	void initSet4DescLayout(VulkanContext* context);
 	void cleanup();
 };

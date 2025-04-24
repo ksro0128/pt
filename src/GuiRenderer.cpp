@@ -134,6 +134,8 @@ void GuiRenderer::render(uint32_t currentFrame, VkCommandBuffer cmd, Scene *scen
 
 	 // Viewport
 	ImGui::Begin("Viewport");
+	m_viewportSize = ImGui::GetContentRegionAvail();
+	ImGui::Image((ImTextureID)(uint64_t)m_viewPortDescriptorSet[currentFrame], m_viewportSize);
 	ImGui::End();
 
 	 // Scene
@@ -156,73 +158,6 @@ void GuiRenderer::createViewPortDescriptorSet(std::array<Texture*, 2> textures) 
 	m_viewPortDescriptorSet[0] = ImGui_ImplVulkan_AddTexture(textures[0]->getSampler(), textures[0]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_viewPortDescriptorSet[1] = ImGui_ImplVulkan_AddTexture(textures[1]->getSampler(), textures[1]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
-
-void GuiRenderer::createRayTracingDescriptorSet(std::array<Texture*, 2> textures) {
-	if (m_rayTracingDescriptorSet.size() == 2) {
-		for (auto& descSet : m_rayTracingDescriptorSet) {
-			ImGui_ImplVulkan_RemoveTexture(descSet);
-		}
-	}
-	m_rayTracingDescriptorSet.resize(textures.size());
-	m_rayTracingDescriptorSet[0] = ImGui_ImplVulkan_AddTexture(textures[0]->getSampler(), textures[0]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_rayTracingDescriptorSet[1] = ImGui_ImplVulkan_AddTexture(textures[1]->getSampler(), textures[1]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-}
-
-void GuiRenderer::createAlbedoDescriptorSet(std::array<Texture*, 2> textures) {
-	if (m_albedoDescriptorSet.size() == 2) {
-		for (auto& descSet : m_albedoDescriptorSet) {
-			ImGui_ImplVulkan_RemoveTexture(descSet);
-		}
-	}
-	m_albedoDescriptorSet.resize(textures.size());
-	m_albedoDescriptorSet[0] = ImGui_ImplVulkan_AddTexture(textures[0]->getSampler(), textures[0]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_albedoDescriptorSet[1] = ImGui_ImplVulkan_AddTexture(textures[1]->getSampler(), textures[1]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-}
-
-void GuiRenderer::createPositionDescriptorSet(std::array<Texture*, 2> textures) {
-	if (m_positionDescriptorSet.size() == 2) {
-		for (auto& descSet : m_positionDescriptorSet) {
-			ImGui_ImplVulkan_RemoveTexture(descSet);
-		}
-	}
-	m_positionDescriptorSet.resize(textures.size());
-	m_positionDescriptorSet[0] = ImGui_ImplVulkan_AddTexture(textures[0]->getSampler(), textures[0]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_positionDescriptorSet[1] = ImGui_ImplVulkan_AddTexture(textures[1]->getSampler(), textures[1]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-}
-
-void GuiRenderer::createNormalDescriptorSet(std::array<Texture*, 2> textures) {
-	if (m_normalDescriptorSet.size() == 2) {
-		for (auto& descSet : m_normalDescriptorSet) {
-			ImGui_ImplVulkan_RemoveTexture(descSet);
-		}
-	}
-	m_normalDescriptorSet.resize(textures.size());
-	m_normalDescriptorSet[0] = ImGui_ImplVulkan_AddTexture(textures[0]->getSampler(), textures[0]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_normalDescriptorSet[1] = ImGui_ImplVulkan_AddTexture(textures[1]->getSampler(), textures[1]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-}
-
-void GuiRenderer::createPbrDescriptorSet(std::array<Texture*, 2> textures) {
-	if (m_pbrDescriptorSet.size() == 2) {
-		for (auto& descSet : m_pbrDescriptorSet) {
-			ImGui_ImplVulkan_RemoveTexture(descSet);
-		}
-	}
-	m_pbrDescriptorSet.resize(textures.size());
-	m_pbrDescriptorSet[0] = ImGui_ImplVulkan_AddTexture(textures[0]->getSampler(), textures[0]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_pbrDescriptorSet[1] = ImGui_ImplVulkan_AddTexture(textures[1]->getSampler(), textures[1]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-}
-
-void GuiRenderer::createEmissiveDescriptorSet(std::array<Texture*, 2> textures) {
-	if (m_emissiveDescriptorSet.size() == 2) {
-		for (auto& descSet : m_emissiveDescriptorSet) {
-			ImGui_ImplVulkan_RemoveTexture(descSet);
-		}
-	}
-	m_emissiveDescriptorSet.resize(textures.size());
-	m_emissiveDescriptorSet[0] = ImGui_ImplVulkan_AddTexture(textures[0]->getSampler(), textures[0]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_emissiveDescriptorSet[1] = ImGui_ImplVulkan_AddTexture(textures[1]->getSampler(), textures[1]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-}
-
 
 void GuiRenderer::setDarkThemeColors()
 {

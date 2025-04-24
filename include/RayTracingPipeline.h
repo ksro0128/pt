@@ -7,8 +7,7 @@
 
 class RayTracingPipeline {
 public:
-	static std::unique_ptr<RayTracingPipeline> createReflectionPipeline(VulkanContext* context, std::vector<DescriptorSetLayout*> descriptorSetLayouts);
-	static std::unique_ptr<RayTracingPipeline> createGIPipeline(VulkanContext* context, std::vector<DescriptorSetLayout *> descriptorSetLayouts);
+	static std::unique_ptr<RayTracingPipeline> createPtPipeline(VulkanContext* context, std::vector<DescriptorSetLayout*> descriptorSetLayouts);
 	~RayTracingPipeline();
 
 	VkPipeline getPipeline() const { return m_pipeline; }
@@ -29,11 +28,8 @@ private:
 	VkStridedDeviceAddressRegionKHR m_raygenRegion{};
 	VkStridedDeviceAddressRegionKHR m_missRegion{};
 	VkStridedDeviceAddressRegionKHR m_hitRegion{};
-	VkStridedDeviceAddressRegionKHR m_shadowHitRegion{};
-	VkStridedDeviceAddressRegionKHR m_shadowMissRegion{};
 
 	void cleanup();
-	void initReflection(VulkanContext* context, std::vector<DescriptorSetLayout*> descriptorSetLayouts);
-	void initGI(VulkanContext* context, std::vector<DescriptorSetLayout*> descriptorSetLayouts);
+	void initPt(VulkanContext* context, std::vector<DescriptorSetLayout*> descriptorSetLayouts);
 	VkShaderModule createShaderModule(VulkanContext* context, const std::vector<char>& code);
 };

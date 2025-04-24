@@ -618,19 +618,22 @@ void UniformBuffer::updateUniformBuffer(void* data, VkDeviceSize size) {
 	memcpy(m_mappedMemory, data, size);
 }
 
-std::unique_ptr<StorageBuffer> StorageBuffer::createStorageBuffer(VulkanContext* context, VkDeviceSize buffersize) {
+std::unique_ptr<StorageBuffer> StorageBuffer::createStorageBuffer(VulkanContext* context, VkDeviceSize buffersize, size_t count) {
 	std::unique_ptr<StorageBuffer> storageBuffer = std::unique_ptr<StorageBuffer>(new StorageBuffer());
-	storageBuffer->init(context, buffersize);
+	storageBuffer->init(context, buffersize, count);
 	return storageBuffer;
 }
 
-void StorageBuffer::init(VulkanContext* context, VkDeviceSize buffersize) {
+void StorageBuffer::init(VulkanContext* context, VkDeviceSize buffersize, size_t count) {
 	this->context = context;
 
-	createBuffer(buffersize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+	if (count == 0)
+		count = 1;
+	m_currentSize = buffersize * count;
+	std::cout << "StorageBuffer::size == " << m_currentSize << std::endl;
+	createBuffer(m_currentSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_buffer, m_bufferMemory);
-	vkMapMemory(context->getDevice(), m_bufferMemory, 0, buffersize, 0, &m_mappedMemory);
-	m_currentSize = buffersize;
+	vkMapMemory(context->getDevice(), m_bufferMemory, 0, m_currentSize, 0, &m_mappedMemory);
 }
 
 StorageBuffer::~StorageBuffer() {
@@ -667,6 +670,7 @@ void StorageBuffer::updateStorageBuffer(void* data, VkDeviceSize totalSize)
 	if (totalSize > m_currentSize)
 	{
 		std::cerr << "StorageBuffer: Total size is greater than current size!" << std::endl;
+		std::cout << "StorageBuffer: Total size: " << totalSize << ", Current size: " << m_currentSize << std::endl;
 		return;
 	}
 	memcpy(m_mappedMemory, data, totalSize);
@@ -687,11 +691,11 @@ void StorageBuffer::updateStorageBufferAt(uint32_t index, void* data, VkDeviceSi
 	memcpy(static_cast<uint8_t*>(m_mappedMemory) + index * structSize, data, structSize);
 }
 
-void StorageBuffer::resizeStorageBuffer(VkDeviceSize size)
+void StorageBuffer::resizeStorageBuffer(VkDeviceSize size, size_t count)
 {
-	if (size > m_currentSize)
+	if (size * count > m_currentSize)
 	{
 		cleanup();
-		init(context, size);
+		init(context, size, count);
 	}
 }

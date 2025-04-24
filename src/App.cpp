@@ -19,6 +19,7 @@ void App::run() {
 		lastTime = currentTime;
 
 		glfwPollEvents();
+		m_renderer->update(deltaTime);
 		m_renderer->render(deltaTime);
 	}
 }

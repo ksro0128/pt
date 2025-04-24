@@ -243,3 +243,172 @@ void DescriptorSetLayout::initRayTracing(VulkanContext* context) {
 		throw std::runtime_error("failed to create ray tracing descriptor set layout!");
 	}
 }
+
+
+std::unique_ptr<DescriptorSetLayout> DescriptorSetLayout::createSet0DescLayout(VulkanContext* context) {
+	std::unique_ptr<DescriptorSetLayout> layout = std::unique_ptr<DescriptorSetLayout>(new DescriptorSetLayout());
+	layout->initSet0DescLayout(context);
+	return layout;
+}
+
+void DescriptorSetLayout::initSet0DescLayout(VulkanContext* context) {
+	this->context = context;
+
+	std::vector<VkDescriptorSetLayoutBinding> bindings(2);
+
+	bindings[0].binding = 0;
+	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	bindings[0].descriptorCount = 1;
+	bindings[0].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+	bindings[0].pImmutableSamplers = nullptr;
+
+	bindings[1].binding = 1;
+	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	bindings[1].descriptorCount = 1;
+	bindings[1].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+	bindings[1].pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+	layoutInfo.pBindings = bindings.data();
+
+	if (vkCreateDescriptorSetLayout(context->getDevice(), &layoutInfo, nullptr, &m_layout) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create Set0 descriptor set layout!");
+	}
+}
+
+std::unique_ptr<DescriptorSetLayout> DescriptorSetLayout::createSet1DescLayout(VulkanContext* context) {
+	std::unique_ptr<DescriptorSetLayout> layout = std::unique_ptr<DescriptorSetLayout>(new DescriptorSetLayout());
+	layout->initSet1DescLayout(context);
+	return layout;
+}
+
+void DescriptorSetLayout::initSet1DescLayout(VulkanContext* context) {
+	this->context = context;
+
+	std::vector<VkDescriptorSetLayoutBinding> bindings(1);
+
+	bindings[0].binding = 0;
+	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bindings[0].descriptorCount = 1;
+	bindings[0].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+	bindings[0].pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+	layoutInfo.pBindings = bindings.data();
+
+	if (vkCreateDescriptorSetLayout(context->getDevice(), &layoutInfo, nullptr, &m_layout) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create Set1 descriptor set layout!");
+	}
+}
+
+std::unique_ptr<DescriptorSetLayout> DescriptorSetLayout::createSet2DescLayout(VulkanContext* context) {
+	std::unique_ptr<DescriptorSetLayout> layout = std::unique_ptr<DescriptorSetLayout>(new DescriptorSetLayout());
+	layout->initSet2DescLayout(context);
+	return layout;
+}
+
+void DescriptorSetLayout::initSet2DescLayout(VulkanContext* context) {
+	this->context = context;
+
+	const int bindingCount = 9;
+	std::vector<VkDescriptorSetLayoutBinding> bindings(bindingCount);
+
+	for (int i = 0; i < bindingCount; i++) {
+		bindings[i].binding = i;
+		bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		bindings[i].descriptorCount = 1;
+		bindings[i].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+		bindings[i].pImmutableSamplers = nullptr;
+	}
+
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+	layoutInfo.pBindings = bindings.data();
+	layoutInfo.pNext = nullptr;
+	layoutInfo.flags = 0;
+
+	if (vkCreateDescriptorSetLayout(context->getDevice(), &layoutInfo, nullptr, &m_layout) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create Set3 descriptor set layout (materials)!");
+	}
+}
+
+std::unique_ptr<DescriptorSetLayout> DescriptorSetLayout::createSet3DescLayout(VulkanContext* context) {
+	std::unique_ptr<DescriptorSetLayout> layout = std::unique_ptr<DescriptorSetLayout>(new DescriptorSetLayout());
+	layout->initSet3DescLayout(context);
+	return layout;
+}
+
+void DescriptorSetLayout::initSet3DescLayout(VulkanContext* context) {
+	this->context = context;
+
+	VkDescriptorSetLayoutBinding binding{};
+	binding.binding = 0;
+	binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	binding.descriptorCount = MAX_TEXTURE_COUNT;
+	binding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+	binding.pImmutableSamplers = nullptr;
+
+	VkDescriptorBindingFlags bindingFlag =
+		VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
+		VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+
+	VkDescriptorSetLayoutBindingFlagsCreateInfo extendedInfo{};
+	extendedInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+	extendedInfo.bindingCount = 1;
+	extendedInfo.pBindingFlags = &bindingFlag;
+
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = 1;
+	layoutInfo.pBindings = &binding;
+	layoutInfo.pNext = &extendedInfo;
+	layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+
+	if (vkCreateDescriptorSetLayout(context->getDevice(), &layoutInfo, nullptr, &m_layout) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create Set2 descriptor set layout (texture only)!");
+	}
+}
+
+std::unique_ptr<DescriptorSetLayout> DescriptorSetLayout::createSet4DescLayout(VulkanContext* context) {
+	std::unique_ptr<DescriptorSetLayout> layout = std::unique_ptr<DescriptorSetLayout>(new DescriptorSetLayout());
+	layout->initSet4DescLayout(context);
+	return layout;
+}
+
+void DescriptorSetLayout::initSet4DescLayout(VulkanContext* context) {
+	this->context = context;
+	std::vector<VkDescriptorSetLayoutBinding> bindings(3);
+
+	bindings[0].binding = 0;
+	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+	bindings[0].descriptorCount = 1;
+	bindings[0].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+	bindings[0].pImmutableSamplers = nullptr;
+
+	bindings[1].binding = 1;
+	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[1].descriptorCount = 1;
+	bindings[1].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+	bindings[1].pImmutableSamplers = nullptr;
+
+	bindings[2].binding = 2;
+	bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[2].descriptorCount = 1;
+	bindings[2].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+	bindings[2].pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+	layoutInfo.pBindings = bindings.data();
+
+	if (vkCreateDescriptorSetLayout(context->getDevice(), &layoutInfo, nullptr, &m_layout) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create ray tracing descriptor set layout!");
+	}
+}
+

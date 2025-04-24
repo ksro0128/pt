@@ -1,207 +1,280 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
 #extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 
-layout(set = 0, binding = 0) uniform CameraBuffer {
-    mat4 view;
-    mat4 proj;
+struct MaterialGPU {
+	int type;
+	int index;
+	float pad0;
+	float pad1;
+};
+
+struct UberGPU {
+	vec3 Kd;
+	float pad0;
+    
+	vec3 Ks;
+	float pad1;
+
+    vec3 Kr;
+	float pad2;
+
+    vec3 Kt;
+	float pad3;
+
+    vec3 opacity;
+	float pad4;
+
+    int KdIdx;
+    int KsIdx;
+    int KrIdx;
+    int KtIdx;
+
+    int opacityIdx;
+    float eta;
+	int etaIdx;
+    float uroughness;
+
+	int uroughnessIdx;
+	float vroughness;
+	int vroughnessIdx;
+    int remaproughness;
+};
+
+struct MatteGPU {
+	vec3 Kd;
+	float pad0;
+
+	int KdIdx;
+	float sigma;
+	int sigmaIdx;
+	float pad1;
+};
+
+struct MetalGPU {
+	vec3 eta;
+	float pad0;
+	
+	vec3 k;
+	float pad1;
+	
+	int etaIdx;
+	int kIdx;
+	float uroughness;
+	int uroughnessIdx;
+
+	float vroughness;
+	int vroughnessIdx;
+	int remaproughness;
+	float pad2;
+};
+
+struct GlassGPU {
+	vec3 Kr;
+	float pad0;
+
+	vec3 Kt;
+	float pad1;
+
+
+	int KrIdx;
+	int KtIdx;
+	float eta;
+	int etaIdx;
+
+
+	float uroughness;
+	int uroughnessIdx;
+	float vroughness;
+	int vroughnessIdx;
+
+	int remaproughness;
+	float pad2;
+	float pad3;
+	float pad4;
+};
+
+struct MirrorGPU {
+	vec3 Kr;
+	float pad0;
+
+	int KrIdx;
+	float pad1;
+	float pad2;
+	float pad3;
+};
+
+struct SubstrateGPU {
+	vec3 Kd;
+	float pad0;
+
+	vec3 Ks;
+	float pad1;
+
+	int KdIdx;
+	int KsIdx;
+	float uroughness;
+	int uroughnessIdx;
+
+	float vroughness;
+	int vroughnessIdx;
+	int remaproughness;
+	float pad2;
+};
+
+struct PlasticGPU {
+	vec3 Kd;
+	float pad0;
+	vec3 Ks;
+	float pad1;
+
+	
+	int KdIdx;
+	int KsIdx;
+	float roughness;
+	int roughnessIdx;
+
+	
+	int remaproughness;
+	float pad2;
+	float pad3;
+	float pad4;
+};
+
+struct ShapeGPU {
+	mat4 modelMatrix;
+	
+	uint64_t vertexAddress;
+	uint64_t indexAddress;
+	
+	int materialIdx;
+	int areaLightIdx;
+	int alphaIdx;
+	int shadowAlphaIdx;
+	
+	int reverseOrientation;
+	float pad0;
+	float pad1;
+	float pad2;
+};
+
+struct AreaLightGPU {
+	vec3 scale;
+	float pad0;
+	vec3 L;
+	float pad1;
+
+	int twosided;
+	int samples;
+	float pad2;
+	float pad3;
+
+	vec4 pad4;
+};
+
+layout(set = 0, binding = 0) uniform CameraGPU {
     vec3 camPos;
-	int frameCount;
+    float pad0;
+    vec3 camDir;
+    float pad1;
+    vec3 camUp;
+    float pad2;
+    vec3 camRight;
+    float fovY;
 } camera;
 
-layout(set = 0, binding = 2) uniform RenderOptions {
-    int useRTReflection;
-    int rtMode;
-    int reflectionSampleCount;
-    int reflectionMaxBounce;
-} renderOptions;
+layout(set = 0, binding = 1) uniform OptionsGPU {
+    int frameCount;
+    float pad0;
+    float pad1;
+    float pad2;
+} options;
 
-layout(set = 1, binding = 0, rgba16f) uniform image2D outputImage;
-layout(set = 1, binding = 1) uniform accelerationStructureEXT topLevelAS;
+layout(set = 1, binding = 0) readonly buffer instanceBuffer {
+    ShapeGPU instances[];
+};
 
-layout(set = 4, binding = 0) uniform sampler2D gPosition;
-layout(set = 4, binding = 1) uniform sampler2D gNormal;
-layout(set = 4, binding = 2) uniform sampler2D gAlbedo;
-layout(set = 4, binding = 3) uniform sampler2D gPBR;
+layout(set = 2, binding = 0) readonly buffer AreaLightBuffer { 
+    AreaLightGPU lights[]; 
+};
+layout(set = 2, binding = 1) readonly buffer MaterialBuffer { 
+    MaterialGPU materials[]; 
+};
+layout(set = 2, binding = 2) readonly buffer UberBuffer { 
+    UberGPU ubers[];
+};
+layout(set = 2, binding = 3) readonly buffer MatteBuffer { 
+    MatteGPU mattes[];
+};
+layout(set = 2, binding = 4) readonly buffer MetalBuffer { 
+    MetalGPU metals[]; 
+};
+layout(set = 2, binding = 5) readonly buffer GlassBuffer { 
+    GlassGPU glasses[]; 
+};
+layout(set = 2, binding = 6) readonly buffer MirrorBuffer { 
+    MirrorGPU mirrors[]; 
+};
+layout(set = 2, binding = 7) readonly buffer SubstrateBuffer { 
+    SubstrateGPU substrates[]; 
+};
+layout(set = 2, binding = 8) readonly buffer PlasticBuffer { 
+    PlasticGPU plastics[]; 
+};
+
+layout(set = 3, binding = 0) uniform sampler2D textures[];
+
+layout(set = 4, binding = 0) uniform accelerationStructureEXT topLevelAS;
+layout(set = 4, binding = 1, rgba16f) uniform image2D pingImage;
+layout(set = 4, binding = 2, rgba16f) uniform image2D pongImage;
+
 
 struct RayPayload {
     vec3 color;
-	vec3 beta;
-    int bounce;
 };
 
 layout(location = 0) rayPayloadEXT RayPayload payload;
 
-
-float hash1(vec2 p) {
-    p = fract(p * vec2(123.34, 345.45));
-    p += dot(p, p + 34.345);
-    return fract(p.x * p.y);
-}
-
-float vdcSequence(uint bits) 
-{
-    bits = (bits << 16u) | (bits >> 16u);
-    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
-    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
-    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
-    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
-    return float(bits) * 2.3283064365386963e-10;
-}
-
-vec2 hammersleySequence(uint i, uint N)
-{
-    return vec2(float(i) / float(N), vdcSequence(i));
-}
-
-vec3 importanceSampleGGX(vec2 Xi, vec3 N, float roughness)
-{
-    float alpha = roughness * roughness;
-    float alpha2 = alpha * alpha;
-	
-    float phi = 2.0 * 3.1415926535 * Xi.x;
-    float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (alpha2 - 1.0) * Xi.y));
-    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
-	
-    vec3 H;
-    H.x = cos(phi) * sinTheta;
-    H.y = sin(phi) * sinTheta;
-    H.z = cosTheta;
-	
-    vec3 up        = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
-    vec3 tangent   = normalize(cross(up, N));
-    vec3 bitangent = cross(N, tangent);
-	
-    vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;
-    return normalize(sampleVec);
-}
-
-float distributionGGX(vec3 N, vec3 H, float roughness) {
-    float a = roughness * roughness;
-    float a2 = a * a;
-    float NdotH = max(dot(N, H), 0.0);
-    float NdotH2 = NdotH * NdotH;
-    float denominator = (NdotH2 * (a2 - 1.0) + 1.0);
-    return a2 / (3.14159265359 * denominator * denominator);
-}
-
-float ggxPdf(vec3 N, vec3 H, vec3 V, float roughness) {
-    float D = distributionGGX(N, H, roughness);
-    float NdotH = max(dot(N, H), 0.0);
-    float VdotH = max(dot(V, H), 0.0);
-    return D * NdotH / (4.0 * VdotH + 1e-5); // pdf = D(h) * (N⋅H) / (4 * (V⋅H))
-}
-
-// Fresnel-Schlick Approximation
-vec3 fresnelSchlick(float cosTheta, vec3 F0) {
-    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
-}
-
-// Geometry Function
-float geometrySchlickGGX(float NdotV, float roughness) {
-    float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
-    return NdotV / (NdotV * (1.0 - k) + k);
-}
-
-float geometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
-    float NdotV = max(dot(N, V), 0.0);
-    float NdotL = max(dot(N, L), 0.0);
-    return geometrySchlickGGX(NdotV, roughness) * geometrySchlickGGX(NdotL, roughness);
-}
-
-uint tea(in uint val0, in uint val1)
-{
-  uint v0 = val0;
-  uint v1 = val1;
-  uint s0 = 0;
-
-  for(uint n = 0; n < 16; n++)
-  {
-    s0 += 0x9e3779b9;
-    v0 += ((v1 << 4) + 0xa341316c) ^ (v1 + s0) ^ ((v1 >> 5) + 0xc8013ea4);
-    v1 += ((v0 << 4) + 0xad90777d) ^ (v0 + s0) ^ ((v0 >> 5) + 0x7e95761e);
-  }
-
-  return v0;
-}
-
-uint initRandom(in uvec2 resolution, in uvec2 screenCoord, in uint frame)
-{
-  return tea(screenCoord.y * resolution.x + screenCoord.x, frame);
-}
-
-
 void main() {
-    vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
-    vec2 resolution = vec2(gl_LaunchSizeEXT.xy);
-    vec2 uv = pixelCenter / resolution;
+    uvec2 pixel = gl_LaunchIDEXT.xy;
+    uvec2 size = gl_LaunchSizeEXT.xy;
+    vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(size);
 
-    vec3 worldPos = texture(gPosition, uv).xyz;
-    vec3 worldNormal = normalize(texture(gNormal, uv).xyz);
-    vec3 albedo      = texture(gAlbedo,   uv).rgb;
-    vec3 pbr         = texture(gPBR,      uv).rgb;
-    float ao        = pbr.r;
-    float roughness = pbr.g;
-    float metallic  = pbr.b;
-    vec3 viewDir = normalize(camera.camPos - worldPos);
+    vec2 screen = uv * 2.0 - 1.0;
+    screen.y = -screen.y;
+    float aspect = float(size.x) / float(size.y);
+    float scale = tan(radians(camera.fovY) * 0.5);
 
+    vec3 dir = normalize(
+        screen.x * aspect * scale * camera.camRight +
+        screen.y * scale * camera.camUp +
+        camera.camDir
+    );
     payload.color = vec3(0.0);
-    
-    int sampleCount = renderOptions.reflectionSampleCount;
-    vec3 accumulatedColor = vec3(0.0);
-    int validSamples = 0;
 
+	// debug
+	int materialIdx = 4;
+	vec3 kd = lights[materialIdx].scale;
+	payload.color = kd;
 
-    float accumulatedWeight = 0.0;
-    vec3 sampleDir = vec3(0.0);
+    traceRayEXT(
+        topLevelAS,
+        gl_RayFlagsOpaqueEXT,
+        0xFF,
+        0, 0, 0,
+        camera.camPos,
+        0.001,
+        dir,
+        1e4,
+        0
+    );
 
-    if (roughness < 0.04) {
-        roughness = 0.04;
+    vec4 resultColor = vec4(payload.color, 1.0);
+
+    if (options.frameCount % 2 == 0) {
+        imageStore(pongImage, ivec2(pixel), resultColor);
+    } else {
+        imageStore(pingImage, ivec2(pixel), resultColor);
     }
-
-    vec3 F0 = mix(vec3(0.04), albedo, metallic);
-
-	// uint baseSeed = (gl_LaunchIDEXT.x * 1973u) ^ (gl_LaunchIDEXT.y * 9277u) ^ uint(camera.frameCount);
-    uint baseSeed = initRandom(uvec2(gl_LaunchSizeEXT.xy), uvec2(gl_LaunchIDEXT.xy), uint(camera.frameCount));
-
-    for (int i = 0; i < sampleCount; ++i) {
-		uint idx = baseSeed + uint(i);
-        // vec2 Xi = hammersleySequence(idx % 8192u, 8192u);
-        vec2 Xi = vec2(
-          float(tea(idx, 0)) / float(0xFFFFFFFFu),
-          float(tea(idx, 1)) / float(0xFFFFFFFFu)
-        );
-
-        vec3 H = importanceSampleGGX(Xi, worldNormal, roughness);
-        vec3 L = normalize(reflect(-viewDir, H));
-        if (dot(worldNormal, L) <= 0.0) {
-            continue;
-        }
-
-        float pdf = ggxPdf(worldNormal, H, viewDir, roughness);
-        if (pdf < 1e-5) {
-            continue;
-        }
-
-        float NoV = max(dot(worldNormal, viewDir), 1e-3);
-        float NoL = max(dot(worldNormal, L),      1e-3);
-        vec3  F   = fresnelSchlick(max(dot(H, viewDir),0.0), F0);
-        float NDF = distributionGGX(worldNormal, H, roughness);
-        float G   = geometrySmith(worldNormal, viewDir, L, roughness);
-
-        vec3 brdfWeight = (NDF * G * F) / (4.0 * NoV * NoL + 1e-5);
-		vec3 beta = brdfWeight * NoL / max(pdf, 1e-5);
-
-        payload.color = vec3(0.0);
-		payload.beta = beta;
-        payload.bounce = renderOptions.reflectionMaxBounce;
-
-        traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT,
-        0xFF, 0,0,0, worldPos + L * 0.05, 0.001, L, 1e4, 0);
-
-        accumulatedColor += payload.color;
-        ++validSamples;
-    }
-	vec3 outCol = (validSamples > 0) ? accumulatedColor / float(validSamples) : vec3(0.0);
-	imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(outCol, 1.0));
 }

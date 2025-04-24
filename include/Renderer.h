@@ -38,14 +38,15 @@ private:
 	VkExtent2D m_extent;
 	uint32_t currentFrame = 0;
 
-
-
 	// resources list
 	std::vector<std::unique_ptr<Mesh>> m_meshList;
 	std::vector<Model> m_modelList;
 	std::vector<std::unique_ptr<BottomLevelAS>> m_blasList;
-	std::vector<std::unique_ptr<TopLevelAS>> m_tlas;
+	std::unique_ptr<TopLevelAS> m_tlas;
 	std::unique_ptr<TopLevelAS> m_emptyTLAS;
+
+	std::unique_ptr<Texture> m_ptTexture0;
+	std::unique_ptr<Texture> m_ptTexture1;
 	
 	
 	std::vector<std::unique_ptr<Texture>> m_textureList;
@@ -65,21 +66,27 @@ private:
 	std::vector<ShapeGPU> m_shapeList;
 
 	// descriptorset layout
-	std::unique_ptr<DescriptorSetLayout> m_globalLayout;
-	std::unique_ptr<DescriptorSetLayout> m_objectMaterialLayout;
-	std::unique_ptr<DescriptorSetLayout> m_bindlessLayout;
-	std::unique_ptr<DescriptorSetLayout> m_attachmentLayout;
-	std::unique_ptr<DescriptorSetLayout> m_shadowLayout;
-	std::unique_ptr<DescriptorSetLayout> m_rayTracingLayout;
+	std::unique_ptr<DescriptorSetLayout> m_set0Layout;
+	std::unique_ptr<DescriptorSetLayout> m_set1Layout;
+	std::unique_ptr<DescriptorSetLayout> m_set2Layout;
+	std::unique_ptr<DescriptorSetLayout> m_set3Layout;
+	std::unique_ptr<DescriptorSetLayout> m_set4Layout;
 
 	// buffer
-	std::array<std::unique_ptr<UniformBuffer>, MAX_FRAMES_IN_FLIGHT> m_cameraBuffers;
-	std::array<std::unique_ptr<StorageBuffer>, MAX_FRAMES_IN_FLIGHT> m_lightBuffers;
-	std::array<std::unique_ptr<StorageBuffer>, MAX_FRAMES_IN_FLIGHT> m_objectInstanceBuffers;
-	std::array<std::unique_ptr<StorageBuffer>, MAX_FRAMES_IN_FLIGHT> m_modelBuffers;
-	std::array<std::unique_ptr<StorageBuffer>, MAX_FRAMES_IN_FLIGHT> m_materialBuffers;
-	std::array<std::unique_ptr<UniformBuffer>, MAX_FRAMES_IN_FLIGHT> m_lightMatrixBuffers;
-	std::array<std::unique_ptr<UniformBuffer>, MAX_FRAMES_IN_FLIGHT> m_renderOptionsBuffers;
+	std::unique_ptr<UniformBuffer> m_cameraBuffer;
+	std::unique_ptr<UniformBuffer> m_optionsBuffer;
+	std::unique_ptr<StorageBuffer> m_instanceBuffer;
+
+	std::unique_ptr<StorageBuffer> m_materialBuffer;
+	std::unique_ptr<StorageBuffer> m_uberBuffer;
+	std::unique_ptr<StorageBuffer> m_matteBuffer;
+	std::unique_ptr<StorageBuffer> m_metalBuffer;
+	std::unique_ptr<StorageBuffer> m_glassBuffer;
+	std::unique_ptr<StorageBuffer> m_mirrorBuffer;
+	std::unique_ptr<StorageBuffer> m_substrateBuffer;
+	std::unique_ptr<StorageBuffer> m_plasticBuffer;
+	std::unique_ptr<StorageBuffer> m_areaLightBuffer;
+
 
 	// renderpass
 	std::unique_ptr<RenderPass> m_gbufferRenderPass;
@@ -102,12 +109,11 @@ private:
 	std::vector<std::vector<std::unique_ptr<FrameBuffer>>> m_shadowCubeMapFrameBuffers;
 
 	// descriptorset
-	std::array<std::unique_ptr<DescriptorSet>, MAX_FRAMES_IN_FLIGHT> m_globlaDescSets;
-	std::array<std::unique_ptr<DescriptorSet>, MAX_FRAMES_IN_FLIGHT> m_objectMaterialDescSets;
-	std::array<std::unique_ptr<DescriptorSet>, MAX_FRAMES_IN_FLIGHT> m_bindlessDescSets;
-	std::vector< std::unique_ptr<DescriptorSet> > m_attachmentDescSets;
-	std::array<std::unique_ptr<DescriptorSet>, MAX_FRAMES_IN_FLIGHT> m_shadowDescSets;
-	std::vector<std::unique_ptr<DescriptorSet>> m_rtDescSets;
+	std::unique_ptr<DescriptorSet> m_set0DescSet;
+	std::unique_ptr<DescriptorSet> m_set1DescSet;
+	std::unique_ptr<DescriptorSet> m_set2DescSet;
+	std::unique_ptr<DescriptorSet> m_set3DescSet;
+	std::unique_ptr<DescriptorSet> m_set4DescSet;
 
 	// pipeline
 	std::unique_ptr<Pipeline> m_gbufferPipeline;
@@ -115,6 +121,8 @@ private:
 	std::unique_ptr<Pipeline> m_shadowMapPipeline;
 	std::unique_ptr<RayTracingPipeline> m_reflectionPipeline;
 	std::unique_ptr<RayTracingPipeline> m_giPipeline;
+
+	std::unique_ptr<RayTracingPipeline> m_ptPipeline;
 
 	// command buffer
 	std::unique_ptr<CommandBuffers> m_commandBuffers;
@@ -128,13 +136,18 @@ private:
 	// new
 	minipbrt::Scene* m_pbrtScene = nullptr;
 	CameraGPU m_camera;
+	bool m_mousePressed = false;
+	double m_lastMouseX = 0.0, m_lastMouseY = 0.0;
+	float m_yaw = -90.0f;
+	float m_pitch = 0.0f;
+	float m_mouseSensitivity = 0.2f;
+	float m_moveSpeed = 3.0f;
+
+
+	OptionsGPU m_options;
 
 	void loadScene(std::string scenePath);
-	//
-
-
-
-
+	glm::mat4 toGlm(const minipbrt::Transform& t);
 
 	void cleanup();
 	void init(GLFWwindow* window);
@@ -154,7 +167,8 @@ private:
 	void recordReflectionCommandBuffer();
 	void recordGICmdBuffer();
 
-	void printAllResources();
+	void recordPTCommandBuffer();
+
 	void printObjectInstances(const std::vector<ObjectInstance>& instances);
 
 	void transferImageLayout(VkCommandBuffer cmd, Texture* texture, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, uint32_t layerCount = 1);
@@ -163,4 +177,7 @@ private:
 
 	glm::mat4 computeLightMatrix(Light& light);
 	glm::mat4 computePointLightMatrix(Light& light, uint32_t faceIndex);
+
+	void printAllResources();
+	void updateInitialBuffers();
 };

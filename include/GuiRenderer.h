@@ -17,12 +17,6 @@ public:
     void newFrame();
     void render(uint32_t currentFrame, VkCommandBuffer cmd, Scene* scene, std::vector<Model>& modelList, float deltaTime);
     void createViewPortDescriptorSet(std::array<Texture*, 2> textures);
-    void createRayTracingDescriptorSet(std::array<Texture*, 2> textures);
-	void createAlbedoDescriptorSet(std::array<Texture*, 2> textures);
-	void createPositionDescriptorSet(std::array<Texture*, 2> textures);
-	void createNormalDescriptorSet(std::array<Texture*, 2> textures);
-	void createPbrDescriptorSet(std::array<Texture*, 2> textures);
-	void createEmissiveDescriptorSet(std::array<Texture*, 2> textures);
     ImVec2 getViewportSize() const { return m_viewportSize; }
 	bool isBenchmarkRunning() const { return m_benchmarkRunning; }
 
@@ -40,12 +34,6 @@ private:
 	float m_fpsSum = 0.0f;
 
     std::vector<VkDescriptorSet> m_viewPortDescriptorSet;
-	std::vector<VkDescriptorSet> m_rayTracingDescriptorSet;
-	std::vector<VkDescriptorSet> m_albedoDescriptorSet;
-	std::vector<VkDescriptorSet> m_positionDescriptorSet;
-	std::vector<VkDescriptorSet> m_normalDescriptorSet;
-	std::vector<VkDescriptorSet> m_pbrDescriptorSet;
-	std::vector<VkDescriptorSet> m_emissiveDescriptorSet;
 
     bool m_dockLayoutBuilt;
     ImVec2 m_viewportSize;

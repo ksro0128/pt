@@ -417,3 +417,301 @@ void DescriptorSet::updateTLAS(VkAccelerationStructureKHR tlas) {
 	accelWrite.pNext = &accelWriteInfo;
 	vkUpdateDescriptorSets(context->getDevice(), 1, &accelWrite, 0, nullptr);
 }
+
+std::unique_ptr<DescriptorSet> DescriptorSet::createSet0DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+	UniformBuffer* cameraBuffer, UniformBuffer* optionsBuffer) {
+	std::unique_ptr<DescriptorSet> descriptorSet = std::unique_ptr<DescriptorSet>(new DescriptorSet());
+	descriptorSet->initSet0DescSet(context, layout, cameraBuffer, optionsBuffer);
+	return descriptorSet;
+}
+
+void DescriptorSet::initSet0DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+	UniformBuffer* cameraBuffer, UniformBuffer* optionsBuffer) {
+	this->context = context;
+
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = context->getDescriptorPool();
+	allocInfo.descriptorSetCount = 1;
+	VkDescriptorSetLayout vkLayout = layout->getDescriptorSetLayout();
+	allocInfo.pSetLayouts = &vkLayout;
+
+	if (vkAllocateDescriptorSets(context->getDevice(), &allocInfo, &m_descriptorSet) != VK_SUCCESS) {
+		throw std::runtime_error("failed to allocate set0 descriptor set!");
+	}
+
+	VkDescriptorBufferInfo cameraBufferInfo{};
+	cameraBufferInfo.buffer = cameraBuffer->getBuffer();
+	cameraBufferInfo.offset = 0;
+	cameraBufferInfo.range = sizeof(CameraGPU);
+
+	VkWriteDescriptorSet cameraWrite{};
+	cameraWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	cameraWrite.dstSet = m_descriptorSet;
+	cameraWrite.dstBinding = 0;
+	cameraWrite.dstArrayElement = 0;
+	cameraWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	cameraWrite.descriptorCount = 1;
+	cameraWrite.pBufferInfo = &cameraBufferInfo;
+
+	VkDescriptorBufferInfo optionsBufferInfo{};
+	optionsBufferInfo.buffer = optionsBuffer->getBuffer();
+	optionsBufferInfo.offset = 0;
+	optionsBufferInfo.range = sizeof(OptionsGPU);
+
+	VkWriteDescriptorSet optionsWrite{};
+	optionsWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	optionsWrite.dstSet = m_descriptorSet;
+	optionsWrite.dstBinding = 1;
+	optionsWrite.dstArrayElement = 0;
+	optionsWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	optionsWrite.descriptorCount = 1;
+	optionsWrite.pBufferInfo = &optionsBufferInfo;
+
+	std::array<VkWriteDescriptorSet, 2> writes{ cameraWrite, optionsWrite };
+	vkUpdateDescriptorSets(context->getDevice(), static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+}
+
+std::unique_ptr<DescriptorSet> DescriptorSet::createSet1DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+	StorageBuffer* instanceBuffer) {
+	std::unique_ptr<DescriptorSet> descriptorSet = std::unique_ptr<DescriptorSet>(new DescriptorSet());
+	descriptorSet->initSet1DescSet(context, layout, instanceBuffer);
+	return descriptorSet;
+}
+
+void DescriptorSet::initSet1DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+	StorageBuffer* instanceBuffer) {
+	this->context = context;
+
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = context->getDescriptorPool();
+	allocInfo.descriptorSetCount = 1;
+	VkDescriptorSetLayout vkLayout = layout->getDescriptorSetLayout();
+	allocInfo.pSetLayouts = &vkLayout;
+
+	if (vkAllocateDescriptorSets(context->getDevice(), &allocInfo, &m_descriptorSet) != VK_SUCCESS) {
+		throw std::runtime_error("failed to allocate set1 descriptor set!");
+	}
+
+	VkDescriptorBufferInfo bufferInfo{};
+	bufferInfo.buffer = instanceBuffer->getBuffer();
+	bufferInfo.offset = 0;
+	bufferInfo.range = instanceBuffer->getCurrentSize();
+
+	VkWriteDescriptorSet bufferWrite{};
+	bufferWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	bufferWrite.dstSet = m_descriptorSet;
+	bufferWrite.dstBinding = 0;
+	bufferWrite.dstArrayElement = 0;
+	bufferWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bufferWrite.descriptorCount = 1;
+	bufferWrite.pBufferInfo = &bufferInfo;
+
+	vkUpdateDescriptorSets(context->getDevice(), 1, &bufferWrite, 0, nullptr);
+}
+
+std::unique_ptr<DescriptorSet> DescriptorSet::createSet3DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+	std::vector<std::unique_ptr<Texture>>& textureList) {
+	
+	std::unique_ptr<DescriptorSet> descriptorSet = std::unique_ptr<DescriptorSet>(new DescriptorSet());
+	
+	descriptorSet->initSet3DescSet(context, layout, textureList);
+	
+	return descriptorSet;
+}
+
+void DescriptorSet::initSet3DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+	std::vector<std::unique_ptr<Texture>>& textureList) {
+	
+		this->context = context;
+
+		VkDescriptorSetAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo.descriptorPool = context->getDescriptorPool();
+		allocInfo.descriptorSetCount = 1;
+		VkDescriptorSetLayout setLayout = layout->getDescriptorSetLayout();
+		allocInfo.pSetLayouts = &setLayout;
+	
+		if (vkAllocateDescriptorSets(context->getDevice(), &allocInfo, &m_descriptorSet) != VK_SUCCESS) {
+			throw std::runtime_error("failed to allocate descriptor set (Set2 - textures)!");
+		}
+	
+		std::vector<VkDescriptorImageInfo> imageInfos;
+	
+		for (size_t i = 0; i < textureList.size(); ++i) {
+			VkDescriptorImageInfo imageInfo{};
+			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageInfo.imageView = textureList[i]->getImageView();
+			imageInfo.sampler = textureList[i]->getSampler();
+			imageInfos.push_back(imageInfo);
+		}
+	\
+		for (size_t i = textureList.size(); i < MAX_TEXTURE_COUNT; ++i) {
+			VkDescriptorImageInfo dummy{};
+			dummy.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			dummy.imageView = textureList[0]->getImageView();
+			dummy.sampler = textureList[0]->getSampler();
+			imageInfos.push_back(dummy);
+		}
+	
+		VkWriteDescriptorSet textureWrite{};
+		textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		textureWrite.dstSet = m_descriptorSet;
+		textureWrite.dstBinding = 0;
+		textureWrite.dstArrayElement = 0;
+		textureWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		textureWrite.descriptorCount = static_cast<uint32_t>(imageInfos.size());
+		textureWrite.pImageInfo = imageInfos.data();
+	
+		vkUpdateDescriptorSets(
+			context->getDevice(),
+			1, &textureWrite,
+			0, nullptr
+		);
+}
+
+std::unique_ptr<DescriptorSet> DescriptorSet::createSet2DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+	MaterialDescriptorResources& resources) {
+	
+	std::unique_ptr<DescriptorSet> descriptorSet = std::unique_ptr<DescriptorSet>(new DescriptorSet());
+	
+	descriptorSet->initSet2DescSet(context, layout, resources);
+	
+	return descriptorSet;
+}
+
+void DescriptorSet::initSet2DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+	MaterialDescriptorResources& r) {
+	
+		this->context = context;
+
+		VkDescriptorSetAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo.descriptorPool = context->getDescriptorPool();
+		allocInfo.descriptorSetCount = 1;
+		VkDescriptorSetLayout setLayout = layout->getDescriptorSetLayout();
+		allocInfo.pSetLayouts = &setLayout;
+	
+		if (vkAllocateDescriptorSets(context->getDevice(), &allocInfo, &m_descriptorSet) != VK_SUCCESS) {
+			throw std::runtime_error("failed to allocate descriptor set (Set3 - materials)!");
+		}
+	
+		StorageBuffer* buffers[] = {
+			r.areaLightBuffer,
+			r.materialBuffer,
+			r.uberBuffer,
+			r.matteBuffer,
+			r.metalBuffer,
+			r.glassBuffer,
+			r.mirrorBuffer,
+			r.substrateBuffer,
+			r.plasticBuffer
+		};
+	
+		std::vector<VkWriteDescriptorSet> descriptorWrites;
+	
+		for (int i = 0; i < 9; ++i) {
+			VkDescriptorBufferInfo bufferInfo{};
+			bufferInfo.buffer = buffers[i]->getBuffer();
+			bufferInfo.offset = 0;
+			bufferInfo.range = buffers[i]->getCurrentSize();
+
+			std::cout << "DescriptorSet::initSet3DescSet: bufferInfo.range = " << bufferInfo.range << std::endl;
+	
+			VkWriteDescriptorSet write{};
+			write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			write.dstSet = m_descriptorSet;
+			write.dstBinding = i;
+			write.dstArrayElement = 0;
+			write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			write.descriptorCount = 1;
+			write.pBufferInfo = &bufferInfo;
+	
+			descriptorWrites.push_back(write);
+		}
+	
+		vkUpdateDescriptorSets(
+			context->getDevice(),
+			static_cast<uint32_t>(descriptorWrites.size()),
+			descriptorWrites.data(), 0, nullptr
+		);
+}
+
+
+
+std::unique_ptr<DescriptorSet> DescriptorSet::createSet4DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+	VkAccelerationStructureKHR tlas, Texture* pingTexture, Texture* pongTexture) {
+	std::unique_ptr<DescriptorSet> descriptorSet = std::unique_ptr<DescriptorSet>(new DescriptorSet());
+	descriptorSet->initSet4DescSet(context, layout, tlas, pingTexture, pongTexture);
+	return descriptorSet;
+}
+
+void DescriptorSet::initSet4DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+	VkAccelerationStructureKHR tlas, Texture* pingTexture, Texture* pongTexture) {
+		this->context = context;
+
+		VkDescriptorSetAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo.descriptorPool = context->getDescriptorPool();
+		allocInfo.descriptorSetCount = 1;
+		VkDescriptorSetLayout setLayout = layout->getDescriptorSetLayout();
+		allocInfo.pSetLayouts = &setLayout;
+	
+		if (vkAllocateDescriptorSets(context->getDevice(), &allocInfo, &m_descriptorSet) != VK_SUCCESS) {
+			throw std::runtime_error("failed to allocate descriptor set (Set3)!");
+		}
+	
+		std::vector<VkWriteDescriptorSet> descriptorWrites;
+	
+		VkWriteDescriptorSetAccelerationStructureKHR asInfo{};
+		asInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+		asInfo.accelerationStructureCount = 1;
+		asInfo.pAccelerationStructures = &tlas;
+	
+		VkWriteDescriptorSet asWrite{};
+		asWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		asWrite.pNext = &asInfo;
+		asWrite.dstSet = m_descriptorSet;
+		asWrite.dstBinding = 0;
+		asWrite.dstArrayElement = 0;
+		asWrite.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+		asWrite.descriptorCount = 1;
+	
+		descriptorWrites.push_back(asWrite);
+	
+		VkDescriptorImageInfo pingImageInfo{};
+		pingImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		pingImageInfo.imageView = pingTexture->getImageView();
+		pingImageInfo.sampler = VK_NULL_HANDLE;
+	
+		VkWriteDescriptorSet pingWrite{};
+		pingWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		pingWrite.dstSet = m_descriptorSet;
+		pingWrite.dstBinding = 1;
+		pingWrite.dstArrayElement = 0;
+		pingWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		pingWrite.descriptorCount = 1;
+		pingWrite.pImageInfo = &pingImageInfo;
+	
+		descriptorWrites.push_back(pingWrite);
+	
+		VkDescriptorImageInfo pongImageInfo{};
+		pongImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		pongImageInfo.imageView = pongTexture->getImageView();
+		pongImageInfo.sampler = VK_NULL_HANDLE;
+	
+		VkWriteDescriptorSet pongWrite{};
+		pongWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		pongWrite.dstSet = m_descriptorSet;
+		pongWrite.dstBinding = 2;
+		pongWrite.dstArrayElement = 0;
+		pongWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		pongWrite.descriptorCount = 1;
+		pongWrite.pImageInfo = &pongImageInfo;
+	
+		descriptorWrites.push_back(pongWrite);
+	
+		vkUpdateDescriptorSets(context->getDevice(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+}
+

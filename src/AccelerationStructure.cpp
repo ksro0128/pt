@@ -140,13 +140,13 @@ void TopLevelAS::initTLAS(VulkanContext* context, std::vector<std::unique_ptr<Bo
 
 	for (int i = 0; i < shapeList.size(); i++) {
 		VkAccelerationStructureInstanceKHR tlasInstance{};
-		tlasInstance.transform = glmToVkTransform(shapeList[i].modelMatrix);
+		// tlasInstance.transform = glmToVkTransform(shapeList[i].modelMatrix);
+		tlasInstance.transform = glmToVkTransform(glm::mat4(1.0f));
 		tlasInstance.instanceCustomIndex = i;
 		tlasInstance.mask = 0xFF;
 		tlasInstance.instanceShaderBindingTableRecordOffset = 0;
 		tlasInstance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
 		tlasInstance.accelerationStructureReference = blasList[i]->getDeviceAddress();
-
 		instances.push_back(tlasInstance);
 	}
 

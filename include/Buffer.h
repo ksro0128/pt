@@ -100,19 +100,19 @@ private:
 
 class StorageBuffer : public Buffer {
 public:
-	static std::unique_ptr<StorageBuffer> createStorageBuffer(VulkanContext* context, VkDeviceSize buffersize);
+	static std::unique_ptr<StorageBuffer> createStorageBuffer(VulkanContext* context, VkDeviceSize buffersize, size_t count);
 	~StorageBuffer();
 	VkDeviceSize getCurrentSize() { return m_currentSize; }
 
 	void updateStorageBuffer(void* data, VkDeviceSize totalSize);
 	void updateStorageBufferAt(uint32_t index, void* data, VkDeviceSize structSize);
-	void resizeStorageBuffer(VkDeviceSize size);
+	void resizeStorageBuffer(VkDeviceSize size, size_t count);
 
 
 private:
 	void* m_mappedMemory = nullptr;
 	VkDeviceSize m_currentSize = 0;
 
-	void init(VulkanContext* context, VkDeviceSize buffersize);
+	void init(VulkanContext* context, VkDeviceSize buffersize, size_t count);
 	void cleanup();
 };
