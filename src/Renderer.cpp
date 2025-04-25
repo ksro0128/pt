@@ -22,7 +22,7 @@ void Renderer::init(GLFWwindow* window) {
 	m_swapChain = SwapChain::createSwapChain(window, m_context.get());
 	m_syncObjects = SyncObjects::createSyncObjects(m_context.get());
 	m_commandBuffers = CommandBuffers::createCommandBuffers(m_context.get());
-	m_extent = {1024, 1024};
+	m_extent = {1200, 760};
 
 	loadScene("assets/bathroom/bathroom.pbrt");
 
@@ -81,8 +81,8 @@ void Renderer::init(GLFWwindow* window) {
 		m_textureList.push_back(std::move(defalutTexture));
 		m_textureNameMap["default"] = 0;
 	}
-	MaterialDescriptorResources materialResources = {
-		m_areaLightBuffer.get(),
+	m_set2DescSet = DescriptorSet::createSet2DescSet(m_context.get(), m_set2Layout.get(), 
+		{m_areaLightBuffer.get(), 
 		m_materialBuffer.get(),
 		m_uberBuffer.get(),
 		m_matteBuffer.get(),
@@ -90,23 +90,9 @@ void Renderer::init(GLFWwindow* window) {
 		m_glassBuffer.get(),
 		m_mirrorBuffer.get(),
 		m_substrateBuffer.get(),
-		m_plasticBuffer.get()
-	};
-
-	m_set2DescSet = DescriptorSet::createSet2DescSet(m_context.get(), m_set2Layout.get(), materialResources);
+		m_plasticBuffer.get()});
 	m_set3DescSet = DescriptorSet::createSet3DescSet(m_context.get(), m_set3Layout.get(), m_textureList);
 	m_set4DescSet = DescriptorSet::createSet4DescSet(m_context.get(), m_set4Layout.get(), m_tlas->getHandle(), m_ptTexture0.get(), m_ptTexture1.get());
-
-	m_camera.camDir = glm::vec3(0.0f, 0.0f, -100.0f);
-	m_camera.camUp = glm::vec3(0.0f, 1.0f, 0.0f);
-	m_camera.camRight = glm::vec3(1.0f, 0.0f, 0.0f);
-	m_camera.camPos = glm::vec3(0.0f, 0.0f, 0.0f);
-	m_camera.fovY = 45.0f;
-
-
-
-
-	
 	m_ptPipeline = RayTracingPipeline::createPtPipeline(m_context.get(), {m_set0Layout.get(), m_set1Layout.get(), m_set2Layout.get(), m_set3Layout.get(), m_set4Layout.get()});	
 
 	auto cmd = VulkanUtil::beginSingleTimeCommands(m_context.get());
@@ -146,9 +132,17 @@ void Renderer::loadScene(std::string scenePath) {
 	const glm::mat4 camToWorld = toGlm(pbrtCam->cameraToWorld);
 
 	m_camera.camPos = glm::vec3(camToWorld[3]);
-	m_camera.camDir = glm::normalize(glm::vec3(camToWorld[2]) * -1.0f);
-	m_camera.camUp = glm::normalize(glm::vec3(camToWorld[1]));
-	m_camera.camRight = glm::normalize(glm::vec3(camToWorld[0]));
+
+	glm::vec3 forward = glm::normalize(glm::vec3(camToWorld[2]));
+	glm::vec3 up = glm::normalize(glm::vec3(camToWorld[1]));
+
+	glm::vec3 right = glm::normalize(glm::cross(forward, up));
+	up = glm::normalize(glm::cross(right, forward));
+
+	m_camera.camDir = forward;
+	m_camera.camUp = up;
+	m_camera.camRight = right;
+
 	if (pbrtCam->type() == minipbrt::CameraType::Perspective) {
 		m_camera.fovY = static_cast<minipbrt::PerspectiveCamera*>(m_pbrtScene->camera)->fov;
 	}
@@ -310,6 +304,7 @@ void Renderer::loadScene(std::string scenePath) {
 		}
 		else if (mat->type() == minipbrt::MaterialType::Fourier) {
 			material.index = m_matteList.size();
+			material.type = static_cast<int>(minipbrt::MaterialType::Matte);
 			m_materialList.push_back(material);
 
 			MatteGPU matte;
@@ -374,6 +369,11 @@ void Renderer::loadScene(std::string scenePath) {
 		areaLight.L.r = diffuseAreaLight->L[0];
 		areaLight.L.g = diffuseAreaLight->L[1];
 		areaLight.L.b = diffuseAreaLight->L[2];
+
+		float maxC = std::max(areaLight.L.r, std::max(areaLight.L.g, areaLight.L.b));
+		if (maxC > 1.0f)
+			areaLight.L /= maxC;
+		areaLight.L *= 2500.0f;
 		areaLight.twosided = diffuseAreaLight->twosided ? 1 : 0;
 		areaLight.samples = diffuseAreaLight->samples;
 		m_areaLightList.push_back(areaLight);
@@ -386,6 +386,7 @@ void Renderer::loadScene(std::string scenePath) {
 
 			ShapeGPU s;
 			s.modelMatrix = toGlm(shape->shapeToWorld);
+			// scale -1 1 1
 			s.materialIdx = shape->material;
 			s.areaLightIdx = shape->areaLight;
 			s.reverseOrientation = shape->reverseOrientation ? 1 : 0;
@@ -455,6 +456,9 @@ void Renderer::loadScene(std::string scenePath) {
 
 
 void Renderer::update(float deltaTime) {
+	glm::vec3 prevCamPos = m_camera.camPos;
+	glm::vec3 prevCamDir = m_camera.camDir;
+
 	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
 		double xpos, ypos;
 		glfwGetCursorPos(window, &xpos, &ypos);
@@ -505,6 +509,10 @@ void Renderer::update(float deltaTime) {
 	}
 	m_camera.camRight = right;
 
+
+	if (m_camera.camPos != prevCamPos || m_camera.camDir != prevCamDir) {
+		m_options.frameCount = 0;
+	}
 }
 
 
@@ -544,7 +552,6 @@ void Renderer::render(float deltaTime) {
 
 	m_options.frameCount = m_options.frameCount + 1;
 	m_optionsBuffer->updateUniformBuffer(&m_options, sizeof(OptionsGPU));
-	
 	m_cameraBuffer->updateUniformBuffer(&m_camera, sizeof(CameraGPU));
 	
 	recordPTCommandBuffer();
@@ -718,7 +725,7 @@ void Renderer::recordImGuiCommandBuffer(uint32_t imageIndex, float deltaTime) {
 
 	vkCmdBeginRenderPass(m_commandBuffers->getCommandBuffers()[currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 	m_guiRenderer->newFrame();
-	m_guiRenderer->render(currentFrame, m_commandBuffers->getCommandBuffers()[currentFrame], m_scene.get(), m_modelList, deltaTime);
+	m_guiRenderer->render(m_options.frameCount % 2, m_commandBuffers->getCommandBuffers()[currentFrame], m_scene.get(), m_modelList, deltaTime);
 	vkCmdEndRenderPass(m_commandBuffers->getCommandBuffers()[currentFrame]);
 }
 

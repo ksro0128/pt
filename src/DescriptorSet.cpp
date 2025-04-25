@@ -572,17 +572,17 @@ void DescriptorSet::initSet3DescSet(VulkanContext* context, DescriptorSetLayout*
 }
 
 std::unique_ptr<DescriptorSet> DescriptorSet::createSet2DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-	MaterialDescriptorResources& resources) {
+	std::vector<StorageBuffer*> buffers) {
 	
 	std::unique_ptr<DescriptorSet> descriptorSet = std::unique_ptr<DescriptorSet>(new DescriptorSet());
 	
-	descriptorSet->initSet2DescSet(context, layout, resources);
+	descriptorSet->initSet2DescSet(context, layout, buffers);
 	
 	return descriptorSet;
 }
 
 void DescriptorSet::initSet2DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-	MaterialDescriptorResources& r) {
+	std::vector<StorageBuffer*> buffers) {
 	
 		this->context = context;
 
@@ -597,45 +597,27 @@ void DescriptorSet::initSet2DescSet(VulkanContext* context, DescriptorSetLayout*
 			throw std::runtime_error("failed to allocate descriptor set (Set3 - materials)!");
 		}
 	
-		StorageBuffer* buffers[] = {
-			r.areaLightBuffer,
-			r.materialBuffer,
-			r.uberBuffer,
-			r.matteBuffer,
-			r.metalBuffer,
-			r.glassBuffer,
-			r.mirrorBuffer,
-			r.substrateBuffer,
-			r.plasticBuffer
-		};
-	
-		std::vector<VkWriteDescriptorSet> descriptorWrites;
-	
-		for (int i = 0; i < 9; ++i) {
-			VkDescriptorBufferInfo bufferInfo{};
-			bufferInfo.buffer = buffers[i]->getBuffer();
-			bufferInfo.offset = 0;
-			bufferInfo.range = buffers[i]->getCurrentSize();
+		std::vector<VkDescriptorBufferInfo> bufferInfos(buffers.size());
+		std::vector<VkWriteDescriptorSet>   descriptorWrites(buffers.size());
 
-			std::cout << "DescriptorSet::initSet3DescSet: bufferInfo.range = " << bufferInfo.range << std::endl;
-	
-			VkWriteDescriptorSet write{};
-			write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			write.dstSet = m_descriptorSet;
-			write.dstBinding = i;
-			write.dstArrayElement = 0;
-			write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-			write.descriptorCount = 1;
-			write.pBufferInfo = &bufferInfo;
-	
-			descriptorWrites.push_back(write);
-		}
-	
-		vkUpdateDescriptorSets(
-			context->getDevice(),
-			static_cast<uint32_t>(descriptorWrites.size()),
-			descriptorWrites.data(), 0, nullptr
-		);
+    for (size_t i = 0; i < buffers.size(); ++i) {
+        bufferInfos[i].buffer = buffers[i]->getBuffer();
+        bufferInfos[i].offset = 0;
+        bufferInfos[i].range  = buffers[i]->getCurrentSize();
+
+        descriptorWrites[i].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[i].dstSet          = m_descriptorSet;
+        descriptorWrites[i].dstBinding      = static_cast<uint32_t>(i);
+        descriptorWrites[i].dstArrayElement = 0;
+        descriptorWrites[i].descriptorCount = 1;
+        descriptorWrites[i].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[i].pBufferInfo     = &bufferInfos[i];
+    }
+
+    vkUpdateDescriptorSets(context->getDevice(),
+                           static_cast<uint32_t>(descriptorWrites.size()),
+                           descriptorWrites.data(),
+                           0, nullptr);
 }
 
 

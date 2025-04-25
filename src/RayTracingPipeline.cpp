@@ -52,10 +52,10 @@ std::unique_ptr<RayTracingPipeline> RayTracingPipeline::createPtPipeline(VulkanC
 void RayTracingPipeline::initPt(VulkanContext* context, std::vector<DescriptorSetLayout*> descriptorSetLayouts) {
 	this->context = context;
 
-	auto rgenCode = VulkanUtil::readFile("spv/RTReflection.rgen.spv");
-	auto rmissCode = VulkanUtil::readFile("spv/RTReflection.rmiss.spv");
-	auto rchitCode = VulkanUtil::readFile("spv/RTReflection.rchit.spv");
-	auto shodowMissCode = VulkanUtil::readFile("spv/RTShadow.rmiss.spv");
+	auto rgenCode = VulkanUtil::readFile("spv/pt.rgen.spv");
+	auto rmissCode = VulkanUtil::readFile("spv/pt.rmiss.spv");
+	auto rchitCode = VulkanUtil::readFile("spv/pt.rchit.spv");
+	auto shodowMissCode = VulkanUtil::readFile("spv/ptShadow.rmiss.spv");
 
 	VkShaderModule  rgenModule = createShaderModule(context, rgenCode);
 	VkShaderModule rmissModule = createShaderModule(context, rmissCode);
@@ -95,7 +95,7 @@ void RayTracingPipeline::initPt(VulkanContext* context, std::vector<DescriptorSe
 	hitGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
 	hitGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
 	hitGroup.generalShader = VK_SHADER_UNUSED_KHR;
-	hitGroup.closestHitShader = 3;
+	hitGroup.closestHitShader = 3; // 3
 	hitGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
 	hitGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
 	shaderGroups.push_back(hitGroup);
@@ -229,7 +229,7 @@ void RayTracingPipeline::initPt(VulkanContext* context, std::vector<DescriptorSe
 	m_missRegion = {
 		sbtAddress + 1 * handleSizeAligned,
 		handleSizeAligned,
-		handleSizeAligned
+		handleSizeAligned * 2
 	};
 	m_hitRegion = {
 		sbtAddress + 3 * handleSizeAligned,

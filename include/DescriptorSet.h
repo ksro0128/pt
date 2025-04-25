@@ -68,7 +68,7 @@ public:
 	static std::unique_ptr<DescriptorSet> createSet1DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		StorageBuffer* instanceBuffer);
 	static std::unique_ptr<DescriptorSet> createSet2DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-		MaterialDescriptorResources& resources);
+		std::vector<StorageBuffer*> buffers);
 	static std::unique_ptr<DescriptorSet> createSet3DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		std::vector<std::unique_ptr<Texture>>& textureList);
 	static std::unique_ptr<DescriptorSet> createSet4DescSet(VulkanContext* context, DescriptorSetLayout* layout,
@@ -100,7 +100,7 @@ private:
 	void initSet1DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		StorageBuffer* instanceBuffer);
 	void initSet2DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-		MaterialDescriptorResources& resources);
+		std::vector<StorageBuffer*> buffers);
 	void initSet3DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		std::vector<std::unique_ptr<Texture>>& textureList);
 	void initSet4DescSet(VulkanContext* context, DescriptorSetLayout* layout,

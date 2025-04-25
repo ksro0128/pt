@@ -23,6 +23,6 @@ void Window::initWindow() {
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-	m_window = glfwCreateWindow(1080, 720, "Vulkan", nullptr, nullptr);
+	m_window = glfwCreateWindow(1200, 760, "Vulkan", nullptr, nullptr);
 
 }

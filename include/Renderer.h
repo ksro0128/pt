@@ -178,6 +178,8 @@ private:
 	glm::mat4 computeLightMatrix(Light& light);
 	glm::mat4 computePointLightMatrix(Light& light, uint32_t faceIndex);
 
+
+
 	void printAllResources();
 	void updateInitialBuffers();
 };

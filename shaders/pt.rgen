@@ -2,8 +2,6 @@
 #extension GL_EXT_ray_tracing : require
 #extension GL_EXT_nonuniform_qualifier : enable
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
-#extension GL_EXT_buffer_reference2 : require
-#extension GL_EXT_scalar_block_layout : require
 
 struct MaterialGPU {
 	int type;
@@ -232,13 +230,98 @@ layout(set = 4, binding = 1, rgba16f) uniform image2D pingImage;
 layout(set = 4, binding = 2, rgba16f) uniform image2D pongImage;
 
 
+uint tea(in uint val0, in uint val1)
+{
+  uint v0 = val0;
+  uint v1 = val1;
+  uint s0 = 0;
+
+  for(uint n = 0; n < 16; n++)
+  {
+    s0 += 0x9e3779b9;
+    v0 += ((v1 << 4) + 0xa341316c) ^ (v1 + s0) ^ ((v1 >> 5) + 0xc8013ea4);
+    v1 += ((v0 << 4) + 0xad90777d) ^ (v0 + s0) ^ ((v0 >> 5) + 0x7e95761e);
+  }
+
+  return v0;
+}
+
+uint initRandom(in uvec2 resolution, in uvec2 screenCoord, in uint frame)
+{
+  return tea(screenCoord.y * resolution.x + screenCoord.x, frame);
+}
+
 struct RayPayload {
-    vec3 color;
+    vec3 L;
+    vec3 beta;
+    vec3 nextOrigin;
+    vec3 nextDir;
+    int depth;
+    uint seed;
+    bool terminated;
 };
 
 layout(location = 0) rayPayloadEXT RayPayload payload;
 
-
 void main() {
-    payload.color = vec3(1.0, 0.0, 0.0);
+
+	if (options.frameCount <= 2) {
+		imageStore(pingImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
+		imageStore(pongImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
+		return;
+	}
+
+    uvec2 pixel = gl_LaunchIDEXT.xy;
+    uvec2 size = gl_LaunchSizeEXT.xy;
+    vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(size);
+
+    vec2 screen = uv * 2.0 - 1.0;
+	screen.x = -screen.x;
+    screen.y = -screen.y;
+    float aspect = float(size.x) / float(size.y);
+    float scale = tan(radians(camera.fovY) * 0.5);
+
+    vec3 dir = normalize(
+        screen.x * aspect * scale * camera.camRight +
+        screen.y * scale * camera.camUp +
+        camera.camDir
+    );
+
+	payload.L = vec3(0.0);
+	payload.beta = vec3(1.0);
+	payload.seed = initRandom(size, pixel, options.frameCount);
+	payload.depth = 0;
+	payload.terminated = false;
+
+	vec3 origin = camera.camPos;
+
+	for (int i = 0; i < 10; ++i) {
+		payload.depth = i;
+		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0,
+					origin, 0.001, dir, 1e30, 0);
+		
+		if (payload.terminated) break;
+
+		origin = payload.nextOrigin;
+		dir = payload.nextDir;
+	}
+
+	vec4 result = vec4(payload.L, 1.0);
+
+	if (options.frameCount % 2 == 0) {
+		ivec2 pixel = ivec2(gl_LaunchIDEXT.xy);
+		float fc = float(options.frameCount);
+
+		vec4 prev = imageLoad(pingImage, pixel);
+		vec4 blended = (prev * fc + result) / (fc + 1.0);
+		imageStore(pongImage, pixel, blended);
+	}
+	else {
+		ivec2 pixel = ivec2(gl_LaunchIDEXT.xy);
+		float fc = float(options.frameCount);
+
+		vec4 prev = imageLoad(pongImage, pixel);
+		vec4 blended = (prev * fc + result) / (fc + 1.0);
+		imageStore(pingImage, pixel, blended);
+	}
 }

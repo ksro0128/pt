@@ -90,61 +90,38 @@ void GuiRenderer::createDescriptorPool() {
 void GuiRenderer::render(uint32_t currentFrame, VkCommandBuffer cmd, Scene *scene, std::vector<Model>& modelList, float deltaTime) {
      static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
 
-     ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
-     const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 1)); // 완전 검정 배경 (원하면 제거)
 
-     ImGui::SetNextWindowPos(viewport->WorkPos);
-     ImGui::SetNextWindowSize(viewport->WorkSize);
-     ImGui::SetNextWindowViewport(viewport->ID);
-     window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | 
-                     ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
-     window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+    ImGuiWindowFlags window_flags =
+        ImGuiWindowFlags_NoTitleBar |
+        ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoScrollbar |
+        ImGuiWindowFlags_NoScrollWithMouse |
+        ImGuiWindowFlags_NoBringToFrontOnFocus |
+        ImGuiWindowFlags_NoNavFocus |
+        ImGuiWindowFlags_NoBackground;
 
-     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->WorkPos);
+    ImGui::SetNextWindowSize(viewport->WorkSize);
+    ImGui::SetNextWindowViewport(viewport->ID);
 
-     ImGui::Begin("DockSpace Demo", nullptr, window_flags);
-     ImGui::PopStyleVar(2);
+    ImGui::Begin("FullscreenImage", nullptr, window_flags);
 
-     ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
-     if (!m_dockLayoutBuilt) {
-         std::cout << "setupDockspace" << std::endl;
-         ImGui::DockBuilderRemoveNode(dockspace_id);
-         ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
-         ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->WorkSize);
+    m_viewportSize = ImGui::GetContentRegionAvail();
+    ImGui::Image((ImTextureID)(uint64_t)m_viewPortDescriptorSet[currentFrame], m_viewportSize);
 
-		 ImGuiID dock_main_id = dockspace_id;
-		 ImGuiID dock_id_left = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.2f, nullptr, &dock_main_id);
-		 ImGuiID dock_id_right = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.25f, nullptr, &dock_main_id);
+    ImGui::End();
 
-		 // 왼쪽 패널을 위/아래로 나눔 → 위: Scene, 아래: Material Editor
-		 ImGuiID dock_id_material = ImGui::DockBuilderSplitNode(dock_id_left, ImGuiDir_Down, 0.5f, nullptr, &dock_id_left);
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor();
 
-		 // 각각의 도킹 위치에 창 할당
-		 ImGui::DockBuilderDockWindow("Scene", dock_id_left);
-		 ImGui::DockBuilderDockWindow("Viewport", dock_main_id);
-
-         ImGui::DockBuilderFinish(dockspace_id);
-         m_dockLayoutBuilt = true;
-     }
-
-	ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
-	ImGui::End();
-
-
-	 // Viewport
-	ImGui::Begin("Viewport");
-	m_viewportSize = ImGui::GetContentRegionAvail();
-	ImGui::Image((ImTextureID)(uint64_t)m_viewPortDescriptorSet[currentFrame], m_viewportSize);
-	ImGui::End();
-
-	 // Scene
-	ImGui::Begin("Scene");
-	ImGui::End();
-
-
-     ImGui::Render();
-     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
+    ImGui::Render();
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
  }
 
 void GuiRenderer::createViewPortDescriptorSet(std::array<Texture*, 2> textures) {
