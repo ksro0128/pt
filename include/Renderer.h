@@ -141,7 +141,7 @@ private:
 	float m_yaw = -90.0f;
 	float m_pitch = 0.0f;
 	float m_mouseSensitivity = 0.2f;
-	float m_moveSpeed = 3.0f;
+	float m_moveSpeed = 10.0f;
 
 
 	OptionsGPU m_options;

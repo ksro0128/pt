@@ -3601,7 +3601,8 @@ namespace minipbrt {
     }
 
     while (x[i] < x1) {
-      sum += (y[i] + y[i+1]) * 0.5f * (x[i+1] - x[1]);
+      sum += (y[i] + y[i+1]) * 0.5f * (x[i+1] - x[i]);
+    //   sum += (y[i] + y[i+1]) * 0.5f * (x[i+1] - x[1]);
       ++i;
     }
 
@@ -3670,8 +3671,10 @@ namespace minipbrt {
       float wl1 = lerp(float(i + 1) / float(nSpectralSamples), sampledLambdaStart, sampledLambdaEnd);
       float val = average_over_curve(wavelength, value, numEntries, wl0, wl1);
       xyz[0] += X[i] * val;
-      xyz[0] += Y[i] * val;
-      xyz[0] += Z[i] * val;
+    //   xyz[0] += Y[i] * val;
+    //   xyz[0] += Z[i] * val;
+      xyz[1] += Y[i] * val;
+      xyz[2] += Z[i] * val;
     }
     float scale = float(sampledLambdaEnd - sampledLambdaStart) / float(CIE_Y_integral * nSpectralSamples);
     xyz[0] *= scale;
@@ -3714,10 +3717,19 @@ namespace minipbrt {
       xyz[2] += Z[i] * Le;
     }
 
-    float scale = blackbody[1] * float(sampledLambdaEnd - sampledLambdaStart) / float(CIE_Y_integral * nSpectralSamples);
-    xyz[0] *= scale;
-    xyz[1] *= scale;
-    xyz[2] *= scale;
+    // float scale = blackbody[1] * float(sampledLambdaEnd - sampledLambdaStart) / float(CIE_Y_integral * nSpectralSamples);
+    // xyz[0] *= scale;
+    // xyz[1] *= scale;
+    // xyz[2] *= scale;
+
+    float Y = xyz[1];
+    if (Y > 0.0f) {
+        float scale = blackbody[1] / Y;
+        xyz[0] *= scale;
+        xyz[1] *= scale;
+        xyz[2] *= scale;
+    }
+
   }
 
 
@@ -6248,6 +6260,7 @@ namespace minipbrt {
         color_texture_param("k",          &metal->k);
         float_texture_param("uroughness", &metal->uroughness);
         float_texture_param("vroughness", &metal->vroughness);
+		float_texture_param("roughness", &metal->uroughness);
         bool_param("remaproughness",      &metal->remaproughness);
         material = metal;
       }
@@ -6344,6 +6357,7 @@ namespace minipbrt {
         color_texture_param("opacity",    &uber->opacity);
         float_texture_param("uroughness", &uber->uroughness);
         float_texture_param("vroughness", &uber->vroughness);
+		float_texture_param("roughness", &uber->uroughness);
         bool_param("remaproughness",      &uber->remaproughness);
         material = uber;
       }

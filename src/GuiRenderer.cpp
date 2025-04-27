@@ -113,7 +113,8 @@ void GuiRenderer::render(uint32_t currentFrame, VkCommandBuffer cmd, Scene *scen
     ImGui::Begin("FullscreenImage", nullptr, window_flags);
 
     m_viewportSize = ImGui::GetContentRegionAvail();
-    ImGui::Image((ImTextureID)(uint64_t)m_viewPortDescriptorSet[currentFrame], m_viewportSize);
+    // ImGui::Image((ImTextureID)(uint64_t)m_viewPortDescriptorSet[currentFrame], m_viewportSize);
+	ImGui::Image((ImTextureID)(uint64_t)m_viewPortDescriptorSet[0], m_viewportSize); // 우선 ping 만 사용
 
     ImGui::End();
 

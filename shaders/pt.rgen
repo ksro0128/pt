@@ -265,16 +265,13 @@ layout(location = 0) rayPayloadEXT RayPayload payload;
 
 void main() {
 
-	if (options.frameCount <= 2) {
+	if (options.frameCount == 1) {
 		imageStore(pingImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
-		imageStore(pongImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
-		return;
 	}
 
     uvec2 pixel = gl_LaunchIDEXT.xy;
     uvec2 size = gl_LaunchSizeEXT.xy;
     vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(size);
-
     vec2 screen = uv * 2.0 - 1.0;
 	screen.x = -screen.x;
     screen.y = -screen.y;
@@ -295,7 +292,7 @@ void main() {
 
 	vec3 origin = camera.camPos;
 
-	for (int i = 0; i < 10; ++i) {
+	for (int i = 0; i < 15; ++i) {
 		payload.depth = i;
 		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0,
 					origin, 0.001, dir, 1e30, 0);
@@ -306,22 +303,18 @@ void main() {
 		dir = payload.nextDir;
 	}
 
+	// vec4 result = vec4(payload.L, 1.0);
+	// vec4 prev = imageLoad(pingImage, ivec2(pixel));
+	// imageStore(pingImage, ivec2(pixel), prev + result);
+
+
 	vec4 result = vec4(payload.L, 1.0);
+	ivec2 ipixel = ivec2(pixel);
+	vec4 prev = imageLoad(pingImage, ipixel);
 
-	if (options.frameCount % 2 == 0) {
-		ivec2 pixel = ivec2(gl_LaunchIDEXT.xy);
-		float fc = float(options.frameCount);
+	float fc = float(options.frameCount);
+	vec4 blended = (prev * (fc - 1.0) + result) / fc;
 
-		vec4 prev = imageLoad(pingImage, pixel);
-		vec4 blended = (prev * fc + result) / (fc + 1.0);
-		imageStore(pongImage, pixel, blended);
-	}
-	else {
-		ivec2 pixel = ivec2(gl_LaunchIDEXT.xy);
-		float fc = float(options.frameCount);
+	imageStore(pingImage, ipixel, blended);
 
-		vec4 prev = imageLoad(pongImage, pixel);
-		vec4 blended = (prev * fc + result) / (fc + 1.0);
-		imageStore(pingImage, pixel, blended);
-	}
 }

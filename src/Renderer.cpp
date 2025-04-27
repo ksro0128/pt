@@ -107,8 +107,8 @@ void Renderer::init(GLFWwindow* window) {
 	}
 	m_guiRenderer = GuiRenderer::createGuiRenderer(m_context.get(), window, m_imguiRenderPass.get(), m_swapChain.get());
 	m_guiRenderer->createViewPortDescriptorSet({m_ptTexture0.get(), m_ptTexture1.get()});
-
-
+	
+	
 	printAllResources();
 }
 
@@ -370,10 +370,6 @@ void Renderer::loadScene(std::string scenePath) {
 		areaLight.L.g = diffuseAreaLight->L[1];
 		areaLight.L.b = diffuseAreaLight->L[2];
 
-		float maxC = std::max(areaLight.L.r, std::max(areaLight.L.g, areaLight.L.b));
-		if (maxC > 1.0f)
-			areaLight.L /= maxC;
-		areaLight.L *= 2500.0f;
 		areaLight.twosided = diffuseAreaLight->twosided ? 1 : 0;
 		areaLight.samples = diffuseAreaLight->samples;
 		m_areaLightList.push_back(areaLight);
@@ -439,18 +435,30 @@ void Renderer::loadScene(std::string scenePath) {
 			std::cout << "Unknown Shape" << static_cast<int>(shape->type()) << std::endl;
 		}
 	}
+	std::vector<int> idx = {52, 67, 13, 16, 51, 8, 34, 25, 31, 14, 15, 29};
+	for (int i = 0; i < idx.size(); i++) {
+		m_shapeList[idx[i]].reverseOrientation = 1;
+	}
+
+	glm::vec3 dir = glm::normalize(m_camera.camDir);
+	m_pitch = glm::degrees(asin(dir.y));
+	m_yaw = glm::degrees(atan2(dir.z, dir.x));
+	glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
+	m_camera.camRight = glm::normalize(glm::cross(m_camera.camDir, worldUp));
+	m_camera.camUp = glm::normalize(glm::cross(m_camera.camRight, m_camera.camDir));
+
 
 	// scene size
-	std::cout << "shape size: " << m_pbrtScene->shapes.size() << std::endl;
-	std::cout << "material size: " << m_pbrtScene->materials.size() << std::endl;
-	std::cout << "texture size: " << m_pbrtScene->textures.size() << std::endl;
-	std::cout << "area light size: " << m_pbrtScene->areaLights.size() << std::endl;
-	std::cout << "object size: " << m_pbrtScene->objects.size() << std::endl;
-	std::cout << "instance size: " << m_pbrtScene->instances.size() << std::endl;
-	std::cout << "light size: " << m_pbrtScene->lights.size() << std::endl;
-	std::cout << "medium size: " << m_pbrtScene->mediums.size() << std::endl;
-	std::cout << "-------------------------" << std::endl;
-	std::cout << "Scene loaded!" << std::endl;
+	// std::cout << "shape size: " << m_pbrtScene->shapes.size() << std::endl;
+	// std::cout << "material size: " << m_pbrtScene->materials.size() << std::endl;
+	// std::cout << "texture size: " << m_pbrtScene->textures.size() << std::endl;
+	// std::cout << "area light size: " << m_pbrtScene->areaLights.size() << std::endl;
+	// std::cout << "object size: " << m_pbrtScene->objects.size() << std::endl;
+	// std::cout << "instance size: " << m_pbrtScene->instances.size() << std::endl;
+	// std::cout << "light size: " << m_pbrtScene->lights.size() << std::endl;
+	// std::cout << "medium size: " << m_pbrtScene->mediums.size() << std::endl;
+	// std::cout << "-------------------------" << std::endl;
+	// std::cout << "Scene loaded!" << std::endl;
 
 }
 
@@ -478,7 +486,7 @@ void Renderer::update(float deltaTime) {
 		xoffset *= m_mouseSensitivity;
 		yoffset *= m_mouseSensitivity;
 
-		m_yaw += xoffset;
+		m_yaw -= xoffset;
 		m_pitch += yoffset;
 
 		m_pitch = std::clamp(m_pitch, -89.0f, 89.0f);
@@ -488,27 +496,30 @@ void Renderer::update(float deltaTime) {
 		direction.y = sin(glm::radians(m_pitch));
 		direction.z = sin(glm::radians(m_yaw)) * cos(glm::radians(m_pitch));
 		m_camera.camDir = glm::normalize(direction);
+
+		// ✨ 여기 추가
+		glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
+		m_camera.camRight = glm::normalize(glm::cross(m_camera.camDir, worldUp));
+		m_camera.camUp = glm::normalize(glm::cross(m_camera.camRight, m_camera.camDir));
 	}
 	else {
 		m_mousePressed = false;
 	}
 
-	glm::vec3 right = glm::normalize(glm::cross(m_camera.camDir, m_camera.camUp));
+	glm::vec3 right = m_camera.camRight;
 	glm::vec3 move = glm::vec3(0.0f);
-	
+
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) move += m_camera.camDir;
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) move -= m_camera.camDir;
-	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) move -= right;
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) move += right;
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) move -= right;
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) move += right;
 	if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) move -= m_camera.camUp;
 	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) move += m_camera.camUp;
-	
+
 	if (glm::length(move) > 0.0f) {
 		move = glm::normalize(move);
 		m_camera.camPos += move * m_moveSpeed * deltaTime;
 	}
-	m_camera.camRight = right;
-
 
 	if (m_camera.camPos != prevCamPos || m_camera.camDir != prevCamDir) {
 		m_options.frameCount = 0;
@@ -925,11 +936,14 @@ void Renderer::printAllResources(){
 	// }
 
 	// // m_materialList: material type, index
+	int i = 0;
 	for (auto& mat : m_materialList) {
+		std::cout << "material index: " << i++ << std::endl;
 		std::cout << "material type: " << mat.type << std::endl;
 		std::cout << "material index: " << mat.index << std::endl;
 		std::cout << "----------------------------" << std::endl;
 	}
+	
 
 	// // m_materialNameMap
 	// for (auto& mat : m_materialNameMap) {
@@ -939,7 +953,9 @@ void Renderer::printAllResources(){
 	// }
 
 	// m_uberList: Kd, Ks, Kr, Kt, opacity, eta, uroughness, vroughness, remaproughness
+	i = 0;
 	for (auto& mat : m_uberList) {
+		std::cout << "Uber Material index: " << i++ << std::endl;
 		std::cout << "Uber Material Kd: " << mat.Kd.r << ", " << mat.Kd.g << ", " << mat.Kd.b << std::endl;
 		std::cout << "Uber Material KdIdx: " << mat.KdIdx << std::endl;
 		std::cout << "Uber Material Ks: " << mat.Ks.r << ", " << mat.Ks.g << ", " << mat.Ks.b << std::endl;
@@ -954,14 +970,18 @@ void Renderer::printAllResources(){
 	}
 
 	// m_matteList: Kd, sigma
+	i = 0;
 	for (auto& mat : m_matteList) {
+		std::cout << "Matte Material index: " << i++ << std::endl;
 		std::cout << "Matte Material Kd: " << mat.Kd.r << ", " << mat.Kd.g << ", " << mat.Kd.b << std::endl;
 		std::cout << "Matte Material Sigma: " << mat.sigma << std::endl;
 		std::cout << "----------------------------" << std::endl;
 	}
 
 	// m_metalList: eta, k, uroughness, vroughness, remaproughness
+	i = 0;
 	for (auto& mat : m_metalList) {
+		std::cout << "Metal Material index: " << i++ << std::endl;
 		std::cout << "Metal Material Eta: " << mat.eta.r << ", " << mat.eta.g << ", " << mat.eta.b << std::endl;
 		std::cout << "Metal Material K: " << mat.k.r << ", " << mat.k.g << ", " << mat.k.b << std::endl;
 		std::cout << "Metal Material Uroughness: " << mat.uroughness << std::endl;
@@ -971,7 +991,9 @@ void Renderer::printAllResources(){
 	}
 
 	// m_glassList: Kr, Kt, eta, uroughness, vroughness, remaproughness
+	i = 0;
 	for (auto& mat : m_glassList) {
+		std::cout << "Glass Material index: " << i++ << std::endl;
 		std::cout << "Glass Material Kr: " << mat.Kr.r << ", " << mat.Kr.g << ", " << mat.Kr.b << std::endl;
 		std::cout << "Glass Material Kt: " << mat.Kt.r << ", " << mat.Kt.g << ", " << mat.Kt.b << std::endl;
 		std::cout << "Glass Material Eta: " << mat.eta << std::endl;
@@ -982,13 +1004,17 @@ void Renderer::printAllResources(){
 	}
 
 	// m_mirrorList: Kr
+	i = 0;
 	for (auto& mat : m_mirrorList) {
+		std::cout << "Mirror Material index: " << i++ << std::endl;
 		std::cout << "Mirror Material Kr: " << mat.Kr.r << ", " << mat.Kr.g << ", " << mat.Kr.b << std::endl;
 		std::cout << "----------------------------" << std::endl;
 	}
 
 	// m_substrateList: Kd, Ks, uroughness, vroughness, remaproughness
+	i = 0;
 	for (auto& mat : m_substrateList) {
+		std::cout << "Substrate Material index: " << i++ << std::endl;
 		std::cout << "Substrate Material Kd: " << mat.Kd.r << ", " << mat.Kd.g << ", " << mat.Kd.b << std::endl;
 		std::cout << "Substrate Material KdIdx: " << mat.KdIdx << std::endl;
 		std::cout << "Substrate Material Ks: " << mat.Ks.r << ", " << mat.Ks.g << ", " << mat.Ks.b << std::endl;
@@ -999,7 +1025,9 @@ void Renderer::printAllResources(){
 	}
 
 	// m_plasticList: Kd, Ks, roughness, remaproughness
+	i = 0;
 	for (auto& mat : m_plasticList) {
+		std::cout << "Plastic Material index: " << i++ << std::endl;
 		std::cout << "Plastic Material Kd: " << mat.Kd.r << ", " << mat.Kd.g << ", " << mat.Kd.b << std::endl;
 		std::cout << "Plastic Material KdIdx: " << mat.KdIdx << std::endl;
 		std::cout << "Plastic Material Ks: " << mat.Ks.r << ", " << mat.Ks.g << ", " << mat.Ks.b << std::endl;
@@ -1010,7 +1038,9 @@ void Renderer::printAllResources(){
 	}
 
 	// m_areaLightList: scale, L, twosided, samples
+	i = 0;
 	for (auto& mat : m_areaLightList) {
+		std::cout << "Area Light index: " << i++ << std::endl;
 		std::cout << "Area Light Scale: " << mat.scale.r << ", " << mat.scale.g << ", " << mat.scale.b << std::endl;
 		std::cout << "Area Light L: " << mat.L.r << ", " << mat.L.g << ", " << mat.L.b << std::endl;
 		std::cout << "Area Light Twosided: " << mat.twosided << std::endl;
@@ -1018,20 +1048,22 @@ void Renderer::printAllResources(){
 		std::cout << "----------------------------" << std::endl;
 	}
 
-	// // m_shapeList: modelMatrix, materialIdx, areaLightIdx, reverseOrientation
-	// for (auto& mat : m_shapeList) {
-	// 	std::cout << "Shape Model Matrix: " << std::endl;
-	// 	for (int i = 0; i < 4; i++) {
-	// 		for (int j = 0; j < 4; j++) {
-	// 			std::cout << mat.modelMatrix[i][j] << " ";
-	// 		}
-	// 		std::cout << std::endl;
-	// 	}
-	// 	std::cout << "Shape Material Index: " << mat.materialIdx << std::endl;
-	// 	std::cout << "Shape Area Light Index: " << mat.areaLightIdx << std::endl;
-	// 	std::cout << "Shape Reverse Orientation: " << mat.reverseOrientation << std::endl;
-	// 	std::cout << "----------------------------" << std::endl;
-	// }
+	// m_shapeList: modelMatrix, materialIdx, areaLightIdx, reverseOrientation
+	i = 0;
+	for (auto& mat : m_shapeList) {
+		std::cout << "Shape Model Matrix: " << std::endl;
+		for (int i = 0; i < 4; i++) {
+			// for (int j = 0; j < 4; j++) {
+			// 	std::cout << mat.modelMatrix[i][j] << " ";
+			// }
+			// std::cout << std::endl;
+		}
+		std::cout << "Shape Model idx : " << i++ << std::endl;
+		std::cout << "Shape Material Index: " << mat.materialIdx << std::endl;
+		std::cout << "Shape Area Light Index: " << mat.areaLightIdx << std::endl;
+		std::cout << "Shape Reverse Orientation: " << mat.reverseOrientation << std::endl;
+		std::cout << "----------------------------" << std::endl;
+	}
 
 
 	// // m_meshList: vertexBuffer, indexBuffer sizes
