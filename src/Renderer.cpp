@@ -435,7 +435,7 @@ void Renderer::loadScene(std::string scenePath) {
 			std::cout << "Unknown Shape" << static_cast<int>(shape->type()) << std::endl;
 		}
 	}
-	std::vector<int> idx = {52, 67, 13, 16, 51, 8, 34, 25, 31, 14, 15, 29};
+	std::vector<int> idx = {52, 67, 13, 16, 51, 8, 34, 25, 31, 14, 15};
 	for (int i = 0; i < idx.size(); i++) {
 		m_shapeList[idx[i]].reverseOrientation = 1;
 	}
