@@ -514,18 +514,18 @@ void evaluateMetal(
         roughness = max(roughness, 0.001);
     }
 
-    float NdotL = max(dot(N, wi), 0.001);
-    float NdotV = max(dot(N, wo), 0.001);
-    float NdotH = max(dot(N, H), 0.001);
-    float VdotH = max(dot(wo, H), 0.001);
+    float NdotL = max(dot(N, wi), 0.05);
+    float NdotV = max(dot(N, wo), 0.05);
+    float NdotH = max(dot(N, H), 0.05);
+    float VdotH = max(dot(wo, H), 0.05);
 
     float D = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, wo, wi, roughness);
 	vec3 F = fresnelConductor(VdotH, eta, k);
 
-    f = (D * G * F) / max(4.0 * NdotV * NdotL, 1e-5);
+    f = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
 
-    pdf = D * NdotH / (4.0 * VdotH + 1e-5);
+    pdf = D * NdotH / (4.0 * VdotH + 0.01);
 }
 
 void evaluateGlass(
@@ -551,19 +551,19 @@ void evaluateGlass(
     if (glass.remaproughness != 0)
         roughness = max(roughness, 0.001);
 
-    float NdotL = max(dot(N, wi), 0.001);
-    float NdotV = max(dot(N, wo), 0.001);
-    float NdotH = max(dot(N, H), 0.001);
-    float VdotH = max(dot(wo, H), 0.001);
+    float NdotL = max(dot(N, wi), 0.05);
+    float NdotV = max(dot(N, wo), 0.05);
+    float NdotH = max(dot(N, H), 0.05);
+    float VdotH = max(dot(wo, H), 0.05);
 
     float D = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, wo, wi, roughness);
     float F = fresnelDielectric(VdotH, 1.0, eta);
 
-    vec3 spec = (D * G * Kr * F) / max(4.0 * NdotV * NdotL, 1e-5);
+    vec3 spec = (D * G * Kr * F) / max(4.0 * NdotV * NdotL, 0.01);
 
     f = spec;
-    pdf = D * NdotH / (4.0 * VdotH + 1e-5);
+    pdf = D * NdotH / (4.0 * VdotH + 0.01);
 }
 
 
@@ -606,17 +606,17 @@ void evaluatePlastic(
         roughness = max(roughness, 0.001);
     }
 
-    float NdotL = max(dot(N, wi), 0.001);
-    float NdotV = max(dot(N, wo), 0.001);
-    float NdotH = max(dot(N, H), 0.001);
-    float VdotH = max(dot(wo, H), 0.001);
+    float NdotL = max(dot(N, wi), 0.05);
+    float NdotV = max(dot(N, wo), 0.05);
+    float NdotH = max(dot(N, H), 0.05);
+    float VdotH = max(dot(wo, H), 0.05);
 
     float D = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, wo, wi, roughness);
     vec3 F = fresnelSchlick(VdotH, Ks);
 
     float pdfDiffuse = max(dot(N, wi), 0.0) / PI;
-    float pdfSpecular = D * NdotH / max(4.0 * VdotH, 1e-5);
+    float pdfSpecular = D * NdotH / max(4.0 * VdotH, 0.01);
     pdf = 0.5 * (pdfDiffuse + pdfSpecular);
 
 
@@ -624,7 +624,7 @@ void evaluatePlastic(
         f = Kd / PI;
     } 
     else if (sampleType == SAMPLE_SPECULAR) {
-        f = (D * G * F) / max(4.0 * NdotV * NdotL, 1e-5);
+        f = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
     } 
     else {
         f = vec3(0.0);
@@ -652,17 +652,17 @@ void evaluateSubstrate(
         roughness = max(roughness, 0.001);
     }
 
-    float NdotL = max(dot(N, wi), 0.001);
-    float NdotV = max(dot(N, wo), 0.001);
-    float NdotH = max(dot(N, H), 0.001);
-    float VdotH = max(dot(wo, H), 0.001);
+    float NdotL = max(dot(N, wi), 0.05);
+    float NdotV = max(dot(N, wo), 0.05);
+    float NdotH = max(dot(N, H), 0.05);
+    float VdotH = max(dot(wo, H), 0.05);
 
     float D = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, wo, wi, roughness);
     vec3 F = fresnelSchlick(VdotH, Ks);
 
     float pdfDiffuse = max(dot(N, wi), 0.0) / PI;
-    float pdfSpecular = D * NdotH / max(4.0 * VdotH, 1e-5);
+    float pdfSpecular = D * NdotH / max(4.0 * VdotH, 0.01);
     pdf = 0.5 * (pdfDiffuse + pdfSpecular);
 
 
@@ -670,7 +670,7 @@ void evaluateSubstrate(
         f = Kd / PI;
     } 
     else if (sampleType == SAMPLE_SPECULAR) {
-        f = (D * G * F) / max(4.0 * NdotV * NdotL, 1e-5);
+        f = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
     } 
     else {
         f = vec3(0.0);
@@ -698,17 +698,17 @@ void evaluateUber(
         roughness = max(roughness, 0.001);
     }
 
-    float NdotL = max(dot(N, wi), 0.001);
-    float NdotV = max(dot(N, wo), 0.001);
-    float NdotH = max(dot(N, H), 0.001);
-    float VdotH = max(dot(wo, H), 0.001);
+    float NdotL = max(dot(N, wi), 0.05);
+    float NdotV = max(dot(N, wo), 0.05);
+    float NdotH = max(dot(N, H), 0.05);
+    float VdotH = max(dot(wo, H), 0.05);
 
     float D = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, wo, wi, roughness);
     vec3 F = fresnelSchlick(VdotH, Ks);
 
     float pdfDiffuse = max(dot(N, wi), 0.0) / PI;
-    float pdfSpecular = D * NdotH / max(4.0 * VdotH, 1e-5);
+    float pdfSpecular = D * NdotH / max(4.0 * VdotH, 0.01);
     pdf = 0.5 * (pdfDiffuse + pdfSpecular);
 
 
@@ -716,7 +716,7 @@ void evaluateUber(
         f = Kd / PI;
     } 
     else if (sampleType == SAMPLE_SPECULAR) {
-        f = (D * G * F) / max(4.0 * NdotV * NdotL, 1e-5);
+        f = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
     } 
     else {
         f = vec3(0.0);
@@ -814,6 +814,7 @@ void main() {
 		if (any(greaterThan(payload.beta, vec3(0.0)))) {
             payload.L += payload.beta * L;
         }
+        // payload.L += payload.beta * L;
 		payload.terminated = true;
 		return;
 	}
@@ -860,7 +861,7 @@ void main() {
 	}
 
 	float cosTheta = max(dot(wi, N), 0.0);
-	payload.beta *= f * cosTheta / max(pdf, 1e-5);
+	payload.beta *= f * cosTheta / max(pdf, 0.01);
 
 	payload.nextOrigin = P + wi * 0.001;
 	payload.nextDir = wi;
