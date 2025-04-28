@@ -143,6 +143,8 @@ private:
 	float m_mouseSensitivity = 0.2f;
 	float m_moveSpeed = 10.0f;
 
+	CameraGPU m_initalCamera;
+
 
 	OptionsGPU m_options;
 

@@ -15,7 +15,7 @@ public:
     ~GuiRenderer();
 
     void newFrame();
-    void render(uint32_t currentFrame, VkCommandBuffer cmd, Scene* scene, std::vector<Model>& modelList, float deltaTime);
+    void render(VkCommandBuffer cmd, float deltaTime, OptionsGPU &options);
     void createViewPortDescriptorSet(std::array<Texture*, 2> textures);
     ImVec2 getViewportSize() const { return m_viewportSize; }
 	bool isBenchmarkRunning() const { return m_benchmarkRunning; }

@@ -186,8 +186,8 @@ layout(set = 0, binding = 0) uniform CameraGPU {
 
 layout(set = 0, binding = 1) uniform OptionsGPU {
     int frameCount;
-    float pad0;
-    float pad1;
+    int sampleCount;
+	int maxSampleCount;
     float pad2;
 } options;
 
@@ -265,8 +265,12 @@ layout(location = 0) rayPayloadEXT RayPayload payload;
 
 void main() {
 
-	if (options.frameCount == 1) {
+	if (options.sampleCount == 0) {
+        imageStore(pongImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
 		imageStore(pingImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
+    }
+	if (options.sampleCount == options.maxSampleCount) {
+		return;
 	}
 
     uvec2 pixel = gl_LaunchIDEXT.xy;
@@ -286,13 +290,13 @@ void main() {
 
 	payload.L = vec3(0.0);
 	payload.beta = vec3(1.0);
-	payload.seed = initRandom(size, pixel, options.frameCount);
+	payload.seed = initRandom(size, pixel, options.frameCount % 1024);
 	payload.depth = 0;
 	payload.terminated = false;
 
 	vec3 origin = camera.camPos;
 
-	for (int i = 0; i < 15; ++i) {
+	for (int i = 0; i < 8; ++i) {
 		payload.depth = i;
 		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0,
 					origin, 0.001, dir, 1e30, 0);
@@ -303,18 +307,14 @@ void main() {
 		dir = payload.nextDir;
 	}
 
-	// vec4 result = vec4(payload.L, 1.0);
-	// vec4 prev = imageLoad(pingImage, ivec2(pixel));
-	// imageStore(pingImage, ivec2(pixel), prev + result);
-
-
 	vec4 result = vec4(payload.L, 1.0);
 	ivec2 ipixel = ivec2(pixel);
-	vec4 prev = imageLoad(pingImage, ipixel);
 
-	float fc = float(options.frameCount);
-	vec4 blended = (prev * (fc - 1.0) + result) / fc;
+	vec4 prev = imageLoad(pongImage, ipixel);
+    vec4 accum = prev + result;
+    imageStore(pongImage, ipixel, accum);
 
-	imageStore(pingImage, ipixel, blended);
-
+    float fc = float(options.sampleCount) + 1.0;
+    vec4 blended = accum / fc;
+    imageStore(pingImage, ipixel, blended);
 }

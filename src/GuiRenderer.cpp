@@ -87,11 +87,12 @@ void GuiRenderer::createDescriptorPool() {
  	ImGui::NewFrame();
  }
 
-void GuiRenderer::render(uint32_t currentFrame, VkCommandBuffer cmd, Scene *scene, std::vector<Model>& modelList, float deltaTime) {
+void GuiRenderer::render(VkCommandBuffer cmd, float deltaTime, OptionsGPU &options) {
      static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 1)); // 완전 검정 배경 (원하면 제거)
 
     ImGuiWindowFlags window_flags =
@@ -118,7 +119,24 @@ void GuiRenderer::render(uint32_t currentFrame, VkCommandBuffer cmd, Scene *scen
 
     ImGui::End();
 
-    ImGui::PopStyleVar(2);
+	{
+		ImGui::SetNextWindowBgAlpha(0.6f);
+		ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+		ImGui::Text("Frame time : %.1f ms", deltaTime * 1000.0f);
+		ImGui::Text("FPS : %.1f", 1.0f / deltaTime);
+		ImGui::Text("Sample count : %d", options.sampleCount);
+
+		// max sample count
+		if (ImGui::InputInt("Max sample count", (int*)&options.maxSampleCount)) {
+			options.maxSampleCount = std::max(1, options.maxSampleCount);
+			options.sampleCount = -1;
+		}
+		ImGui::End();
+	}
+
+
+    ImGui::PopStyleVar(3);
     ImGui::PopStyleColor();
 
     ImGui::Render();

@@ -188,8 +188,8 @@ layout(set = 0, binding = 0) uniform CameraGPU {
 
 layout(set = 0, binding = 1) uniform OptionsGPU {
     int frameCount;
-    float pad0;
-    float pad1;
+    int sampleCount;
+	int maxSampleCount;
     float pad2;
 } options;
 
@@ -259,11 +259,25 @@ const int MATERIAL_SUBSURFACE = 12;
 const int MATERIAL_TRANSLUCENT = 13;
 const int MATERIAL_UBER       = 14;
 
+
+const int SAMPLE_DIFFUSE = 0;
+const int SAMPLE_SPECULAR = 1;
+const int SAMPLE_REFLECT = 2;
+
+const float PI = 3.1415926535;
+
 float rand(inout uint seed) {
     seed ^= seed << 13;
     seed ^= seed >> 17;
     seed ^= seed << 5;
     return float(seed & 0x00ffffffu) / float(0x01000000u);
+}
+
+vec2 sample2D(inout uint seed)
+{
+    float u = rand(seed);
+    float v = rand(seed);
+    return vec2(u, v);
 }
 
 vec3 cosineSampleHemisphere(inout uint seed) {
@@ -467,9 +481,6 @@ float fresnelDielectric(float cosThetaI, float etaI, float etaT) {
     return (rParl * rParl + rPerp * rPerp) * 0.5;
 }
 
-
-const float PI = 3.1415926535;
-
 void evaluateMatte(
 	in MatteGPU matte, in vec3 wo, in vec3 wi, in vec3 N, 
 	out vec3 f, out float pdf) {
@@ -485,7 +496,7 @@ void evaluateMatte(
 }
 
 void evaluateMetal(
-	in MetalGPU metal, in vec3 wo, in vec3 wi, in vec3 N, 
+	in MetalGPU metal, in vec3 wo, in vec3 wi, in vec3 N, in vec3 H,
 	out vec3 f, out float pdf) {
     vec3 eta = metal.eta;
     vec3 k = metal.k;
@@ -503,17 +514,14 @@ void evaluateMetal(
         roughness = max(roughness, 0.001);
     }
 
-    vec3 H = normalize(wi + wo);
-
-    float NdotL = max(dot(N, wi), 0.0);
-    float NdotV = max(dot(N, wo), 0.0);
-    float NdotH = max(dot(N, H), 0.0);
-    float VdotH = max(dot(wo, H), 0.0);
+    float NdotL = max(dot(N, wi), 0.001);
+    float NdotV = max(dot(N, wo), 0.001);
+    float NdotH = max(dot(N, H), 0.001);
+    float VdotH = max(dot(wo, H), 0.001);
 
     float D = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, wo, wi, roughness);
-    vec3 F = fresnelSchlick(VdotH, k);
-	// vec3 F = fresnelConductor(VdotH, eta, k);
+	vec3 F = fresnelConductor(VdotH, eta, k);
 
     f = (D * G * F) / max(4.0 * NdotV * NdotL, 1e-5);
 
@@ -521,7 +529,7 @@ void evaluateMetal(
 }
 
 void evaluateGlass(
-    in GlassGPU glass, in vec3 wo, in vec3 wi, in vec3 N,
+    in GlassGPU glass, in vec3 wo, in vec3 wi, in vec3 N, in vec3 H,
     out vec3 f, out float pdf)
 {
     vec3 Kr = glass.Kr;
@@ -543,12 +551,10 @@ void evaluateGlass(
     if (glass.remaproughness != 0)
         roughness = max(roughness, 0.001);
 
-    vec3 H = normalize(wi + wo);
-
-    float NdotL = max(dot(N, wi), 0.0);
-    float NdotV = max(dot(N, wo), 0.0);
-    float NdotH = max(dot(N, H), 0.0);
-    float VdotH = max(dot(wo, H), 0.0);
+    float NdotL = max(dot(N, wi), 0.001);
+    float NdotV = max(dot(N, wo), 0.001);
+    float NdotH = max(dot(N, H), 0.001);
+    float VdotH = max(dot(wo, H), 0.001);
 
     float D = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, wo, wi, roughness);
@@ -557,7 +563,7 @@ void evaluateGlass(
     vec3 spec = (D * G * Kr * F) / max(4.0 * NdotV * NdotL, 1e-5);
 
     f = spec;
-    pdf = D * NdotH / max(4.0 * VdotH, 1e-5);
+    pdf = D * NdotH / (4.0 * VdotH + 1e-5);
 }
 
 
@@ -580,7 +586,10 @@ void evaluateMirror(in MirrorGPU mirror, in vec3 wo, in vec3 wi, in vec3 N, out 
     }
 }
 
-void evaluatePlastic(in PlasticGPU plastic, in vec3 wo, in vec3 wi, in vec3 N, out vec3 f, out float pdf) {
+void evaluatePlastic(
+    in PlasticGPU plastic, in vec3 wo, in vec3 wi, in vec3 N, in vec3 H,
+    out vec3 f, out float pdf, int sampleType) 
+{
     vec3 Kd = plastic.Kd;
     vec3 Ks = plastic.Ks;
 
@@ -597,27 +606,36 @@ void evaluatePlastic(in PlasticGPU plastic, in vec3 wo, in vec3 wi, in vec3 N, o
         roughness = max(roughness, 0.001);
     }
 
-    vec3 H = normalize(wo + wi);
-
-    float NdotL = max(dot(N, wi), 0.0);
-    float NdotV = max(dot(N, wo), 0.0);
-    float NdotH = max(dot(N, H), 0.0);
-    float VdotH = max(dot(wo, H), 0.0);
+    float NdotL = max(dot(N, wi), 0.001);
+    float NdotV = max(dot(N, wo), 0.001);
+    float NdotH = max(dot(N, H), 0.001);
+    float VdotH = max(dot(wo, H), 0.001);
 
     float D = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, wo, wi, roughness);
     vec3 F = fresnelSchlick(VdotH, Ks);
 
-    vec3 diffuse = Kd / PI;
+    float pdfDiffuse = max(dot(N, wi), 0.0) / PI;
+    float pdfSpecular = D * NdotH / max(4.0 * VdotH, 1e-5);
+    pdf = 0.5 * (pdfDiffuse + pdfSpecular);
 
-    vec3 specular = (D * G * F) / max(4.0 * NdotL * NdotV, 1e-5);
 
-    f = (1.0 - F) * diffuse + specular;
-
-    pdf = max(dot(N, wi), 0.0) / PI;
+    if (sampleType == SAMPLE_DIFFUSE) {
+        f = Kd / PI;
+    } 
+    else if (sampleType == SAMPLE_SPECULAR) {
+        f = (D * G * F) / max(4.0 * NdotV * NdotL, 1e-5);
+    } 
+    else {
+        f = vec3(0.0);
+        pdf = 0.0;
+    }
 }
 
-void evaluateSubstrate(in SubstrateGPU substrate, in vec3 wo, in vec3 wi, in vec3 N, out vec3 f, out float pdf) {
+void evaluateSubstrate(
+    in SubstrateGPU substrate, in vec3 wo, in vec3 wi, in vec3 N, in vec3 H,
+    out vec3 f, out float pdf, int sampleType) 
+{
     vec3 Kd = substrate.Kd;
     vec3 Ks = substrate.Ks;
 
@@ -634,27 +652,36 @@ void evaluateSubstrate(in SubstrateGPU substrate, in vec3 wo, in vec3 wi, in vec
         roughness = max(roughness, 0.001);
     }
 
-    vec3 H = normalize(wi + wo);
-
-    float NdotL = max(dot(N, wi), 0.0);
-    float NdotV = max(dot(N, wo), 0.0);
-    float NdotH = max(dot(N, H), 0.0);
-    float VdotH = max(dot(wo, H), 0.0);
+    float NdotL = max(dot(N, wi), 0.001);
+    float NdotV = max(dot(N, wo), 0.001);
+    float NdotH = max(dot(N, H), 0.001);
+    float VdotH = max(dot(wo, H), 0.001);
 
     float D = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, wo, wi, roughness);
     vec3 F = fresnelSchlick(VdotH, Ks);
 
-    vec3 specular = (D * G * F) / max(4.0 * NdotV * NdotL, 1e-5);
+    float pdfDiffuse = max(dot(N, wi), 0.0) / PI;
+    float pdfSpecular = D * NdotH / max(4.0 * VdotH, 1e-5);
+    pdf = 0.5 * (pdfDiffuse + pdfSpecular);
 
-    vec3 diffuse = (1.0 - F) * (Kd / PI);
 
-    f = diffuse + specular;
-
-    pdf = max(dot(N, wi), 0.0) / PI;
+    if (sampleType == SAMPLE_DIFFUSE) {
+        f = Kd / PI;
+    } 
+    else if (sampleType == SAMPLE_SPECULAR) {
+        f = (D * G * F) / max(4.0 * NdotV * NdotL, 1e-5);
+    } 
+    else {
+        f = vec3(0.0);
+        pdf = 0.0;
+    }
 }
 
-void evaluateUber(in UberGPU uber, in vec3 wo, in vec3 wi, in vec3 N, out vec3 f, out float pdf) {
+void evaluateUber(
+    in UberGPU uber, in vec3 wo, in vec3 wi, in vec3 N, in vec3 H,
+    out vec3 f, out float pdf, int sampleType) 
+{
     vec3 Kd = uber.Kd;
     vec3 Ks = uber.Ks;
 
@@ -671,24 +698,106 @@ void evaluateUber(in UberGPU uber, in vec3 wo, in vec3 wi, in vec3 N, out vec3 f
         roughness = max(roughness, 0.001);
     }
 
-    vec3 H = normalize(wi + wo);
-
-    float NdotL = max(dot(N, wi), 0.0);
-    float NdotV = max(dot(N, wo), 0.0);
-    float NdotH = max(dot(N, H), 0.0);
-    float VdotH = max(dot(wo, H), 0.0);
+    float NdotL = max(dot(N, wi), 0.001);
+    float NdotV = max(dot(N, wo), 0.001);
+    float NdotH = max(dot(N, H), 0.001);
+    float VdotH = max(dot(wo, H), 0.001);
 
     float D = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, wo, wi, roughness);
     vec3 F = fresnelSchlick(VdotH, Ks);
 
-    vec3 specular = (D * G * F) / max(4.0 * NdotV * NdotL, 1e-5);
+    float pdfDiffuse = max(dot(N, wi), 0.0) / PI;
+    float pdfSpecular = D * NdotH / max(4.0 * VdotH, 1e-5);
+    pdf = 0.5 * (pdfDiffuse + pdfSpecular);
 
-    vec3 diffuse = (1.0 - F) * (Kd / PI);
 
-    f = diffuse + specular;
+    if (sampleType == SAMPLE_DIFFUSE) {
+        f = Kd / PI;
+    } 
+    else if (sampleType == SAMPLE_SPECULAR) {
+        f = (D * G * F) / max(4.0 * NdotV * NdotL, 1e-5);
+    } 
+    else {
+        f = vec3(0.0);
+        pdf = 0.0;
+    }
+}
 
-    pdf = max(dot(N, wi), 0.0) / PI;
+float getRoughness(int matType, int matIndex) {
+    float roughness = 0.5;
+    if (matType == MATERIAL_METAL) {
+        MetalGPU metal = metals[matIndex];
+        roughness = metal.uroughness;
+        if (metal.remaproughness != 0)
+            roughness = max(roughness, 0.001);
+    }
+    else if (matType == MATERIAL_GLASS) {
+        GlassGPU glass = glasses[matIndex];
+        roughness = glass.uroughness;
+        if (glass.remaproughness != 0)
+            roughness = max(roughness, 0.001);
+    }
+    else if (matType == MATERIAL_PLASTIC) {
+        PlasticGPU plastic = plastics[matIndex];
+        roughness = plastic.roughness;
+        if (plastic.remaproughness != 0)
+            roughness = max(roughness, 0.001);
+    }
+    else if (matType == MATERIAL_SUBSTRATE) {
+        SubstrateGPU sub = substrates[matIndex];
+        roughness = sub.uroughness;
+        if (sub.remaproughness != 0)
+            roughness = max(roughness, 0.001);
+    }
+    else if (matType == MATERIAL_UBER) {
+        UberGPU uber = ubers[matIndex];
+        roughness = uber.uroughness;
+        if (uber.remaproughness != 0)
+            roughness = max(roughness, 0.001);
+    }
+    return roughness;
+}
+
+void sampleDirection(
+    int matType, float roughness, inout uint seed, vec3 N, vec3 wo,
+    out vec3 H, out vec3 wi, out int sampleType) 
+{
+    vec3 localWi;
+
+    if (matType == MATERIAL_MATTE) {
+        localWi = cosineSampleHemisphere(seed);
+        wi = toWorld(localWi, N);
+        sampleType = SAMPLE_DIFFUSE;
+    }
+    else if (matType == MATERIAL_METAL || matType == MATERIAL_GLASS) {
+        vec2 Xi = sample2D(seed);
+        H = importanceSampleGGX(Xi, N, roughness);
+        wi = normalize(reflect(-wo, H));
+        sampleType = SAMPLE_SPECULAR;
+    }
+    else if (matType == MATERIAL_MIRROR) {
+        wi = reflect(-wo, N);
+        sampleType = SAMPLE_SPECULAR;
+    }
+    else if (matType == MATERIAL_UBER || matType == MATERIAL_SUBSTRATE || matType == MATERIAL_PLASTIC) {
+        float select = rand(seed);
+        if (select < 0.5) {
+            localWi = cosineSampleHemisphere(seed);
+            wi = toWorld(localWi, N);
+            sampleType = SAMPLE_DIFFUSE;
+        } else {
+            vec2 Xi = sample2D(seed);
+            H = importanceSampleGGX(Xi, N, roughness);
+            wi = normalize(reflect(-wo, H));
+            sampleType = SAMPLE_SPECULAR;
+        }
+    }
+    else {
+        localWi = cosineSampleHemisphere(seed);
+        wi = toWorld(localWi, N);
+        sampleType = SAMPLE_DIFFUSE;
+    }
 }
 
 
@@ -717,34 +826,37 @@ void main() {
 
 	MaterialGPU mat = materials[matIdx];
     int matType = mat.type;
-
-	vec3 wi = cosineSampleHemisphere(payload.seed);
-	wi = toWorld(wi, N);
+    float roughness = getRoughness(matType, mat.index);
+    vec3 wi = vec3(0.0);
+    int sampleType = SAMPLE_DIFFUSE;
+    vec3 H = vec3(0.0);
+    sampleDirection(matType, roughness, payload.seed, N, wo, H, wi, sampleType); // out H, wi, sampleType
 
 	vec3 f = vec3(0.0);
 	float pdf = 1.0;
 
+    // get f, pdf
 	if (matType == MATERIAL_MATTE){
 		evaluateMatte(mattes[mat.index], wo, wi, N, f, pdf);
 	}
 	else if (matType == MATERIAL_METAL){
-		evaluateMetal(metals[mat.index], wo, wi, N, f, pdf);
+		evaluateMetal(metals[mat.index], wo, wi, N, H, f, pdf);
 	}
 	else if (matType == MATERIAL_GLASS){
-		evaluateGlass(glasses[mat.index], wo, wi, N, f, pdf);
+		evaluateGlass(glasses[mat.index], wo, wi, N, H, f, pdf);
 	}
 	else if (matType == MATERIAL_MIRROR){
 		wi = reflect(-wo, N);
 		evaluateMirror(mirrors[mat.index], wo, wi, N, f, pdf);
 	}
 	else if (matType == MATERIAL_PLASTIC){
-		evaluatePlastic(plastics[mat.index], wo, wi, N, f, pdf);
+		evaluatePlastic(plastics[mat.index], wo, wi, N, H, f, pdf, sampleType);
 	}
 	else if (matType == MATERIAL_SUBSTRATE){
-		evaluateSubstrate(substrates[mat.index], wo, wi, N, f, pdf);
+		evaluateSubstrate(substrates[mat.index], wo, wi, N, H, f, pdf, sampleType);
 	}
 	else if (matType == MATERIAL_UBER){
-		evaluateUber(ubers[mat.index], wo, wi, N, f, pdf);
+		evaluateUber(ubers[mat.index], wo, wi, N, H, f, pdf, sampleType);
 	}
 
 	float cosTheta = max(dot(wi, N), 0.0);

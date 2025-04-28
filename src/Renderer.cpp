@@ -447,7 +447,7 @@ void Renderer::loadScene(std::string scenePath) {
 	m_camera.camRight = glm::normalize(glm::cross(m_camera.camDir, worldUp));
 	m_camera.camUp = glm::normalize(glm::cross(m_camera.camRight, m_camera.camDir));
 
-
+	m_initalCamera = m_camera;
 	// scene size
 	// std::cout << "shape size: " << m_pbrtScene->shapes.size() << std::endl;
 	// std::cout << "material size: " << m_pbrtScene->materials.size() << std::endl;
@@ -497,7 +497,6 @@ void Renderer::update(float deltaTime) {
 		direction.z = sin(glm::radians(m_yaw)) * cos(glm::radians(m_pitch));
 		m_camera.camDir = glm::normalize(direction);
 
-		// ✨ 여기 추가
 		glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
 		m_camera.camRight = glm::normalize(glm::cross(m_camera.camDir, worldUp));
 		m_camera.camUp = glm::normalize(glm::cross(m_camera.camRight, m_camera.camDir));
@@ -516,13 +515,22 @@ void Renderer::update(float deltaTime) {
 	if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) move -= m_camera.camUp;
 	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) move += m_camera.camUp;
 
+	if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
+		m_camera.camPos = m_initalCamera.camPos;
+		m_camera.camDir = m_initalCamera.camDir;
+		m_camera.camUp = m_initalCamera.camUp;
+		m_camera.camRight = m_initalCamera.camRight;
+		m_pitch = glm::degrees(asin(m_camera.camDir.y));
+		m_yaw = glm::degrees(atan2(m_camera.camDir.z, m_camera.camDir.x));
+	}
+
 	if (glm::length(move) > 0.0f) {
 		move = glm::normalize(move);
 		m_camera.camPos += move * m_moveSpeed * deltaTime;
 	}
 
 	if (m_camera.camPos != prevCamPos || m_camera.camDir != prevCamDir) {
-		m_options.frameCount = 0;
+		m_options.sampleCount = -1;
 	}
 }
 
@@ -562,6 +570,10 @@ void Renderer::render(float deltaTime) {
 	// start record
 
 	m_options.frameCount = m_options.frameCount + 1;
+	m_options.sampleCount = m_options.sampleCount + 1;
+	if (m_options.sampleCount >= m_options.maxSampleCount) {
+		m_options.sampleCount = m_options.maxSampleCount;
+	}
 	m_optionsBuffer->updateUniformBuffer(&m_options, sizeof(OptionsGPU));
 	m_cameraBuffer->updateUniformBuffer(&m_camera, sizeof(CameraGPU));
 	
@@ -736,7 +748,7 @@ void Renderer::recordImGuiCommandBuffer(uint32_t imageIndex, float deltaTime) {
 
 	vkCmdBeginRenderPass(m_commandBuffers->getCommandBuffers()[currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 	m_guiRenderer->newFrame();
-	m_guiRenderer->render(m_options.frameCount % 2, m_commandBuffers->getCommandBuffers()[currentFrame], m_scene.get(), m_modelList, deltaTime);
+	m_guiRenderer->render(m_commandBuffers->getCommandBuffers()[currentFrame], deltaTime, m_options);
 	vkCmdEndRenderPass(m_commandBuffers->getCommandBuffers()[currentFrame]);
 }
 
