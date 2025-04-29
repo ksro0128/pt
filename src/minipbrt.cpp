@@ -3717,27 +3717,46 @@ namespace minipbrt {
       xyz[2] += Z[i] * Le;
     }
 
-    // float scale = blackbody[1] * float(sampledLambdaEnd - sampledLambdaStart) / float(CIE_Y_integral * nSpectralSamples);
-    // xyz[0] *= scale;
-    // xyz[1] *= scale;
-    // xyz[2] *= scale;
+    float scale = blackbody[1] * float(sampledLambdaEnd - sampledLambdaStart) / float(CIE_Y_integral * nSpectralSamples);
+    xyz[0] *= scale;
+    xyz[1] *= scale;
+    xyz[2] *= scale;
 
-    float Y = xyz[1];
-    if (Y > 0.0f) {
-        float scale = blackbody[1] / Y;
-        xyz[0] *= scale;
-        xyz[1] *= scale;
-        xyz[2] *= scale;
-    }
+    // float Y = xyz[1];
+    // if (Y > 0.0f) {
+    //     float scale = blackbody[1] / Y;
+    //     xyz[0] *= scale;
+    //     xyz[1] *= scale;
+    //     xyz[2] *= scale;
+    // }
 
   }
-
 
   static void blackbody_to_rgb(const float blackbody[2], float rgb[3])
   {
     float xyz[3];
     blackbody_to_xyz(blackbody, xyz);
     xyz_to_rgb(xyz, rgb);
+
+    
+    float exposure = 1.0 / 1e+12f;
+
+    rgb[0] = rgb[0] * exposure;
+    rgb[1] = rgb[1] * exposure;
+    rgb[2] = rgb[2] * exposure;
+
+    float mappedL[3];
+    mappedL[0] = rgb[0] / (rgb[0] + 1.0f);
+    mappedL[1] = rgb[1] / (rgb[1] + 1.0f);
+    mappedL[2] = rgb[2] / (rgb[2] + 1.0f);
+
+    rgb[0] = std::pow(mappedL[0], 1.0f / 2.2f);
+    rgb[1] = std::pow(mappedL[1], 1.0f / 2.2f);
+    rgb[2] = std::pow(mappedL[2], 1.0f / 2.2f);
+
+    rgb[0] *= blackbody[1];
+    rgb[1] *= blackbody[1];
+    rgb[2] *= blackbody[1];
   }
 
 

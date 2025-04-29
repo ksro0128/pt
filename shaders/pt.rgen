@@ -290,7 +290,7 @@ void main() {
 
 	payload.L = vec3(0.0);
 	payload.beta = vec3(1.0);
-	payload.seed = initRandom(size, pixel, options.frameCount % 1024);
+	payload.seed = initRandom(size, pixel, options.frameCount);
 	payload.depth = 0;
 	payload.terminated = false;
 

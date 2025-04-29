@@ -369,7 +369,6 @@ void Renderer::loadScene(std::string scenePath) {
 		areaLight.L.r = diffuseAreaLight->L[0];
 		areaLight.L.g = diffuseAreaLight->L[1];
 		areaLight.L.b = diffuseAreaLight->L[2];
-
 		areaLight.twosided = diffuseAreaLight->twosided ? 1 : 0;
 		areaLight.samples = diffuseAreaLight->samples;
 		m_areaLightList.push_back(areaLight);
@@ -404,11 +403,16 @@ void Renderer::loadScene(std::string scenePath) {
 					vertices[i].pos.y = mesh->P[3 * i + 1];
 					vertices[i].pos.z = mesh->P[3 * i + 2];
 				}
+
+				vertices[i].normal.x = mesh->N[3 * i + 0];
+				vertices[i].normal.y = mesh->N[3 * i + 1];
+				vertices[i].normal.z = mesh->N[3 * i + 2];
 				if (mesh->N != nullptr) {
 					vertices[i].normal.x = mesh->N[3 * i + 0];
 					vertices[i].normal.y = mesh->N[3 * i + 1];
 					vertices[i].normal.z = mesh->N[3 * i + 2];
 				}
+
 				if (mesh->S != nullptr) {
 					vertices[i].tangent.x = mesh->S[3 * i + 0];
 					vertices[i].tangent.y = mesh->S[3 * i + 1];
@@ -435,7 +439,9 @@ void Renderer::loadScene(std::string scenePath) {
 			std::cout << "Unknown Shape" << static_cast<int>(shape->type()) << std::endl;
 		}
 	}
-	std::vector<int> idx = {52, 67, 13, 16, 51, 8, 34, 25, 31, 14, 15};
+	// std::vector<int> idx = {52, 67, 13, 16, 51, 8, 34, 25, 31, 14, 15};
+	
+	std::vector<int> idx = {51, 52, 59, 67};
 	for (int i = 0; i < idx.size(); i++) {
 		m_shapeList[idx[i]].reverseOrientation = 1;
 	}
@@ -1098,4 +1104,14 @@ void Renderer::updateInitialBuffers() {
 	m_substrateBuffer->updateStorageBuffer(&m_substrateList[0], sizeof(SubstrateGPU) * m_substrateList.size());
 	m_plasticBuffer->updateStorageBuffer(&m_plasticList[0], sizeof(PlasticGPU) * m_plasticList.size());
 	m_areaLightBuffer->updateStorageBuffer(&m_areaLightList[0], sizeof(AreaLightGPU) * m_areaLightList.size());
+}
+
+glm::vec3 Renderer::Uncharted2Tonemap(glm::vec3 x) {
+    const float A = 0.15f;
+    const float B = 0.50f;
+    const float C = 0.10f;
+    const float D = 0.20f;
+    const float E = 0.02f;
+    const float F = 0.30f;
+    return ((x*(A*x+C*B)+D*E)/(x*(A*x+B)+D*F)) - E/F;
 }

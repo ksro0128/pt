@@ -298,6 +298,10 @@ vec3 toWorld(vec3 localDir, vec3 N) {
     return localDir.x * T + localDir.y * B + localDir.z * N;
 }
 
+float maxComponent(vec3 v) {
+    return max(v.x, max(v.y, v.z));
+}
+
 struct Vertex {
     vec3 pos; float pad0;
     vec3 normal; float pad1;
@@ -331,6 +335,7 @@ void computeHitNormal(inout vec3 N, out vec3 pos) {
     vec2 uv = v0.texCoord * w + v1.texCoord * u + v2.texCoord * v;
 
 	mat4 model = shape.modelMatrix;
+    // model[0][0] *= -1;
 
 	vec3 localNormal = normalize(v0.normal * w + v1.normal * u + v2.normal * v);
 	mat3 normalMatrix = transpose(inverse(mat3(model)));
@@ -361,7 +366,7 @@ vec2 getUV() {
     float w = 1.0 - u - v;
     vec2 uv = v0.texCoord * w + v1.texCoord * u + v2.texCoord * v;
 
-	// return uv;
+    // return uv;
 	return vec2(uv.x, 1.0 - uv.y);
 }
 
@@ -617,19 +622,11 @@ void evaluatePlastic(
 
     float pdfDiffuse = max(dot(N, wi), 0.0) / PI;
     float pdfSpecular = D * NdotH / max(4.0 * VdotH, 0.01);
-    pdf = 0.5 * (pdfDiffuse + pdfSpecular);
+    vec3 diffusef = Kd / PI;
+    vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
 
-
-    if (sampleType == SAMPLE_DIFFUSE) {
-        f = Kd / PI;
-    } 
-    else if (sampleType == SAMPLE_SPECULAR) {
-        f = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
-    } 
-    else {
-        f = vec3(0.0);
-        pdf = 0.0;
-    }
+    f = (1 - F) * diffusef + F * specularf;
+    pdf = (1 - maxComponent(F)) * pdfDiffuse + maxComponent(F) * pdfSpecular;
 }
 
 void evaluateSubstrate(
@@ -663,19 +660,11 @@ void evaluateSubstrate(
 
     float pdfDiffuse = max(dot(N, wi), 0.0) / PI;
     float pdfSpecular = D * NdotH / max(4.0 * VdotH, 0.01);
-    pdf = 0.5 * (pdfDiffuse + pdfSpecular);
+    vec3 diffusef = Kd / PI;
+    vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
 
-
-    if (sampleType == SAMPLE_DIFFUSE) {
-        f = Kd / PI;
-    } 
-    else if (sampleType == SAMPLE_SPECULAR) {
-        f = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
-    } 
-    else {
-        f = vec3(0.0);
-        pdf = 0.0;
-    }
+    f = (1 - F) * diffusef + F * specularf;
+    pdf = (1 - maxComponent(F)) * pdfDiffuse + maxComponent(F) * pdfSpecular;
 }
 
 void evaluateUber(
@@ -709,19 +698,12 @@ void evaluateUber(
 
     float pdfDiffuse = max(dot(N, wi), 0.0) / PI;
     float pdfSpecular = D * NdotH / max(4.0 * VdotH, 0.01);
-    pdf = 0.5 * (pdfDiffuse + pdfSpecular);
 
+    vec3 diffusef = Kd / PI;
+    vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
 
-    if (sampleType == SAMPLE_DIFFUSE) {
-        f = Kd / PI;
-    } 
-    else if (sampleType == SAMPLE_SPECULAR) {
-        f = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
-    } 
-    else {
-        f = vec3(0.0);
-        pdf = 0.0;
-    }
+    f = (1 - F) * diffusef + F * specularf;
+    pdf = (1 - maxComponent(F)) * pdfDiffuse + maxComponent(F) * pdfSpecular;
 }
 
 float getRoughness(int matType, int matIndex) {
@@ -863,6 +845,9 @@ void main() {
 	float cosTheta = max(dot(wi, N), 0.0);
 	payload.beta *= f * cosTheta / max(pdf, 0.01);
 
+    // if (any(isnan(payload.beta))) {
+    //     payload.beta = vec3(0.0, 111110.0, 0.0);
+    // }
 	payload.nextOrigin = P + wi * 0.001;
 	payload.nextDir = wi;
 	payload.terminated = false;
