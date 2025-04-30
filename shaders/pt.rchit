@@ -332,7 +332,6 @@ void computeHitNormal(inout vec3 N, out vec3 pos) {
 	float u = attribs.x;
     float v = attribs.y;
     float w = 1.0 - u - v;
-    vec2 uv = v0.texCoord * w + v1.texCoord * u + v2.texCoord * v;
 
 	mat4 model = shape.modelMatrix;
     // model[0][0] *= -1;
@@ -341,12 +340,12 @@ void computeHitNormal(inout vec3 N, out vec3 pos) {
 	mat3 normalMatrix = transpose(inverse(mat3(model)));
 	N = normalize(normalMatrix * localNormal);
 
-	if (shape.reverseOrientation == 1) {
-		N = -N;
-	}
-
     // compute hit position
 	pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
+
+    if (dot(N, gl_WorldRayDirectionEXT) > 0.0) {
+        N = normalize(-N);
+    }
 }
 
 
@@ -376,7 +375,8 @@ vec3 importanceSampleGGX(vec2 Xi, vec3 N, float roughness)
     float alpha2 = alpha * alpha;
 	
     float phi = 2.0 * 3.1415926535 * Xi.x;
-    float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (alpha2 - 1.0) * Xi.y));
+    float y = clamp(Xi.y, 0.0, 1.0 - 1e-6);
+    float cosTheta = sqrt((1.0 - y) / (1.0 + (alpha2 - 1.0) * y));
     float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
 	
     vec3 H;
@@ -392,10 +392,11 @@ vec3 importanceSampleGGX(vec2 Xi, vec3 N, float roughness)
     return normalize(sampleVec);
 }
 
+
 float distributionGGX(vec3 N, vec3 H, float roughness) {
-    float a = roughness * roughness;
+    float a = max(roughness * roughness, 0.01);
     float a2 = a * a;
-    float NdotH = max(dot(N, H), 0.0);
+    float NdotH = max(dot(N, H), 0.01);
     float NdotH2 = NdotH * NdotH;
     float denominator = (NdotH2 * (a2 - 1.0) + 1.0);
     return a2 / (3.14159265359 * denominator * denominator);
@@ -403,25 +404,27 @@ float distributionGGX(vec3 N, vec3 H, float roughness) {
 
 float ggxPdf(vec3 N, vec3 H, vec3 V, float roughness) {
     float D = distributionGGX(N, H, roughness);
-    float NdotH = max(dot(N, H), 0.0);
-    float VdotH = max(dot(V, H), 0.0);
+    float NdotH = max(dot(N, H), 0.01);
+    float VdotH = max(dot(V, H), 0.01);
     return D * NdotH / (4.0 * VdotH + 1e-5); // pdf = D(h) * (N⋅H) / (4 * (V⋅H))
 }
 
 // Fresnel-Schlick Approximation
 vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+    cosTheta = clamp(cosTheta, 0.0, 1.0);
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
 // Geometry Function
 float geometrySchlickGGX(float NdotV, float roughness) {
+    roughness = max(roughness, 0.01);
     float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
     return NdotV / (NdotV * (1.0 - k) + k);
 }
 
 float geometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
-    float NdotV = max(dot(N, V), 0.0);
-    float NdotL = max(dot(N, L), 0.0);
+    float NdotV = max(dot(N, V), 0.01);
+    float NdotL = max(dot(N, L), 0.01);
     return geometrySchlickGGX(NdotV, roughness) * geometrySchlickGGX(NdotL, roughness);
 }
 
@@ -450,7 +453,7 @@ vec3 fresnelConductor(float cosTheta, vec3 eta, vec3 k) {
     float cos2Theta = cosTheta * cosTheta;
 
     vec3 t0 = eta2 - k2 - vec3(1.0);
-    vec3 a2plusb2 = sqrt(t0 * t0 + 4.0 * eta2 * k2);
+    vec3 a2plusb2 = sqrt(max(t0 * t0 + 4.0 * eta2 * k2, vec3(1e-2)));
     vec3 t1 = a2plusb2 + vec3(cos2Theta);
     vec3 t2 = (a2plusb2 * cos2Theta) + vec3(1.0);
 
@@ -462,29 +465,27 @@ vec3 fresnelConductor(float cosTheta, vec3 eta, vec3 k) {
 
 float fresnelDielectric(float cosThetaI, float etaI, float etaT) {
     cosThetaI = clamp(cosThetaI, -1.0, 1.0);
-
     bool entering = cosThetaI > 0.0;
-    if (!entering) {
-        float temp = etaI;
-        etaI = etaT;
-        etaT = temp;
-        cosThetaI = abs(cosThetaI);
-    }
+    float ei = entering ? etaI : etaT;
+    float et = entering ? etaT : etaI;
+
+    if (abs(ei - et) < 1e-5) return 0.0;
 
     float sinThetaI = sqrt(max(0.0, 1.0 - cosThetaI * cosThetaI));
-    float sinThetaT = etaI / etaT * sinThetaI;
+    float sinThetaT = ei / et * sinThetaI;
 
-    if (sinThetaT >= 1.0) {
-        return 1.0;
-    }
+    if (sinThetaT >= 1.0) return 1.0; // 전반사
 
     float cosThetaT = sqrt(max(0.0, 1.0 - sinThetaT * sinThetaT));
-    float rParl = ((etaT * cosThetaI) - (etaI * cosThetaT)) /
-                  ((etaT * cosThetaI) + (etaI * cosThetaT));
-    float rPerp = ((etaI * cosThetaI) - (etaT * cosThetaT)) /
-                  ((etaI * cosThetaI) + (etaT * cosThetaT));
-    return (rParl * rParl + rPerp * rPerp) * 0.5;
+
+    float Rparl = ((et * cosThetaI) - (ei * cosThetaT)) /
+                  ((et * cosThetaI) + (ei * cosThetaT));
+    float Rperp = ((ei * cosThetaI) - (et * cosThetaT)) /
+                  ((ei * cosThetaI) + (et * cosThetaT));
+
+    return 0.5 * (Rparl * Rparl + Rperp * Rperp);
 }
+
 
 void evaluateMatte(
 	in MatteGPU matte, in vec3 wo, in vec3 wi, in vec3 N, 
@@ -500,66 +501,128 @@ void evaluateMatte(
     pdf = max(dot(N, wi), 0.0) / PI;
 }
 
-void evaluateMetal(
-	in MetalGPU metal, in vec3 wo, in vec3 wi, in vec3 N, in vec3 H,
-	out vec3 f, out float pdf) {
+
+void sampleMatte(
+    in MatteGPU matte, in vec3 wo, in vec3 N, inout uint seed,
+    out vec3 wi, out vec3 f, out float pdf)
+{
+    vec3 localWi = cosineSampleHemisphere(seed);
+    wi = toWorld(localWi, N);
+
+    vec3 Kd = matte.Kd;
+    if (matte.KdIdx >= 0) {
+        vec2 uv = getUV();
+        Kd = texture(textures[matte.KdIdx], uv).rgb;
+    }
+    f = Kd / PI;
+    pdf = max(dot(N, wi), 0.0) / PI;
+}
+
+void sampleMetal(
+    in MetalGPU metal, in vec3 wo, in vec3 N, inout uint seed,
+    out vec3 wi, out vec3 f, out float pdf)
+{
+    float roughness = metal.uroughness;
+    if (metal.remaproughness != 0)
+        roughness = max(roughness, 0.01);
+
+    vec2 Xi = sample2D(seed);
+    vec3 H = importanceSampleGGX(Xi, N, roughness);
+    wi = normalize(reflect(-wo, H));
+
     vec3 eta = metal.eta;
     vec3 k = metal.k;
 
-	vec2 uv = getUV();
     if (metal.etaIdx != -1) {
+        vec2 uv = getUV();
         eta = texture(textures[metal.etaIdx], uv).rgb;
     }
     if (metal.kIdx != -1) {
+        vec2 uv = getUV();
         k = texture(textures[metal.kIdx], uv).rgb;
     }
 
-    float roughness = metal.uroughness;
-    if (metal.remaproughness != 0) {
-        roughness = max(roughness, 0.001);
-    }
-
-    float NdotL = max(dot(N, wi), 0.05);
-    float NdotV = max(dot(N, wo), 0.05);
-    float NdotH = max(dot(N, H), 0.05);
-    float VdotH = max(dot(wo, H), 0.05);
+    float NdotL = max(dot(N, wi), 0.01);
+    float NdotV = max(dot(N, wo), 0.01);
+    float NdotH = max(dot(N, H), 0.01);
+    float VdotH = max(dot(wo, H), 0.01);
 
     float D = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, wo, wi, roughness);
 	vec3 F = fresnelConductor(VdotH, eta, k);
 
     f = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
-
     pdf = D * NdotH / (4.0 * VdotH + 0.01);
 }
 
-void evaluateGlass(
-    in GlassGPU glass, in vec3 wo, in vec3 wi, in vec3 N, in vec3 H,
-    out vec3 f, out float pdf)
+
+
+void evaluateMetal(
+	in MetalGPU metal, in vec3 wo, in vec3 wi, in vec3 N, in vec3 H,
+	out vec3 f, out float pdf) {
+    vec3 eta = metal.eta;
+    vec3 k = metal.k;
+
+    if (metal.etaIdx != -1) {
+        vec2 uv = getUV();
+        eta = texture(textures[metal.etaIdx], uv).rgb;
+    }
+    if (metal.kIdx != -1) {
+        vec2 uv = getUV();
+        k = texture(textures[metal.kIdx], uv).rgb;
+    }
+
+    float roughness = metal.uroughness;
+    if (metal.remaproughness != 0) {
+        roughness = max(roughness, 0.01);
+    }
+
+    float NdotL = max(dot(N, wi), 0.01);
+    float NdotV = max(dot(N, wo), 0.01);
+    float NdotH = max(dot(N, H), 0.01);
+    float VdotH = max(dot(wo, H), 0.01);
+
+    float D = distributionGGX(N, H, roughness);
+    float G = geometrySmith(N, wo, wi, roughness);
+	vec3 F = fresnelConductor(VdotH, eta, k);
+
+    f = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
+    pdf = D * NdotH / (4.0 * VdotH + 0.01);
+}
+
+void sampleGlass(
+    in GlassGPU glass, in vec3 wo, in vec3 N, inout uint seed,
+    out vec3 wi, out vec3 f, out float pdf)
 {
+    float roughness = glass.uroughness;
+    if (glass.remaproughness != 0)
+        roughness = max(roughness, 0.01);
+
+    vec2 Xi = sample2D(seed);
+    vec3 H = importanceSampleGGX(Xi, N, roughness);
+    wi = normalize(reflect(-wo, H));
+
     vec3 Kr = glass.Kr;
     vec3 Kt = glass.Kt;
     float eta = glass.eta;
 
-	vec2 uv = getUV();
     if (glass.KrIdx != -1) {
+        vec2 uv = getUV();
         Kr = texture(textures[glass.KrIdx], uv).rgb;
     }
     if (glass.KtIdx != -1) {
+        vec2 uv = getUV();
         Kt = texture(textures[glass.KtIdx], uv).rgb;
     }
     if (glass.etaIdx != -1) {
+        vec2 uv = getUV();
         eta = texture(textures[glass.etaIdx], uv).r;
     }
 
-    float roughness = glass.uroughness;
-    if (glass.remaproughness != 0)
-        roughness = max(roughness, 0.001);
-
-    float NdotL = max(dot(N, wi), 0.05);
-    float NdotV = max(dot(N, wo), 0.05);
-    float NdotH = max(dot(N, H), 0.05);
-    float VdotH = max(dot(wo, H), 0.05);
+    float NdotL = max(dot(N, wi), 0.01);
+    float NdotV = max(dot(N, wo), 0.01);
+    float NdotH = max(dot(N, H), 0.01);
+    float VdotH = max(dot(wo, H), 0.01);
 
     float D = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, wo, wi, roughness);
@@ -569,6 +632,72 @@ void evaluateGlass(
 
     f = spec;
     pdf = D * NdotH / (4.0 * VdotH + 0.01);
+}
+
+
+
+void evaluateGlass(
+    in GlassGPU glass, in vec3 wo, in vec3 wi, in vec3 N, in vec3 H,
+    out vec3 f, out float pdf)
+{
+    vec3 Kr = glass.Kr;
+    vec3 Kt = glass.Kt;
+    float eta = glass.eta;
+
+    if (glass.KrIdx != -1) {
+        vec2 uv = getUV();
+        Kr = texture(textures[glass.KrIdx], uv).rgb;
+    }
+    if (glass.KtIdx != -1) {
+        vec2 uv = getUV();
+        Kt = texture(textures[glass.KtIdx], uv).rgb;
+    }
+    if (glass.etaIdx != -1) {
+        vec2 uv = getUV();
+        eta = texture(textures[glass.etaIdx], uv).r;
+    }
+
+    float roughness = glass.uroughness;
+    if (glass.remaproughness != 0)
+        roughness = max(roughness, 0.01);
+
+    float NdotL = max(dot(N, wi), 0.01);
+    float NdotV = max(dot(N, wo), 0.01);
+    float NdotH = max(dot(N, H), 0.01);
+    float VdotH = max(dot(wo, H), 0.01);
+
+    float D = distributionGGX(N, H, roughness);
+    float G = geometrySmith(N, wo, wi, roughness);
+    float F = fresnelDielectric(VdotH, 1.0, eta);
+
+    vec3 spec = (D * G * Kr * F) / max(4.0 * NdotV * NdotL, 0.01);
+
+    f = spec;
+    pdf = D * NdotH / (4.0 * VdotH + 0.01);
+}
+
+void sampleMirror(
+    in MirrorGPU mirror, in vec3 wo, in vec3 N, inout uint seed,
+    out vec3 wi, out vec3 f, out float pdf)
+{
+    wi = reflect(-wo, N);
+
+    vec3 Kr = mirror.Kr;
+
+    if (mirror.KrIdx != -1) {
+        vec2 uv = getUV();
+        Kr = texture(textures[mirror.KrIdx], uv).rgb;
+    }
+
+    float NdotL = max(dot(N, wi), 0.0);
+
+    if (NdotL > 0.0) {
+        f = Kr / NdotL;
+        pdf = 1.0;
+    } else {
+        f = vec3(0.0);
+        pdf = 0.0;
+    }
 }
 
 
@@ -591,6 +720,66 @@ void evaluateMirror(in MirrorGPU mirror, in vec3 wo, in vec3 wi, in vec3 N, out 
     }
 }
 
+
+void samplePlastic(
+    in PlasticGPU plastic, in vec3 wo, in vec3 N, inout uint seed,
+    out vec3 wi, out vec3 f, out float pdf)
+{
+    float roughness = plastic.roughness;
+    if (plastic.remaproughness != 0)
+        roughness = max(roughness, 0.01);
+
+    vec3 Kd = plastic.Kd;
+    vec3 Ks = plastic.Ks;
+
+    if (plastic.KdIdx != -1) {
+        vec2 uv = getUV();
+        Kd = texture(textures[plastic.KdIdx], uv).rgb;
+    }
+    if (plastic.KsIdx != -1) {
+        vec2 uv = getUV();
+        Ks = texture(textures[plastic.KsIdx], uv).rgb;
+    }
+
+    vec3 F0 = Ks;
+    vec3 Favg = F0 + (1.0 - F0) * 0.66; // 좀 더 알아볼 것
+
+    float wSpecular = clamp(maxComponent(Favg), 0.0, 0.95);
+    float wDiffuse = 1.0 - wSpecular;
+
+    float select = rand(seed);
+    vec3 H = vec3(0.0);
+    if (select < wDiffuse) {
+        vec3 localWi = cosineSampleHemisphere(seed);
+        wi = toWorld(localWi, N);
+        H = normalize(wo + wi);
+    }
+    else {
+        vec2 Xi = sample2D(seed);
+        H = importanceSampleGGX(Xi, N, roughness);
+        wi = normalize(reflect(-wo, H));
+    }
+
+    float NdotL = max(dot(N, wi), 0.01);
+    float NdotV = max(dot(N, wo), 0.01);
+    float NdotH = max(dot(N, H), 0.01);
+    float VdotH = max(dot(wo, H), 0.01);
+
+    float D = distributionGGX(N, H, roughness);
+    float G = geometrySmith(N, wo, wi, roughness);
+    vec3 F = fresnelSchlick(VdotH, Ks);
+
+    float pdfDiffuse = NdotL / PI;
+    float pdfSpecular = D * NdotH / (4.0 * VdotH);
+
+    vec3 diffusef = Kd / PI;
+    vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
+
+    f = (1.0 - F) * diffusef + F * specularf;
+    pdf = (1 - maxComponent(F)) * pdfDiffuse + maxComponent(F) * pdfSpecular;
+}
+
+
 void evaluatePlastic(
     in PlasticGPU plastic, in vec3 wo, in vec3 wi, in vec3 N, in vec3 H,
     out vec3 f, out float pdf, int sampleType) 
@@ -598,11 +787,12 @@ void evaluatePlastic(
     vec3 Kd = plastic.Kd;
     vec3 Ks = plastic.Ks;
 
-	vec2 uv = getUV();
     if (plastic.KdIdx != -1) {
+        vec2 uv = getUV();
         Kd = texture(textures[plastic.KdIdx], uv).rgb;
     }
     if (plastic.KsIdx != -1) {
+        vec2 uv = getUV();
         Ks = texture(textures[plastic.KsIdx], uv).rgb;
     }
 
@@ -611,19 +801,30 @@ void evaluatePlastic(
         roughness = max(roughness, 0.001);
     }
 
-    float NdotL = max(dot(N, wi), 0.05);
-    float NdotV = max(dot(N, wo), 0.05);
-    float NdotH = max(dot(N, H), 0.05);
-    float VdotH = max(dot(wo, H), 0.05);
+    float NdotL = max(dot(N, wi), 0.01);
+    float NdotV = max(dot(N, wo), 0.01);
+    float NdotH = max(dot(N, H), 0.01);
+    float VdotH = max(dot(wo, H), 0.01);
 
     float D = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, wo, wi, roughness);
     vec3 F = fresnelSchlick(VdotH, Ks);
 
-    float pdfDiffuse = max(dot(N, wi), 0.0) / PI;
-    float pdfSpecular = D * NdotH / max(4.0 * VdotH, 0.01);
+    // float pdfDiffuse = max(dot(N, wi), 0.0) / PI;
+    // float pdfSpecular = D * NdotH / max(4.0 * VdotH, 0.01);
+    float pdfDiffuse = NdotL / PI;
+    float pdfSpecular = D * NdotH / (4.0 * VdotH);
+    
     vec3 diffusef = Kd / PI;
-    vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
+    vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 1e-4);
+
+    f = (1.0 - F) * diffusef + F * specularf;
+
+    float wSpec = clamp(maxComponent(F), 0.0, 0.95); // prevent hard delta spike
+    pdf = (1.0 - wSpec) * pdfDiffuse + wSpec * pdfSpecular;
+
+    // vec3 diffusef = Kd / PI;
+    // vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
 
     f = (1 - F) * diffusef + F * specularf;
     pdf = (1 - maxComponent(F)) * pdfDiffuse + maxComponent(F) * pdfSpecular;
@@ -636,11 +837,12 @@ void evaluateSubstrate(
     vec3 Kd = substrate.Kd;
     vec3 Ks = substrate.Ks;
 
-    vec2 uv = getUV();
     if (substrate.KdIdx != -1) {
+        vec2 uv = getUV();
         Kd = texture(textures[substrate.KdIdx], uv).rgb;
     }
     if (substrate.KsIdx != -1) {
+        vec2 uv = getUV();
         Ks = texture(textures[substrate.KsIdx], uv).rgb;
     }
 
@@ -649,19 +851,30 @@ void evaluateSubstrate(
         roughness = max(roughness, 0.001);
     }
 
-    float NdotL = max(dot(N, wi), 0.05);
-    float NdotV = max(dot(N, wo), 0.05);
-    float NdotH = max(dot(N, H), 0.05);
-    float VdotH = max(dot(wo, H), 0.05);
+    float NdotL = max(dot(N, wi), 0.01);
+    float NdotV = max(dot(N, wo), 0.01);
+    float NdotH = max(dot(N, H), 0.01);
+    float VdotH = max(dot(wo, H), 0.01);
 
     float D = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, wo, wi, roughness);
     vec3 F = fresnelSchlick(VdotH, Ks);
 
-    float pdfDiffuse = max(dot(N, wi), 0.0) / PI;
-    float pdfSpecular = D * NdotH / max(4.0 * VdotH, 0.01);
+    // float pdfDiffuse = max(dot(N, wi), 0.0) / PI;
+    // float pdfSpecular = D * NdotH / max(4.0 * VdotH, 0.01);
+    float pdfDiffuse = NdotL / PI;
+    float pdfSpecular = D * NdotH / (4.0 * VdotH);
+    
     vec3 diffusef = Kd / PI;
-    vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
+    vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 1e-4);
+
+    f = (1.0 - F) * diffusef + F * specularf;
+
+    float wSpec = clamp(maxComponent(F), 0.0, 0.95); // prevent hard delta spike
+    pdf = (1.0 - wSpec) * pdfDiffuse + wSpec * pdfSpecular;
+
+    // vec3 diffusef = Kd / PI;
+    // vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
 
     f = (1 - F) * diffusef + F * specularf;
     pdf = (1 - maxComponent(F)) * pdfDiffuse + maxComponent(F) * pdfSpecular;
@@ -674,11 +887,12 @@ void evaluateUber(
     vec3 Kd = uber.Kd;
     vec3 Ks = uber.Ks;
 
-    vec2 uv = getUV();
     if (uber.KdIdx != -1) {
+        vec2 uv = getUV();
         Kd = texture(textures[uber.KdIdx], uv).rgb;
     }
     if (uber.KsIdx != -1) {
+        vec2 uv = getUV();
         Ks = texture(textures[uber.KsIdx], uv).rgb;
     }
 
@@ -687,20 +901,35 @@ void evaluateUber(
         roughness = max(roughness, 0.001);
     }
 
-    float NdotL = max(dot(N, wi), 0.05);
-    float NdotV = max(dot(N, wo), 0.05);
-    float NdotH = max(dot(N, H), 0.05);
-    float VdotH = max(dot(wo, H), 0.05);
+    float NdotL = max(dot(N, wi), 0.01);
+    float NdotV = max(dot(N, wo), 0.01);
+    float NdotH = max(dot(N, H), 0.01);
+    float VdotH = max(dot(wo, H), 0.01);
 
     float D = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, wo, wi, roughness);
-    vec3 F = fresnelSchlick(VdotH, Ks);
+    // vec3 F = fresnelSchlick(VdotH, Ks);
+    float eta = uber.eta;
+    float F_scalar = fresnelDielectric(VdotH, 1.0, eta);
+    vec3 F = vec3(F_scalar, F_scalar, F_scalar);
+    F = vec3(0.0);
 
-    float pdfDiffuse = max(dot(N, wi), 0.0) / PI;
-    float pdfSpecular = D * NdotH / max(4.0 * VdotH, 0.01);
-
+    // float pdfDiffuse = max(dot(N, wi), 0.0) / PI;
+    // float pdfSpecular = D * NdotH / max(4.0 * VdotH, 0.01);
+    float pdfDiffuse = NdotL / PI;
+    float pdfSpecular = D * NdotH / (4.0 * VdotH);
+    
     vec3 diffusef = Kd / PI;
-    vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
+    vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 1e-4);
+    // vec3 specularf = vec3(0.0, 0.0, 0.0);
+
+    f = (1.0 - F) * diffusef + F * specularf;
+
+    float wSpec = clamp(maxComponent(F), 0.0, 0.99); // prevent hard delta spike
+    pdf = (1.0 - wSpec) * pdfDiffuse + wSpec * pdfSpecular;
+
+    // vec3 diffusef = Kd / PI;
+    // vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
 
     f = (1 - F) * diffusef + F * specularf;
     pdf = (1 - maxComponent(F)) * pdfDiffuse + maxComponent(F) * pdfSpecular;
@@ -793,10 +1022,7 @@ void main() {
 
 	if (shape.areaLightIdx >= 0) {
 		vec3 L = lights[shape.areaLightIdx].L;
-		if (any(greaterThan(payload.beta, vec3(0.0)))) {
-            payload.L += payload.beta * L;
-        }
-        // payload.L += payload.beta * L;
+        payload.L += payload.beta * L;
 		payload.terminated = true;
 		return;
 	}
@@ -829,25 +1055,20 @@ void main() {
 		evaluateGlass(glasses[mat.index], wo, wi, N, H, f, pdf);
 	}
 	else if (matType == MATERIAL_MIRROR){
-		wi = reflect(-wo, N);
 		evaluateMirror(mirrors[mat.index], wo, wi, N, f, pdf);
 	}
 	else if (matType == MATERIAL_PLASTIC){
 		evaluatePlastic(plastics[mat.index], wo, wi, N, H, f, pdf, sampleType);
 	}
 	else if (matType == MATERIAL_SUBSTRATE){
-		evaluateSubstrate(substrates[mat.index], wo, wi, N, H, f, pdf, sampleType);
-	}
+        evaluateSubstrate(substrates[mat.index], wo, wi, N, H, f, pdf, sampleType);
+    }
 	else if (matType == MATERIAL_UBER){
-		evaluateUber(ubers[mat.index], wo, wi, N, H, f, pdf, sampleType);
+        evaluateUber(ubers[mat.index], wo, wi, N, H, f, pdf, sampleType);
 	}
 
 	float cosTheta = max(dot(wi, N), 0.0);
 	payload.beta *= f * cosTheta / max(pdf, 0.01);
-
-    // if (any(isnan(payload.beta))) {
-    //     payload.beta = vec3(0.0, 111110.0, 0.0);
-    // }
 	payload.nextOrigin = P + wi * 0.001;
 	payload.nextDir = wi;
 	payload.terminated = false;

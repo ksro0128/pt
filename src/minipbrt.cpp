@@ -3717,46 +3717,37 @@ namespace minipbrt {
       xyz[2] += Z[i] * Le;
     }
 
-    float scale = blackbody[1] * float(sampledLambdaEnd - sampledLambdaStart) / float(CIE_Y_integral * nSpectralSamples);
+    float scale = float(sampledLambdaEnd - sampledLambdaStart) / float(CIE_Y_integral * nSpectralSamples);
     xyz[0] *= scale;
     xyz[1] *= scale;
     xyz[2] *= scale;
 
-    // float Y = xyz[1];
-    // if (Y > 0.0f) {
-    //     float scale = blackbody[1] / Y;
-    //     xyz[0] *= scale;
-    //     xyz[1] *= scale;
-    //     xyz[2] *= scale;
-    // }
+    float Y_norm = xyz[1];
+    if (Y_norm > 0.0f) {
+      xyz[0] /= Y_norm;
+      xyz[1] = 1.0f;
+      xyz[2] /= Y_norm;
+    }
+    else {
+      xyz[0] = 0.0f;
+      xyz[1] = 0.0f;
+      xyz[2] = 0.0f;
+    }
 
+    float L = blackbody[1];
+    xyz[0] *= L;
+    xyz[1] *= L;
+    xyz[2] *= L;
   }
 
   static void blackbody_to_rgb(const float blackbody[2], float rgb[3])
   {
     float xyz[3];
+    printf("blackbody: %.1f %.1f\n", blackbody[0], blackbody[1]);
     blackbody_to_xyz(blackbody, xyz);
+    printf("blackbody_to_xyz: %.1f %.1f %.1f\n", xyz[0], xyz[1], xyz[2]);
     xyz_to_rgb(xyz, rgb);
-
-    
-    float exposure = 1.0 / 1e+12f;
-
-    rgb[0] = rgb[0] * exposure;
-    rgb[1] = rgb[1] * exposure;
-    rgb[2] = rgb[2] * exposure;
-
-    float mappedL[3];
-    mappedL[0] = rgb[0] / (rgb[0] + 1.0f);
-    mappedL[1] = rgb[1] / (rgb[1] + 1.0f);
-    mappedL[2] = rgb[2] / (rgb[2] + 1.0f);
-
-    rgb[0] = std::pow(mappedL[0], 1.0f / 2.2f);
-    rgb[1] = std::pow(mappedL[1], 1.0f / 2.2f);
-    rgb[2] = std::pow(mappedL[2], 1.0f / 2.2f);
-
-    rgb[0] *= blackbody[1];
-    rgb[1] *= blackbody[1];
-    rgb[2] *= blackbody[1];
+    printf("xyz_to_rgb: %.1f %.1f %.1f\n", rgb[0], rgb[1], rgb[2]);
   }
 
 
@@ -6373,6 +6364,7 @@ namespace minipbrt {
         color_texture_param("reflect",    &uber->Kr);
         color_texture_param("transmit",   &uber->Kt);
         float_texture_param("eta",        &uber->eta);
+        float_texture_param("index",      &uber->eta);
         color_texture_param("opacity",    &uber->opacity);
         float_texture_param("uroughness", &uber->uroughness);
         float_texture_param("vroughness", &uber->vroughness);

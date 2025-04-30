@@ -296,7 +296,7 @@ void main() {
 
 	vec3 origin = camera.camPos;
 
-	for (int i = 0; i < 8; ++i) {
+	for (int i = 0; i < 12; ++i) {
 		payload.depth = i;
 		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0,
 					origin, 0.001, dir, 1e30, 0);
@@ -314,7 +314,7 @@ void main() {
     vec4 accum = prev + result;
     imageStore(pongImage, ipixel, accum);
 
-    float fc = float(options.sampleCount) + 1.0;
-    vec4 blended = accum / fc;
+    float fc = float(options.sampleCount);
+    vec4 blended = accum / (fc + 1.0);
     imageStore(pingImage, ipixel, blended);
 }

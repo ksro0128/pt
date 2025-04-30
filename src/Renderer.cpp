@@ -403,16 +403,11 @@ void Renderer::loadScene(std::string scenePath) {
 					vertices[i].pos.y = mesh->P[3 * i + 1];
 					vertices[i].pos.z = mesh->P[3 * i + 2];
 				}
-
-				vertices[i].normal.x = mesh->N[3 * i + 0];
-				vertices[i].normal.y = mesh->N[3 * i + 1];
-				vertices[i].normal.z = mesh->N[3 * i + 2];
 				if (mesh->N != nullptr) {
 					vertices[i].normal.x = mesh->N[3 * i + 0];
 					vertices[i].normal.y = mesh->N[3 * i + 1];
 					vertices[i].normal.z = mesh->N[3 * i + 2];
 				}
-
 				if (mesh->S != nullptr) {
 					vertices[i].tangent.x = mesh->S[3 * i + 0];
 					vertices[i].tangent.y = mesh->S[3 * i + 1];
@@ -441,10 +436,10 @@ void Renderer::loadScene(std::string scenePath) {
 	}
 	// std::vector<int> idx = {52, 67, 13, 16, 51, 8, 34, 25, 31, 14, 15};
 	
-	std::vector<int> idx = {51, 52, 59, 67};
-	for (int i = 0; i < idx.size(); i++) {
-		m_shapeList[idx[i]].reverseOrientation = 1;
-	}
+	// std::vector<int> idx = {8, 13, 16, 25, 31, 34, 51, 52, 59};
+	// for (int i = 0; i < idx.size(); i++) {
+	// 	m_shapeList[idx[i]].reverseOrientation = 1;
+	// }
 
 	glm::vec3 dir = glm::normalize(m_camera.camDir);
 	m_pitch = glm::degrees(asin(dir.y));
