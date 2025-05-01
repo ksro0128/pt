@@ -33,8 +33,8 @@ void Renderer::init(GLFWwindow* window) {
 	m_emptyTLAS = TopLevelAS::createEmptyTopLevelAS(m_context.get());
 
 	m_tlas = TopLevelAS::createTopLevelAS(m_context.get(), m_blasList, m_shapeList);
-	m_ptTexture0 = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_ptTexture1 = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_ptTexture0 = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_ptTexture1 = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
 	// layout
 	m_set0Layout = DescriptorSetLayout::createSet0DescLayout(m_context.get()); // camera, options
@@ -704,8 +704,8 @@ void Renderer::recreateViewport(ImVec2 newExtent) {
 	m_set4DescSet.reset();
 	m_ptTexture0.reset();
 	m_ptTexture1.reset();
-	m_ptTexture0 = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_ptTexture1 = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_ptTexture0 = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_ptTexture1 = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_set4DescSet = DescriptorSet::createSet4DescSet(m_context.get(), m_set4Layout.get(), m_tlas->getHandle(), m_ptTexture0.get(), m_ptTexture1.get());
 
 	
@@ -1062,21 +1062,21 @@ void Renderer::printAllResources(){
 	}
 
 	// m_shapeList: modelMatrix, materialIdx, areaLightIdx, reverseOrientation
-	i = 0;
-	for (auto& mat : m_shapeList) {
-		std::cout << "Shape Model Matrix: " << std::endl;
-		for (int i = 0; i < 4; i++) {
-			// for (int j = 0; j < 4; j++) {
-			// 	std::cout << mat.modelMatrix[i][j] << " ";
-			// }
-			// std::cout << std::endl;
-		}
-		std::cout << "Shape Model idx : " << i++ << std::endl;
-		std::cout << "Shape Material Index: " << mat.materialIdx << std::endl;
-		std::cout << "Shape Area Light Index: " << mat.areaLightIdx << std::endl;
-		std::cout << "Shape Reverse Orientation: " << mat.reverseOrientation << std::endl;
-		std::cout << "----------------------------" << std::endl;
-	}
+	// i = 0;
+	// for (auto& mat : m_shapeList) {
+	// 	std::cout << "Shape Model Matrix: " << std::endl;
+	// 	for (int i = 0; i < 4; i++) {
+	// 		// for (int j = 0; j < 4; j++) {
+	// 		// 	std::cout << mat.modelMatrix[i][j] << " ";
+	// 		// }
+	// 		// std::cout << std::endl;
+	// 	}
+	// 	std::cout << "Shape Model idx : " << i++ << std::endl;
+	// 	std::cout << "Shape Material Index: " << mat.materialIdx << std::endl;
+	// 	std::cout << "Shape Area Light Index: " << mat.areaLightIdx << std::endl;
+	// 	std::cout << "Shape Reverse Orientation: " << mat.reverseOrientation << std::endl;
+	// 	std::cout << "----------------------------" << std::endl;
+	// }
 
 
 	// // m_meshList: vertexBuffer, indexBuffer sizes

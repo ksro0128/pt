@@ -3722,17 +3722,17 @@ namespace minipbrt {
     xyz[1] *= scale;
     xyz[2] *= scale;
 
-    float Y_norm = xyz[1];
-    if (Y_norm > 0.0f) {
-      xyz[0] /= Y_norm;
-      xyz[1] = 1.0f;
-      xyz[2] /= Y_norm;
-    }
-    else {
-      xyz[0] = 0.0f;
-      xyz[1] = 0.0f;
-      xyz[2] = 0.0f;
-    }
+    // float Y_norm = xyz[1];
+    // if (Y_norm > 0.0f) {
+    //   xyz[0] /= Y_norm;
+    //   xyz[1] = 1.0f;
+    //   xyz[2] /= Y_norm;
+    // }
+    // else {
+    //   xyz[0] = 0.0f;
+    //   xyz[1] = 0.0f;
+    //   xyz[2] = 0.0f;
+    // }
 
     float L = blackbody[1];
     xyz[0] *= L;
@@ -6364,7 +6364,7 @@ namespace minipbrt {
         color_texture_param("reflect",    &uber->Kr);
         color_texture_param("transmit",   &uber->Kt);
         float_texture_param("eta",        &uber->eta);
-        float_texture_param("index",      &uber->eta);
+        // float_texture_param("index",      &uber->eta);
         color_texture_param("opacity",    &uber->opacity);
         float_texture_param("uroughness", &uber->uroughness);
         float_texture_param("vroughness", &uber->vroughness);
