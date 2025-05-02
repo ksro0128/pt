@@ -73,6 +73,8 @@ public:
 		std::vector<std::unique_ptr<Texture>>& textureList);
 	static std::unique_ptr<DescriptorSet> createSet4DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		VkAccelerationStructureKHR tlas, Texture* pingTexture, Texture* pongTexture);
+	static std::unique_ptr<DescriptorSet> createSet5DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+		StorageBuffer* luminanceBuffer, Texture* texture);
 		
 
 	VkDescriptorSet& getDescriptorSet() { return m_descriptorSet; }
@@ -105,5 +107,7 @@ private:
 		std::vector<std::unique_ptr<Texture>>& textureList);
 	void initSet4DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		VkAccelerationStructureKHR tlas, Texture* pingTexture, Texture* pongTexture);
+	void initSet5DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+		StorageBuffer* exposureBuffer, Texture* texture);
 	void cleanup();
 };

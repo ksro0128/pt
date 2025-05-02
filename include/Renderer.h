@@ -47,6 +47,7 @@ private:
 
 	std::unique_ptr<Texture> m_ptTexture0;
 	std::unique_ptr<Texture> m_ptTexture1;
+	std::unique_ptr<Texture> m_outputTexture;
 	
 	
 	std::vector<std::unique_ptr<Texture>> m_textureList;
@@ -71,6 +72,7 @@ private:
 	std::unique_ptr<DescriptorSetLayout> m_set2Layout;
 	std::unique_ptr<DescriptorSetLayout> m_set3Layout;
 	std::unique_ptr<DescriptorSetLayout> m_set4Layout;
+	std::unique_ptr<DescriptorSetLayout> m_set5Layout;
 
 	// buffer
 	std::unique_ptr<UniformBuffer> m_cameraBuffer;
@@ -86,6 +88,7 @@ private:
 	std::unique_ptr<StorageBuffer> m_substrateBuffer;
 	std::unique_ptr<StorageBuffer> m_plasticBuffer;
 	std::unique_ptr<StorageBuffer> m_areaLightBuffer;
+	std::unique_ptr<StorageBuffer> m_exposureBuffer;
 
 
 	// renderpass
@@ -93,6 +96,7 @@ private:
 	std::unique_ptr<RenderPass> m_imguiRenderPass;
 	std::unique_ptr<RenderPass> m_lightPassRenderPass;
 	std::unique_ptr<RenderPass> m_shadowMapRenderPass;
+	std::unique_ptr<RenderPass> m_toneMappingRenderPass;
 
 	// attachment
 	std::vector<GbufferAttachment> m_gbufferAttachments;
@@ -107,6 +111,7 @@ private:
 	std::vector<std::unique_ptr<FrameBuffer>> m_outputFrameBuffers;
 	std::vector<std::vector<std::unique_ptr<FrameBuffer>>> m_shadowMapFrameBuffers;
 	std::vector<std::vector<std::unique_ptr<FrameBuffer>>> m_shadowCubeMapFrameBuffers;
+	std::unique_ptr<FrameBuffer> m_toneMappingFrameBuffer;
 
 	// descriptorset
 	std::unique_ptr<DescriptorSet> m_set0DescSet;
@@ -114,15 +119,18 @@ private:
 	std::unique_ptr<DescriptorSet> m_set2DescSet;
 	std::unique_ptr<DescriptorSet> m_set3DescSet;
 	std::unique_ptr<DescriptorSet> m_set4DescSet;
+	std::unique_ptr<DescriptorSet> m_set5DescSet;
 
 	// pipeline
 	std::unique_ptr<Pipeline> m_gbufferPipeline;
 	std::unique_ptr<Pipeline> m_lightPassPipeline;
 	std::unique_ptr<Pipeline> m_shadowMapPipeline;
+	std::unique_ptr<Pipeline> m_computeExposurePipeline;
 	std::unique_ptr<RayTracingPipeline> m_reflectionPipeline;
 	std::unique_ptr<RayTracingPipeline> m_giPipeline;
 
 	std::unique_ptr<RayTracingPipeline> m_ptPipeline;
+	std::unique_ptr<Pipeline> m_toneMappingPipeline;
 
 	// command buffer
 	std::unique_ptr<CommandBuffers> m_commandBuffers;
@@ -168,6 +176,8 @@ private:
 	void recordShadowMapCommandBuffer(std::vector<ObjectInstance>& objDescs);
 	void recordReflectionCommandBuffer();
 	void recordGICmdBuffer();
+	void recordComputeExposureCommandBuffer();
+	void recordToneMappingCommandBuffer();
 
 	void recordPTCommandBuffer();
 

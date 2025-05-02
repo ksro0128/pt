@@ -640,43 +640,49 @@ void samplePlastic(
     }
 
     vec3 F0 = Ks;
-    vec3 Favg = F0 + (1.0 - F0) * 0.66; // 좀 더 알아볼 것
+    float F_spec = luminance(F0);
 
-    float wSpecular = clamp(maxComponent(Favg), 0.0, 0.95);
-    float wDiffuse = 1.0 - wSpecular;
-
-    float select = rand(seed);
-    vec3 H = vec3(0.0);
-    if (select < wDiffuse) {
-        vec3 localWi = cosineSampleHemisphere(seed);
-        wi = toWorld(localWi, N);
-        H = normalize(wo + wi);
-    }
-    else {
+    int sampledSpecular = 0;
+    vec3 H;
+    if (rand(seed) < F_spec) {
+        sampledSpecular = 1;
         vec2 Xi = sample2D(seed);
         H = importanceSampleGGX(Xi, N, roughness);
         wi = normalize(reflect(-wo, H));
+    } else {
+        sampledSpecular = 0;
+        vec3 localWi = cosineSampleHemisphere(seed);
+        wi = toWorld(localWi, N);
+        H = normalize(wo + wi);
     }
 
     float NdotL = max(dot(N, wi), 0.01);
     float NdotV = max(dot(N, wo), 0.01);
     float NdotH = max(dot(N, H), 0.01);
-    float VdotH = max(dot(wo, H), 0.01);
+    float VdotH_final = max(dot(wo, H), 0.01);
 
     float D = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, wo, wi, roughness);
-    vec3 F = fresnelSchlick(VdotH, Ks);
-
-    float pdfDiffuse = NdotL / PI;
-    float pdfSpecular = D * NdotH / (4.0 * VdotH);
+    vec3 F = fresnelSchlick(VdotH_final, F0);
 
     vec3 diffusef = Kd / PI;
     vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
 
-	float F_scalar = fresnelSchlickScalar(VdotH, maxComponent(Ks));
+    float pdf_diff = NdotL / PI;
+    float pdf_spec = D * NdotH / (4.0 * VdotH_final + 0.01);
 
-    f = (1.0 - F_scalar) * diffusef + F_scalar * specularf;
-    pdf = (1 - F_scalar) * pdfDiffuse + F_scalar * pdfSpecular;
+    float weight_diff = pdf_diff;
+    float weight_spec = pdf_spec;
+
+    float denom = weight_diff + weight_spec;
+    float misWeight = (sampledSpecular != 0) ? (pdf_spec / denom) : (pdf_diff / denom);
+
+    if (sampledSpecular != 0) {
+        f = specularf * misWeight;
+    } else {
+        f = diffusef * misWeight;
+    }
+    pdf = pdf_diff + pdf_spec;
 }
 
 
@@ -701,30 +707,22 @@ void sampleSubstrate(
     }
 
 	vec3 F0 = Ks;
+    float F_spec = luminance(F0);
 
-	vec3 H;
     int sampledSpecular = 0;
-    float select = rand(seed);
-
-    //먼저 GGX 하프벡터 샘플링
-    vec2 Xi = sample2D(seed);
-    H = importanceSampleGGX(Xi, N, roughness);
-    float VdotH = max(dot(wo, H), 0.0);
-    float F_spec = fresnelSchlickScalar(VdotH, maxComponent(F0));
-
-    // Fresnel 기반 분기
-    if (select < F_spec) {
-        wi = normalize(reflect(-wo, H));
+    vec3 H;
+    if (rand(seed) < F_spec) {
         sampledSpecular = 1;
+        vec2 Xi = sample2D(seed);
+        H = importanceSampleGGX(Xi, N, roughness);
+        wi = normalize(reflect(-wo, H));
     } else {
+        sampledSpecular = 0;
         vec3 localWi = cosineSampleHemisphere(seed);
         wi = toWorld(localWi, N);
-        H = normalize(wo + wi); // needed for eval
-        sampledSpecular = 0;
+        H = normalize(wo + wi);
     }
 
-
-    // f 계산
     float NdotL = max(dot(N, wi), 0.01);
     float NdotV = max(dot(N, wo), 0.01);
     float NdotH = max(dot(N, H), 0.01);
@@ -740,59 +738,18 @@ void sampleSubstrate(
     float pdf_diff = NdotL / PI;
     float pdf_spec = D * NdotH / (4.0 * VdotH_final + 0.01);
 
-    // 최종 pdf 계산 (샘플링되지 않은 분포도 고려)
     float weight_diff = pdf_diff;
     float weight_spec = pdf_spec;
 
     float denom = weight_diff + weight_spec;
     float misWeight = (sampledSpecular != 0) ? (pdf_spec / denom) : (pdf_diff / denom);
 
-    // 선택된 분포에 맞춰 f/pdf 선택 후 MIS 가중치 적용
     if (sampledSpecular != 0) {
         f = specularf * misWeight;
     } else {
         f = diffusef * misWeight;
     }
     pdf = pdf_diff + pdf_spec;
-
-
-    // vec3 Favg = F0 + (1.0 - F0) * 0.66; // 좀 더 알아볼 것
-
-    // float wSpecular = clamp(maxComponent(Favg), 0.0, 0.95);
-    // float wDiffuse = 1.0 - wSpecular;
-
-    // float select = rand(seed);
-    // vec3 H = vec3(0.0);
-    // if (select < wDiffuse) {
-    //     vec3 localWi = cosineSampleHemisphere(seed);
-    //     wi = toWorld(localWi, N);
-    //     H = normalize(wo + wi);
-    // }
-    // else {
-    //     vec2 Xi = sample2D(seed);
-    //     H = importanceSampleGGX(Xi, N, roughness);
-    //     wi = normalize(reflect(-wo, H));
-    // }
-
-    // float NdotL = max(dot(N, wi), 0.01);
-    // float NdotV = max(dot(N, wo), 0.01);
-    // float NdotH = max(dot(N, H), 0.01);
-    // float VdotH = max(dot(wo, H), 0.01);
-
-    // float D = distributionGGX(N, H, roughness);
-    // float G = geometrySmith(N, wo, wi, roughness);
-    // vec3 F = fresnelSchlick(VdotH, Ks);
-
-    // float pdfDiffuse = NdotL / PI;
-    // float pdfSpecular = D * NdotH / (4.0 * VdotH);
-
-    // vec3 diffusef = Kd / PI;
-    // vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
-
-	// float F_scalar = fresnelSchlickScalar(VdotH, maxComponent(Ks));
-
-    // f = (1.0 - F_scalar) * diffusef + F_scalar * specularf;
-    // pdf = (1 - F_scalar) * pdfDiffuse + F_scalar * pdfSpecular;
 }
 
 
@@ -800,63 +757,6 @@ void sampleUber(
     in UberGPU uber, in vec3 wo, in vec3 N, inout uint seed,
     out vec3 wi, out vec3 f, out float pdf)
 {
-	// float roughness = uber.uroughness;
-    // if (uber.remaproughness != 0)
-    //     roughness = max(roughness, 0.01);
-
-    // vec3 Kd = uber.Kd;
-    // vec3 Ks = uber.Ks;
-    // float eta = uber.eta;
-
-    // if (uber.KdIdx != -1) {
-    //     vec2 uv = getUV();
-    //     Kd = texture(textures[uber.KdIdx], uv).rgb;
-    // }
-    // if (uber.KsIdx != -1) {
-    //     vec2 uv = getUV();
-    //     Ks = texture(textures[uber.KsIdx], uv).rgb;
-    // }
-
-	// float F0_scalar = pow((uber.eta - 1.0) / (uber.eta + 1.0), 2.0);
-	// vec3 F0 = Ks * F0_scalar;
-
-    // vec3 Favg = F0 + (1.0 - F0) * 0.5;
-
-    // float wSpecular = clamp(maxComponent(Favg), 0.0, 0.95);
-    // float wDiffuse = 1.0 - wSpecular;
-
-    // float select = rand(seed);
-    // vec3 H = vec3(0.0);
-    // if (select < wDiffuse) {
-    //     vec3 localWi = cosineSampleHemisphere(seed);
-    //     wi = toWorld(localWi, N);
-    //     H = normalize(wo + wi);
-    // }
-    // else {
-    //     vec2 Xi = sample2D(seed);
-    //     H = importanceSampleGGX(Xi, N, roughness);
-    //     wi = normalize(reflect(-wo, H));
-    // }
-
-    // float NdotL = max(dot(N, wi), 0.01);
-    // float NdotV = max(dot(N, wo), 0.01);
-    // float NdotH = max(dot(N, H), 0.01);
-    // float VdotH = max(dot(wo, H), 0.01);
-
-    // float D = distributionGGX(N, H, roughness);
-    // float G = geometrySmith(N, wo, wi, roughness);
-    // vec3 F = fresnelSchlick(VdotH, F0);
-
-    // float pdfDiffuse = NdotL / PI;
-    // float pdfSpecular = D * NdotH / (4.0 * VdotH);
-
-    // vec3 diffusef = Kd / PI;
-    // vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
-	// float F_scalar = fresnelSchlickScalar(VdotH, maxComponent(F0));
-
-    // f = (1.0 - F_scalar) * diffusef + F_scalar * specularf;
-    // pdf = (1 - F_scalar) * pdfDiffuse + F_scalar * pdfSpecular;
-
 	float roughness = uber.uroughness;
     if (uber.remaproughness != 0)
         roughness = max(roughness, 0.01);
@@ -877,28 +777,22 @@ void sampleUber(
     float F0_scalar = pow((eta - 1.0) / (eta + 1.0), 2.0);
     vec3 F0 = Ks * F0_scalar;
 
-    vec3 H;
+    float F_spec = luminance(F0);
+
     int sampledSpecular = 0;
-    float select = rand(seed);
-
-    // 먼저 GGX 하프벡터 샘플링
-    vec2 Xi = sample2D(seed);
-    H = importanceSampleGGX(Xi, N, roughness);
-    float VdotH = max(dot(wo, H), 0.0);
-    float F_spec = fresnelSchlickScalar(VdotH, maxComponent(F0));
-
-    // Fresnel 기반 분기
-    if (select < F_spec) {
-        wi = normalize(reflect(-wo, H));
+    vec3 H;
+    if (rand(seed) < F_spec) {
         sampledSpecular = 1;
+        vec2 Xi = sample2D(seed);
+        H = importanceSampleGGX(Xi, N, roughness);
+        wi = normalize(reflect(-wo, H));
     } else {
+        sampledSpecular = 0;
         vec3 localWi = cosineSampleHemisphere(seed);
         wi = toWorld(localWi, N);
-        H = normalize(wo + wi); // needed for eval
-        sampledSpecular = 0;
+        H = normalize(wo + wi);
     }
 
-    // f 계산
     float NdotL = max(dot(N, wi), 0.01);
     float NdotV = max(dot(N, wo), 0.01);
     float NdotH = max(dot(N, H), 0.01);
@@ -914,14 +808,12 @@ void sampleUber(
     float pdf_diff = NdotL / PI;
     float pdf_spec = D * NdotH / (4.0 * VdotH_final + 0.01);
 
-    // 최종 pdf 계산 (샘플링되지 않은 분포도 고려)
     float weight_diff = pdf_diff;
     float weight_spec = pdf_spec;
 
     float denom = weight_diff + weight_spec;
     float misWeight = (sampledSpecular != 0) ? (pdf_spec / denom) : (pdf_diff / denom);
 
-    // 선택된 분포에 맞춰 f/pdf 선택 후 MIS 가중치 적용
     if (sampledSpecular != 0) {
         f = specularf * misWeight;
     } else {
@@ -929,6 +821,7 @@ void sampleUber(
     }
     pdf = pdf_diff + pdf_spec;
 }
+
 
 float getRoughness(int matType, int matIndex) {
     float roughness = 0.5;
@@ -1017,6 +910,9 @@ void main() {
 
 	if (shape.areaLightIdx >= 0) {
 		vec3 L = lights[shape.areaLightIdx].L;
+
+        // float cosTheta = max(dot(N, wo), 0.0);
+        // float exposure = 1e-10;
         payload.L += payload.beta * L;
 		payload.terminated = true;
 		return;

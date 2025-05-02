@@ -35,6 +35,7 @@ void Renderer::init(GLFWwindow* window) {
 	m_tlas = TopLevelAS::createTopLevelAS(m_context.get(), m_blasList, m_shapeList);
 	m_ptTexture0 = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_ptTexture1 = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_outputTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
 	// layout
 	m_set0Layout = DescriptorSetLayout::createSet0DescLayout(m_context.get()); // camera, options
@@ -42,6 +43,7 @@ void Renderer::init(GLFWwindow* window) {
 	m_set2Layout = DescriptorSetLayout::createSet2DescLayout(m_context.get()); // material buffer
 	m_set3Layout = DescriptorSetLayout::createSet3DescLayout(m_context.get()); // texture buffer
 	m_set4Layout = DescriptorSetLayout::createSet4DescLayout(m_context.get()); // tlas, ping, pong
+	m_set5Layout = DescriptorSetLayout::createSet5DescLayout(m_context.get()); // exposure buffer
 
 	// buffer
 	m_cameraBuffer = UniformBuffer::createUniformBuffer(m_context.get(), sizeof(CameraGPU));
@@ -57,6 +59,7 @@ void Renderer::init(GLFWwindow* window) {
 	m_mirrorBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(MirrorGPU), m_mirrorList.size());
 	m_substrateBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(SubstrateGPU), m_substrateList.size());
 	m_plasticBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(PlasticGPU), m_plasticList.size());
+	m_exposureBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(ExposureGPU), 1);
 
 	// 각 리스트 사이즈 확인
 	std::cout << "m_materialList.size() = " << m_materialList.size() << std::endl;
@@ -93,22 +96,35 @@ void Renderer::init(GLFWwindow* window) {
 		m_plasticBuffer.get()});
 	m_set3DescSet = DescriptorSet::createSet3DescSet(m_context.get(), m_set3Layout.get(), m_textureList);
 	m_set4DescSet = DescriptorSet::createSet4DescSet(m_context.get(), m_set4Layout.get(), m_tlas->getHandle(), m_ptTexture0.get(), m_ptTexture1.get());
-	m_ptPipeline = RayTracingPipeline::createPtPipeline(m_context.get(), {m_set0Layout.get(), m_set1Layout.get(), m_set2Layout.get(), m_set3Layout.get(), m_set4Layout.get()});	
+	m_set5DescSet = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_exposureBuffer.get(), m_ptTexture0.get());
+	
+
+	// renderpass
+	m_toneMappingRenderPass = RenderPass::createToneMappingRenderPass(m_context.get());
+	m_imguiRenderPass = RenderPass::createImGuiRenderPass(m_context.get(), m_swapChain.get());
+
+	// pipeline
+	m_ptPipeline = RayTracingPipeline::createPtPipeline(m_context.get(), {m_set0Layout.get(), m_set1Layout.get(), m_set2Layout.get(), m_set3Layout.get(), m_set4Layout.get()});
+	m_computeExposurePipeline = Pipeline::createComputeExposurePipeline(m_context.get(), {m_set4Layout.get(), m_set5Layout.get()});
+	m_toneMappingPipeline = Pipeline::createToneMappingPipeline(m_context.get(), m_toneMappingRenderPass.get(), {m_set5Layout.get()});
 
 	auto cmd = VulkanUtil::beginSingleTimeCommands(m_context.get());
 	transferImageLayout(cmd, m_ptTexture0.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 	transferImageLayout(cmd, m_ptTexture1.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 	VulkanUtil::endSingleTimeCommands(m_context.get(), cmd);
 
-	m_imguiRenderPass = RenderPass::createImGuiRenderPass(m_context.get(), m_swapChain.get());
+	
 	m_imguiFrameBuffers.resize(m_swapChain->getSwapChainImages().size());
 	for (int i = 0; i < m_swapChain->getSwapChainImages().size(); i++) {
 		m_imguiFrameBuffers[i] = FrameBuffer::createImGuiFrameBuffer(m_context.get(), m_imguiRenderPass.get(), m_swapChain->getSwapChainImageViews()[i], m_swapChain->getSwapChainExtent());
 	}
 	m_guiRenderer = GuiRenderer::createGuiRenderer(m_context.get(), window, m_imguiRenderPass.get(), m_swapChain.get());
-	m_guiRenderer->createViewPortDescriptorSet({m_ptTexture0.get(), m_ptTexture1.get()});
+	m_guiRenderer->createViewPortDescriptorSet({m_outputTexture.get(), m_ptTexture1.get()});
+	// m_guiRenderer->createViewPortDescriptorSet({m_ptTexture0.get(), m_ptTexture1.get()});
 	
 	
+	m_toneMappingFrameBuffer = FrameBuffer::createToneMappingFrameBuffer(m_context.get(), m_toneMappingRenderPass.get(), m_outputTexture.get(), m_extent);
+
 	printAllResources();
 }
 
@@ -343,6 +359,7 @@ void Renderer::loadScene(std::string scenePath) {
 		m_textureNameMap[tex->name] = m_textureList.size();
 		if (tex->type() == minipbrt::TextureType::ImageMap) {
 			const auto* imageMapTex = static_cast<const minipbrt::ImageMapTexture*>(tex);
+			// auto texture = Texture::createTexture(m_context.get(), imageMapTex->filename, TextureFormatType::LinearUNORM);
 			auto texture = Texture::createTexture(m_context.get(), imageMapTex->filename, TextureFormatType::ColorSRGB);
 			m_textureList.push_back(std::move(texture));
 		}
@@ -577,27 +594,51 @@ void Renderer::render(float deltaTime) {
 	}
 	m_optionsBuffer->updateUniformBuffer(&m_options, sizeof(OptionsGPU));
 	m_cameraBuffer->updateUniformBuffer(&m_camera, sizeof(CameraGPU));
+	ExposureGPU exposureGPU;
+	memset(&exposureGPU, 0, sizeof(ExposureGPU));
+	m_exposureBuffer->updateStorageBuffer(&exposureGPU, sizeof(ExposureGPU));
 	
 	recordPTCommandBuffer();
 
 	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
 		m_ptTexture0.get(),
 		VK_IMAGE_LAYOUT_GENERAL,
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_IMAGE_LAYOUT_GENERAL,
 		VK_ACCESS_SHADER_WRITE_BIT,
 		VK_ACCESS_SHADER_READ_BIT,
 		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
+		transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
+		m_ptTexture1.get(),
+		VK_IMAGE_LAYOUT_GENERAL,
+		VK_IMAGE_LAYOUT_GENERAL,
+		VK_ACCESS_SHADER_WRITE_BIT,
+		VK_ACCESS_SHADER_READ_BIT,
+		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	
+	recordComputeExposureCommandBuffer();
+
+	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
+		m_ptTexture0.get(),
+		VK_IMAGE_LAYOUT_GENERAL,
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_ACCESS_SHADER_READ_BIT,
+		VK_ACCESS_SHADER_READ_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
 		transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
 		m_ptTexture1.get(),
 		VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_ACCESS_SHADER_WRITE_BIT,
 		VK_ACCESS_SHADER_READ_BIT,
-		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+		VK_ACCESS_SHADER_READ_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-
+	
+	recordToneMappingCommandBuffer();
 	
 	recordImGuiCommandBuffer(imageIndex, deltaTime);
 
@@ -704,13 +745,20 @@ void Renderer::recreateViewport(ImVec2 newExtent) {
 	m_set4DescSet.reset();
 	m_ptTexture0.reset();
 	m_ptTexture1.reset();
+	m_toneMappingFrameBuffer.reset();
+	m_outputTexture.reset();
+
 	m_ptTexture0 = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_ptTexture1 = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_set4DescSet = DescriptorSet::createSet4DescSet(m_context.get(), m_set4Layout.get(), m_tlas->getHandle(), m_ptTexture0.get(), m_ptTexture1.get());
+	m_set5DescSet = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_exposureBuffer.get(), m_ptTexture0.get());
 
+	m_outputTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_toneMappingFrameBuffer = FrameBuffer::createToneMappingFrameBuffer(m_context.get(), m_toneMappingRenderPass.get(), m_outputTexture.get(), m_extent);
 	
 	
-	m_guiRenderer->createViewPortDescriptorSet({m_ptTexture0.get(), m_ptTexture1.get()});
+	m_guiRenderer->createViewPortDescriptorSet({m_outputTexture.get(), m_ptTexture1.get()});
+	// m_guiRenderer->createViewPortDescriptorSet({m_ptTexture0.get(), m_ptTexture1.get()});
 
 	auto cmd = VulkanUtil::beginSingleTimeCommands(m_context.get());
 	transferImageLayout(cmd,
@@ -839,6 +887,88 @@ void Renderer::recordPTCommandBuffer(){
 		m_extent.height,
 		1);
 }
+
+
+void Renderer::recordComputeExposureCommandBuffer() {
+	VkCommandBuffer cmd = m_commandBuffers->getCommandBuffers()[currentFrame];
+	
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_computeExposurePipeline->getPipeline());
+
+	VkDescriptorSet sets[] = {
+		m_set4DescSet->getDescriptorSet(), // pingImage (binding 1)
+		m_set5DescSet->getDescriptorSet()  // exposureBuffer (binding 0)
+	};
+
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
+		m_computeExposurePipeline->getPipelineLayout(),
+		0,
+		2, sets,
+		0, nullptr);
+
+	glm::uvec2 imageSize = { m_extent.width, m_extent.height };
+	vkCmdPushConstants(cmd,
+		m_computeExposurePipeline->getPipelineLayout(),
+		VK_SHADER_STAGE_COMPUTE_BIT,
+		0, sizeof(imageSize),
+		&imageSize);
+
+	uint32_t groupX = (m_extent.width + 15) / 16;
+	uint32_t groupY = (m_extent.height + 15) / 16;
+	vkCmdDispatch(cmd, groupX, groupY, 1);
+}
+
+void Renderer::recordToneMappingCommandBuffer() {
+	VkCommandBuffer cmd = m_commandBuffers->getCommandBuffers()[currentFrame];
+
+    VkRenderPassBeginInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassInfo.renderPass = m_toneMappingRenderPass->getRenderPass();
+    renderPassInfo.framebuffer = m_toneMappingFrameBuffer->getFrameBuffer();
+    renderPassInfo.renderArea.offset = {0, 0};
+    renderPassInfo.renderArea.extent = m_extent;
+
+    VkClearValue clearColor{};
+    clearColor.color = {0.0f, 0.0f, 0.0f, 1.0f};
+    renderPassInfo.clearValueCount = 1;
+    renderPassInfo.pClearValues = &clearColor;
+
+    vkCmdBeginRenderPass(cmd, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width  = static_cast<float>(m_extent.width);
+    viewport.height = static_cast<float>(m_extent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = m_extent;
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_toneMappingPipeline->getPipeline());
+
+    VkDescriptorSet sets[] = {
+        m_set5DescSet->getDescriptorSet()
+    };
+
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+        m_toneMappingPipeline->getPipelineLayout(), 0, 1, sets, 0, nullptr);
+
+    glm::uvec2 imageSize = { m_extent.width, m_extent.height };
+    vkCmdPushConstants(cmd,
+        m_toneMappingPipeline->getPipelineLayout(),
+        VK_SHADER_STAGE_FRAGMENT_BIT,
+        0, sizeof(imageSize),
+        &imageSize);
+
+    vkCmdDraw(cmd, 3, 1, 0, 0);
+
+    vkCmdEndRenderPass(cmd);
+}
+
 
 
 glm::mat4 Renderer::computeLightMatrix(Light& light) {

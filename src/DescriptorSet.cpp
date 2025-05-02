@@ -697,3 +697,61 @@ void DescriptorSet::initSet4DescSet(VulkanContext* context, DescriptorSetLayout*
 		vkUpdateDescriptorSets(context->getDevice(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 }
 
+std::unique_ptr<DescriptorSet> DescriptorSet::createSet5DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+	StorageBuffer* exposureBuffer, Texture* texture) {
+	std::unique_ptr<DescriptorSet> descriptorSet = std::unique_ptr<DescriptorSet>(new DescriptorSet());
+	descriptorSet->initSet5DescSet(context, layout, exposureBuffer, texture);
+	return descriptorSet;
+}
+
+void DescriptorSet::initSet5DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+	StorageBuffer* exposureBuffer, Texture* texture) {
+	this->context = context;
+
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = context->getDescriptorPool();
+    allocInfo.descriptorSetCount = 1;
+    VkDescriptorSetLayout setLayout = layout->getDescriptorSetLayout();
+    allocInfo.pSetLayouts = &setLayout;
+
+    if (vkAllocateDescriptorSets(context->getDevice(), &allocInfo, &m_descriptorSet) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor set (Set5)!");
+    }
+
+    std::vector<VkWriteDescriptorSet> descriptorWrites;
+
+    VkDescriptorBufferInfo bufferInfo{};
+    bufferInfo.buffer = exposureBuffer->getBuffer();
+    bufferInfo.offset = 0;
+    bufferInfo.range = sizeof(float);
+
+    VkWriteDescriptorSet bufferWrite{};
+    bufferWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    bufferWrite.dstSet = m_descriptorSet;
+    bufferWrite.dstBinding = 0;
+    bufferWrite.dstArrayElement = 0;
+    bufferWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bufferWrite.descriptorCount = 1;
+    bufferWrite.pBufferInfo = &bufferInfo;
+
+    descriptorWrites.push_back(bufferWrite);
+
+	VkDescriptorImageInfo imageInfo{};
+    imageInfo.sampler = texture->getSampler();
+    imageInfo.imageView = texture->getImageView();
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkWriteDescriptorSet imageWrite{};
+    imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    imageWrite.dstSet = m_descriptorSet;
+    imageWrite.dstBinding = 1;
+    imageWrite.dstArrayElement = 0;
+    imageWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    imageWrite.descriptorCount = 1;
+    imageWrite.pImageInfo = &imageInfo;
+
+    descriptorWrites.push_back(imageWrite);
+
+    vkUpdateDescriptorSets(context->getDevice(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+}

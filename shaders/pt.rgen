@@ -321,24 +321,5 @@ void main() {
 
     float fc = float(options.sampleCount);
     vec4 blended = accum / (fc + 1.0);
-
-	// float exposure = 1.0 / 1000000000.0;  // 1e-9 정도 시도
-	// vec3 mappedColor = toneMapACES(blended.rgb * exposure);
-
-	// mappedColor = pow(mappedColor, vec3(1.0 / 2.2));  // Gamma correction
 	imageStore(pingImage, ipixel, vec4(blended.rgb, 1.0));
-
-	// ivec2 ipixel = ivec2(pixel);
-	// vec4 result = vec4(payload.L, 1.0);
-	// vec4 prev = imageLoad(pongImage, ipixel);
-	// vec4 accum = prev + result;
-	// imageStore(pongImage, ipixel, accum);
-
-	// float fc = float(options.sampleCount);
-	// vec3 radiance = (accum.rgb) / (fc + 1.0);
-
-	// float exposure = 1.0 / 1e13;
-	// vec3 mapped = toneMapACES(radiance * exposure);
-	// mapped = pow(mapped, vec3(1.0 / 2.2));
-	// imageStore(pingImage, ipixel, vec4(mapped, 1.0));
 }

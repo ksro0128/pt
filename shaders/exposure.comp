@@ -1,0 +1,44 @@
+#version 460
+#extension GL_EXT_shader_atomic_float : require
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 1, rgba32f) readonly uniform image2D pingImage;
+
+layout(set = 1, binding = 0) buffer ExposureBuffer {
+    float exposureSum;
+};
+
+layout(push_constant) uniform PushConst {
+    uvec2 imageSize;
+} pc;
+
+shared float sharedExposure[256];
+
+void main() {
+    uvec2 gid = gl_GlobalInvocationID.xy;
+    uvec2 lid = gl_LocalInvocationID.xy;
+    uint localIndex = lid.y * 16 + lid.x;
+
+    float lum = 0.0;
+
+    if (gid.x < pc.imageSize.x && gid.y < pc.imageSize.y) {
+        vec3 hdr = imageLoad(pingImage, ivec2(gid)).rgb;
+        // lum = dot(hdr, vec3(0.2126, 0.7152, 0.0722));
+        float L = dot(hdr, vec3(0.2126, 0.7152, 0.0722));
+        lum = log(1e-4 + L);
+    }
+
+    sharedExposure[localIndex] = lum;
+
+    memoryBarrierShared();
+    barrier();
+
+    if (localIndex == 0) {
+        float groupSum = 0.0;
+        for (int i = 0; i < 256; ++i)
+            groupSum += sharedExposure[i];
+
+        atomicAdd(exposureSum, groupSum);
+    }
+}

@@ -3717,11 +3717,16 @@ namespace minipbrt {
       xyz[2] += Z[i] * Le;
     }
 
-    float scale = float(sampledLambdaEnd - sampledLambdaStart) / float(CIE_Y_integral * nSpectralSamples);
+
+    const float deltaLambda = (sampledLambdaEnd - sampledLambdaStart) /
+                            float(nSpectralSamples); // nm
+    const float scale = (deltaLambda * 1e-9f) / CIE_Y_integral;
+    // float scale = float(sampledLambdaEnd - sampledLambdaStart) / float(CIE_Y_integral * nSpectralSamples);
     xyz[0] *= scale;
     xyz[1] *= scale;
     xyz[2] *= scale;
 
+    // 내가 자체적으로 보정한 부분
     // float Y_norm = xyz[1];
     // if (Y_norm > 0.0f) {
     //   xyz[0] /= Y_norm;

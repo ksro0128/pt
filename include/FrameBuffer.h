@@ -13,6 +13,7 @@ public:
 	static std::unique_ptr<FrameBuffer> createOutputFrameBuffer(VulkanContext* context, RenderPass* renderPass, Texture* texture, VkExtent2D extent);
 	static std::unique_ptr<FrameBuffer> createShadowMapFrameBuffer(VulkanContext* context, RenderPass* renderPass, Texture* texture, VkExtent2D extent);
 	static std::unique_ptr<FrameBuffer> createShadowCubeMapFrameBuffer(VulkanContext* context, RenderPass* renderPass, Texture* texture, VkExtent2D extent, uint32_t faceIndex);
+	static std::unique_ptr<FrameBuffer> createToneMappingFrameBuffer(VulkanContext* context, RenderPass* renderPass, Texture* texture, VkExtent2D extent);
 	~FrameBuffer();
 
 	VkFramebuffer getFrameBuffer() { return m_frameBuffer; }
@@ -25,5 +26,6 @@ private:
 	void initOutput(VulkanContext* context, RenderPass* renderPass, Texture* texture, VkExtent2D extent);
 	void initShadowMap(VulkanContext* context, RenderPass* renderPass, Texture* texture, VkExtent2D extent);
 	void initShadowCubeMap(VulkanContext* context, RenderPass* renderPass, Texture* texture, VkExtent2D extent, uint32_t faceIndex);
+	void initToneMapping(VulkanContext* context, RenderPass* renderPass, Texture* texture, VkExtent2D extent);
 	void cleanup();
 };

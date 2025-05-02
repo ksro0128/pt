@@ -128,13 +128,12 @@ void GuiRenderer::render(VkCommandBuffer cmd, float deltaTime, OptionsGPU &optio
 		ImGui::Text("Sample count : %d", options.sampleCount);
 
 		// max sample count
-		if (ImGui::InputInt("Max sample count", (int*)&options.maxSampleCount)) {
+		if (ImGui::InputInt("SPP", (int*)&options.maxSampleCount)) {
 			options.maxSampleCount = std::max(1, options.maxSampleCount);
 			options.sampleCount = -1;
 		}
 		ImGui::End();
 	}
-
 
     ImGui::PopStyleVar(3);
     ImGui::PopStyleColor();
