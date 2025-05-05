@@ -673,6 +673,11 @@ void StorageBuffer::updateStorageBuffer(void* data, VkDeviceSize totalSize)
 		std::cout << "StorageBuffer: Total size: " << totalSize << ", Current size: " << m_currentSize << std::endl;
 		return;
 	}
+	if (totalSize == 0)
+	{
+		std::cerr << "StorageBuffer: Total size is 0!" << std::endl;
+		return;
+	}
 	memcpy(m_mappedMemory, data, totalSize);
 }
 

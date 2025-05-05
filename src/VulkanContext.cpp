@@ -308,6 +308,10 @@ void VulkanContext::createLogicalDevice() {
 	deviceFeatures.sampleRateShading = VK_TRUE;
 	deviceFeatures.shaderInt64 = VK_TRUE;
 
+	VkPhysicalDeviceShaderAtomicFloatFeaturesEXT atomicFloatFeatures{};
+	atomicFloatFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT;
+	atomicFloatFeatures.shaderBufferFloat32AtomicAdd = VK_TRUE;
+
 	// Ray Tracing feature chain
 	VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
 	accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
@@ -326,16 +330,16 @@ void VulkanContext::createLogicalDevice() {
 	features12.runtimeDescriptorArray = VK_TRUE;
 	features12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
 	features12.bufferDeviceAddress = VK_TRUE;
+	features12.scalarBlockLayout = VK_TRUE;
 
-
-	accelerationStructureFeatures.pNext = nullptr;
-	rayTracingPipelineFeatures.pNext = &accelerationStructureFeatures;
+	atomicFloatFeatures.pNext = &features12;
 	features12.pNext = &rayTracingPipelineFeatures;
+	rayTracingPipelineFeatures.pNext = &accelerationStructureFeatures;
 
 	VkPhysicalDeviceFeatures2 features2{};
 	features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 	features2.features = deviceFeatures;
-	features2.pNext = &features12;
+	features2.pNext = &atomicFloatFeatures;
 
 	VkDeviceCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;

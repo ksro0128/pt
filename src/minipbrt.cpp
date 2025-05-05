@@ -3699,6 +3699,13 @@ namespace minipbrt {
 
     float t = blackbody[0]; // temperature in Kelvin
 
+    float lambdaMax = 2.8977721e-3f / t * 1e9f; // nm
+    float l_peak = lambdaMax * 1e-9f; // meter 단위
+    float lambda5_peak = (l_peak * l_peak) * (l_peak * l_peak) * l_peak;
+    float LeMax = (2.0f * h * c * c) / (lambda5_peak * (std::exp((h * c) / (l_peak * kb * t)) - 1));
+
+    printf("LeMax: %.1f\n", LeMax);
+
     xyz[0] = 0.0f;
     xyz[1] = 0.0f;
     xyz[2] = 0.0f;
@@ -3711,7 +3718,7 @@ namespace minipbrt {
       float l = wl * 1e-9f;
       float lambda5 = (l * l) * (l * l) * l;
       float Le = (2.0f * h * c * c) / (lambda5 * (std::exp((h * c) / (l * kb  * t)) - 1));
-
+      Le /= LeMax;
       xyz[0] += X[i] * Le;
       xyz[1] += Y[i] * Le;
       xyz[2] += Z[i] * Le;
@@ -3720,39 +3727,23 @@ namespace minipbrt {
 
     const float deltaLambda = (sampledLambdaEnd - sampledLambdaStart) /
                             float(nSpectralSamples); // nm
-    const float scale = (deltaLambda * 1e-9f) / CIE_Y_integral;
+    const float scale = (deltaLambda) / CIE_Y_integral;
     // float scale = float(sampledLambdaEnd - sampledLambdaStart) / float(CIE_Y_integral * nSpectralSamples);
     xyz[0] *= scale;
     xyz[1] *= scale;
     xyz[2] *= scale;
 
-    // 내가 자체적으로 보정한 부분
-    // float Y_norm = xyz[1];
-    // if (Y_norm > 0.0f) {
-    //   xyz[0] /= Y_norm;
-    //   xyz[1] = 1.0f;
-    //   xyz[2] /= Y_norm;
-    // }
-    // else {
-    //   xyz[0] = 0.0f;
-    //   xyz[1] = 0.0f;
-    //   xyz[2] = 0.0f;
-    // }
-
-    float L = blackbody[1];
-    xyz[0] *= L;
-    xyz[1] *= L;
-    xyz[2] *= L;
+    xyz[0] *= blackbody[1];
+    xyz[1] *= blackbody[1];
+    xyz[2] *= blackbody[1];
   }
 
   static void blackbody_to_rgb(const float blackbody[2], float rgb[3])
   {
     float xyz[3];
-    printf("blackbody: %.1f %.1f\n", blackbody[0], blackbody[1]);
     blackbody_to_xyz(blackbody, xyz);
-    printf("blackbody_to_xyz: %.1f %.1f %.1f\n", xyz[0], xyz[1], xyz[2]);
     xyz_to_rgb(xyz, rgb);
-    printf("xyz_to_rgb: %.1f %.1f %.1f\n", rgb[0], rgb[1], rgb[2]);
+
   }
 
 

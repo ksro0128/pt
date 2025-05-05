@@ -671,18 +671,19 @@ void samplePlastic(
     float pdf_diff = NdotL / PI;
     float pdf_spec = D * NdotH / (4.0 * VdotH_final + 0.01);
 
-    float weight_diff = pdf_diff;
-    float weight_spec = pdf_spec;
+    float weight_diff = pdf_diff * pdf_diff;
+    float weight_spec = pdf_spec * pdf_spec;
 
     float denom = weight_diff + weight_spec;
-    float misWeight = (sampledSpecular != 0) ? (pdf_spec / denom) : (pdf_diff / denom);
+    float misWeight = (sampledSpecular != 0) ? (weight_spec / denom) : (weight_diff / denom);
 
     if (sampledSpecular != 0) {
         f = specularf * misWeight;
+        pdf = pdf_spec;
     } else {
         f = diffusef * misWeight;
+        pdf = pdf_diff;
     }
-    pdf = pdf_diff + pdf_spec;
 }
 
 
@@ -738,18 +739,19 @@ void sampleSubstrate(
     float pdf_diff = NdotL / PI;
     float pdf_spec = D * NdotH / (4.0 * VdotH_final + 0.01);
 
-    float weight_diff = pdf_diff;
-    float weight_spec = pdf_spec;
+    float weight_diff = pdf_diff * pdf_diff;
+    float weight_spec = pdf_spec * pdf_spec;
 
     float denom = weight_diff + weight_spec;
-    float misWeight = (sampledSpecular != 0) ? (pdf_spec / denom) : (pdf_diff / denom);
+    float misWeight = (sampledSpecular != 0) ? (weight_spec / denom) : (weight_diff / denom);
 
     if (sampledSpecular != 0) {
         f = specularf * misWeight;
+        pdf = pdf_spec;
     } else {
         f = diffusef * misWeight;
+        pdf = pdf_diff;
     }
-    pdf = pdf_diff + pdf_spec;
 }
 
 
@@ -808,18 +810,19 @@ void sampleUber(
     float pdf_diff = NdotL / PI;
     float pdf_spec = D * NdotH / (4.0 * VdotH_final + 0.01);
 
-    float weight_diff = pdf_diff;
-    float weight_spec = pdf_spec;
+    float weight_diff = pdf_diff * pdf_diff;
+    float weight_spec = pdf_spec * pdf_spec;
 
     float denom = weight_diff + weight_spec;
-    float misWeight = (sampledSpecular != 0) ? (pdf_spec / denom) : (pdf_diff / denom);
+    float misWeight = (sampledSpecular != 0) ? (weight_spec / denom) : (weight_diff / denom);
 
     if (sampledSpecular != 0) {
         f = specularf * misWeight;
+        pdf = pdf_spec;
     } else {
         f = diffusef * misWeight;
+        pdf = pdf_diff;
     }
-    pdf = pdf_diff + pdf_spec;
 }
 
 
@@ -910,9 +913,6 @@ void main() {
 
 	if (shape.areaLightIdx >= 0) {
 		vec3 L = lights[shape.areaLightIdx].L;
-
-        // float cosTheta = max(dot(N, wo), 0.0);
-        // float exposure = 1e-10;
         payload.L += payload.beta * L;
 		payload.terminated = true;
 		return;

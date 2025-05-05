@@ -24,9 +24,9 @@ void main() {
 
     if (gid.x < pc.imageSize.x && gid.y < pc.imageSize.y) {
         vec3 hdr = imageLoad(pingImage, ivec2(gid)).rgb;
-        // lum = dot(hdr, vec3(0.2126, 0.7152, 0.0722));
-        float L = dot(hdr, vec3(0.2126, 0.7152, 0.0722));
-        lum = log(1e-4 + L);
+        lum = dot(hdr, vec3(0.2126, 0.7152, 0.0722));
+        // float L = dot(hdr, vec3(0.2126, 0.7152, 0.0722));
+        // lum = log(1e-4 + L);
     }
 
     sharedExposure[localIndex] = lum;
