@@ -230,7 +230,7 @@ struct alignas(16) RenderOptions {
 
 struct alignas(16) CameraGPU {
     glm::vec3 camPos;
-	float pad0 = 0.0f;
+	int areaLightTriangleCount = 0;
     glm::vec3 camDir;
 	float pad1 = 0.0f;
     glm::vec3 camUp;
@@ -418,4 +418,35 @@ struct alignas(16) OptionsGPU {
 
 struct alignas(16) ExposureGPU {
     float exposureSum = 0.0f;
+};
+
+struct alignas(16) AreaLightTriangleGPU {
+	glm::vec3 worldPos0;
+	float pad0 = 0.0f;
+	glm::vec3 worldPos1;
+	float pad1 = 0.0f;
+	glm::vec3 worldPos2;
+	float pad2 = 0.0f;
+
+	glm::vec3 worldNormal;
+	float area;
+
+	glm::vec3 L;
+	float pad3 = 0.0f;
+};
+
+struct alignas(16) ThresholdGPU {
+	glm::vec2 screenSize;
+	float threshold;
+};
+
+struct alignas(16) BlurGPU {
+    glm::ivec2 imageSize;
+    int radius;
+    float sigma;
+};
+
+struct alignas(16) CompositeGPU {
+    glm::vec2 screenSize;
+    float bloomStrength;
 };

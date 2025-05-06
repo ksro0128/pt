@@ -75,8 +75,9 @@ public:
 		VkAccelerationStructureKHR tlas, Texture* pingTexture, Texture* pongTexture);
 	static std::unique_ptr<DescriptorSet> createSet5DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		StorageBuffer* luminanceBuffer, Texture* texture);
+	static std::unique_ptr<DescriptorSet> createSet6DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+		Texture* hdrTexture, Texture* brightTexture, Texture* blurHTexture, Texture* blurVTexture, Texture* outputTexture);
 		
-
 	VkDescriptorSet& getDescriptorSet() { return m_descriptorSet; }
 
 	void updateTLAS(VkAccelerationStructureKHR tlas);
@@ -109,5 +110,7 @@ private:
 		VkAccelerationStructureKHR tlas, Texture* pingTexture, Texture* pongTexture);
 	void initSet5DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		StorageBuffer* exposureBuffer, Texture* texture);
+	void initSet6DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+		Texture* hdrTexture, Texture* brightTexture, Texture* blurHTexture, Texture* blurVTexture, Texture* outputTexture);
 	void cleanup();
 };

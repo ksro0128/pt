@@ -1,0 +1,34 @@
+#version 460
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(binding = 2, rgba32f) readonly  uniform image2D uInput;    // temp image
+layout(binding = 3, rgba32f) writeonly uniform image2D uOutput;   // bloom image
+
+layout(push_constant) uniform PC_Blur {
+    ivec2 imageSize;
+    int radius;
+    float sigma;
+} pc;
+
+float gaussian(float x, float sigma) {
+    return exp(-0.5 * (x * x) / (sigma * sigma));
+}
+
+void main() {
+    ivec2 uv = ivec2(gl_GlobalInvocationID.xy);
+    if (uv.x >= pc.imageSize.x || uv.y >= pc.imageSize.y) return;
+
+    vec3 result = vec3(0.0);
+    float totalWeight = 0.0;
+
+    for (int i = -pc.radius; i <= pc.radius; ++i) {
+        int sampleY = clamp(uv.y + i, 0, pc.imageSize.y - 1);
+        float w = gaussian(float(i), pc.sigma);
+        vec3 color = imageLoad(uInput, ivec2(uv.x, sampleY)).rgb;
+        result += color * w;
+        totalWeight += w;
+    }
+
+    result /= totalWeight;
+    imageStore(uOutput, uv, vec4(result, 1.0));
+}

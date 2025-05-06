@@ -37,6 +37,11 @@ void Renderer::init(GLFWwindow* window) {
 	m_ptTexture1 = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_outputTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
+	m_brightTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_blurHTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_blurVTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_bloomTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
 	// layout
 	m_set0Layout = DescriptorSetLayout::createSet0DescLayout(m_context.get()); // camera, options
 	m_set1Layout = DescriptorSetLayout::createSet1DescLayout(m_context.get()); // instance buffer
@@ -44,6 +49,7 @@ void Renderer::init(GLFWwindow* window) {
 	m_set3Layout = DescriptorSetLayout::createSet3DescLayout(m_context.get()); // texture buffer
 	m_set4Layout = DescriptorSetLayout::createSet4DescLayout(m_context.get()); // tlas, ping, pong
 	m_set5Layout = DescriptorSetLayout::createSet5DescLayout(m_context.get()); // exposure buffer
+	m_set6Layout = DescriptorSetLayout::createSet6DescLayout(m_context.get()); // bloom texture
 
 	// buffer
 	m_cameraBuffer = UniformBuffer::createUniformBuffer(m_context.get(), sizeof(CameraGPU));
@@ -60,6 +66,7 @@ void Renderer::init(GLFWwindow* window) {
 	m_substrateBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(SubstrateGPU), m_substrateList.size());
 	m_plasticBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(PlasticGPU), m_plasticList.size());
 	m_exposureBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(ExposureGPU), 1);
+	m_areaLightTriangleBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(AreaLightTriangleGPU), m_areaLightTriangleList.size());
 
 	// 각 리스트 사이즈 확인
 	std::cout << "m_materialList.size() = " << m_materialList.size() << std::endl;
@@ -93,11 +100,13 @@ void Renderer::init(GLFWwindow* window) {
 		m_glassBuffer.get(),
 		m_mirrorBuffer.get(),
 		m_substrateBuffer.get(),
-		m_plasticBuffer.get()});
+		m_plasticBuffer.get(),
+		m_areaLightTriangleBuffer.get()});
 	m_set3DescSet = DescriptorSet::createSet3DescSet(m_context.get(), m_set3Layout.get(), m_textureList);
 	m_set4DescSet = DescriptorSet::createSet4DescSet(m_context.get(), m_set4Layout.get(), m_tlas->getHandle(), m_ptTexture0.get(), m_ptTexture1.get());
-	m_set5DescSet = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_exposureBuffer.get(), m_ptTexture0.get());
-	
+	// m_set5DescSet = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_exposureBuffer.get(), m_ptTexture0.get());
+	m_set5DescSet = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_exposureBuffer.get(), m_bloomTexture.get());
+	m_set6DescSet = DescriptorSet::createSet6DescSet(m_context.get(), m_set6Layout.get(), m_ptTexture0.get(), m_brightTexture.get(), m_blurHTexture.get(), m_blurVTexture.get(), m_bloomTexture.get());
 
 	// renderpass
 	m_toneMappingRenderPass = RenderPass::createToneMappingRenderPass(m_context.get());
@@ -107,10 +116,20 @@ void Renderer::init(GLFWwindow* window) {
 	m_ptPipeline = RayTracingPipeline::createPtPipeline(m_context.get(), {m_set0Layout.get(), m_set1Layout.get(), m_set2Layout.get(), m_set3Layout.get(), m_set4Layout.get()});
 	m_computeExposurePipeline = Pipeline::createComputeExposurePipeline(m_context.get(), {m_set4Layout.get(), m_set5Layout.get()});
 	m_toneMappingPipeline = Pipeline::createToneMappingPipeline(m_context.get(), m_toneMappingRenderPass.get(), {m_set5Layout.get()});
+	m_thresholdPipeline = Pipeline::createThresholdPipeline(m_context.get(), {m_set6Layout.get()});
+	m_blurHPipeline = Pipeline::createBlurHPipeline(m_context.get(), {m_set6Layout.get()});
+	m_blurVPipeline = Pipeline::createBlurVPipeline(m_context.get(), {m_set6Layout.get()});
+	m_compositePipeline = Pipeline::createCompositePipeline(m_context.get(), {m_set6Layout.get()});
 
 	auto cmd = VulkanUtil::beginSingleTimeCommands(m_context.get());
 	transferImageLayout(cmd, m_ptTexture0.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 	transferImageLayout(cmd, m_ptTexture1.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	
+	transferImageLayout(cmd, m_brightTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	transferImageLayout(cmd, m_blurHTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	transferImageLayout(cmd, m_blurVTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	transferImageLayout(cmd, m_bloomTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	
 	VulkanUtil::endSingleTimeCommands(m_context.get(), cmd);
 
 	
@@ -418,6 +437,8 @@ void Renderer::loadScene(std::string scenePath) {
 				continue;
 			}
 			auto mesh = plyMesh->triangle_mesh();
+
+			AreaLightTriangleGPU areaLightTriangle;
 			
 			std::vector<Vertex> vertices(mesh->num_vertices);
 			for (int i = 0; i < mesh->num_vertices; i++) {
@@ -447,6 +468,21 @@ void Renderer::loadScene(std::string scenePath) {
 				indices[i] = mesh->indices[i];
 			}
 
+			if (s.areaLightIdx != -1) {
+				for (int i = 0; i < mesh->num_indices; i += 3) {
+					areaLightTriangle.worldPos0 = glm::vec3(s.modelMatrix * glm::vec4(vertices[indices[i]].pos, 1.0f));
+					areaLightTriangle.worldPos1 = glm::vec3(s.modelMatrix * glm::vec4(vertices[indices[i + 1]].pos, 1.0f));
+					areaLightTriangle.worldPos2 = glm::vec3(s.modelMatrix * glm::vec4(vertices[indices[i + 2]].pos, 1.0f));
+
+					glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(s.modelMatrix)));
+					areaLightTriangle.worldNormal = glm::normalize(normalMatrix * vertices[indices[i]].normal);
+					areaLightTriangle.area = glm::length(glm::cross(areaLightTriangle.worldPos0 - areaLightTriangle.worldPos1, areaLightTriangle.worldPos0 - areaLightTriangle.worldPos2)) * 0.5f;
+					areaLightTriangle.L = m_areaLightList[s.areaLightIdx].L;
+					
+					m_areaLightTriangleList.push_back(areaLightTriangle);
+				}
+			}
+
 			auto meshClass = Mesh::createMesh(m_context.get(), vertices, indices);
 			s.vertexAddress = meshClass->getVertexBuffer()->getDeviceAddress();
 			s.indexAddress = meshClass->getIndexBuffer()->getDeviceAddress();
@@ -470,8 +506,9 @@ void Renderer::loadScene(std::string scenePath) {
 	glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
 	m_camera.camRight = glm::normalize(glm::cross(m_camera.camDir, worldUp));
 	m_camera.camUp = glm::normalize(glm::cross(m_camera.camRight, m_camera.camDir));
-
+	m_camera.areaLightTriangleCount = m_areaLightTriangleList.size();
 	m_initalCamera = m_camera;
+
 	// scene size
 	// std::cout << "shape size: " << m_pbrtScene->shapes.size() << std::endl;
 	// std::cout << "material size: " << m_pbrtScene->materials.size() << std::endl;
@@ -483,7 +520,6 @@ void Renderer::loadScene(std::string scenePath) {
 	// std::cout << "medium size: " << m_pbrtScene->mediums.size() << std::endl;
 	// std::cout << "-------------------------" << std::endl;
 	// std::cout << "Scene loaded!" << std::endl;
-
 }
 
 
@@ -599,6 +635,7 @@ void Renderer::render(float deltaTime) {
 		m_options.sampleCount = m_options.maxSampleCount;
 	}
 	m_optionsBuffer->updateUniformBuffer(&m_options, sizeof(OptionsGPU));
+	m_camera.areaLightTriangleCount = m_areaLightTriangleList.size();
 	m_cameraBuffer->updateUniformBuffer(&m_camera, sizeof(CameraGPU));
 	ExposureGPU exposureGPU;
 	memset(&exposureGPU, 0, sizeof(ExposureGPU));
@@ -645,7 +682,19 @@ void Renderer::render(float deltaTime) {
 		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 	
 	recordToneMappingCommandBuffer();
+
+	recordBloomCommandBuffer();
+
 	
+	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
+		m_bloomTexture.get(),
+		VK_IMAGE_LAYOUT_GENERAL,
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_ACCESS_SHADER_WRITE_BIT,
+		VK_ACCESS_SHADER_READ_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
 	recordImGuiCommandBuffer(imageIndex, deltaTime);
 
 	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
@@ -665,6 +714,14 @@ void Renderer::render(float deltaTime) {
 		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
+	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
+		m_bloomTexture.get(),
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_IMAGE_LAYOUT_GENERAL,
+		VK_ACCESS_SHADER_READ_BIT,
+		VK_ACCESS_SHADER_WRITE_BIT,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
 	// end record
 
@@ -754,15 +811,29 @@ void Renderer::recreateViewport(ImVec2 newExtent) {
 	m_toneMappingFrameBuffer.reset();
 	m_outputTexture.reset();
 
+	m_brightTexture.reset();
+	m_blurHTexture.reset();
+	m_blurVTexture.reset();
+	m_bloomTexture.reset();
+
+
+	m_brightTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_blurHTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_blurVTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_bloomTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
 	m_ptTexture0 = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_ptTexture1 = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_set4DescSet = DescriptorSet::createSet4DescSet(m_context.get(), m_set4Layout.get(), m_tlas->getHandle(), m_ptTexture0.get(), m_ptTexture1.get());
-	m_set5DescSet = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_exposureBuffer.get(), m_ptTexture0.get());
+	// m_set5DescSet = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_exposureBuffer.get(), m_ptTexture0.get());
+	m_set5DescSet = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_exposureBuffer.get(), m_bloomTexture.get());
 
 	m_outputTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_toneMappingFrameBuffer = FrameBuffer::createToneMappingFrameBuffer(m_context.get(), m_toneMappingRenderPass.get(), m_outputTexture.get(), m_extent);
 	
-	
+
+	m_set6DescSet = DescriptorSet::createSet6DescSet(m_context.get(), m_set6Layout.get(), m_ptTexture0.get(), m_brightTexture.get(), m_blurHTexture.get(), m_blurVTexture.get(), m_bloomTexture.get());
+
 	m_guiRenderer->createViewPortDescriptorSet({m_outputTexture.get(), m_ptTexture1.get()});
 	// m_guiRenderer->createViewPortDescriptorSet({m_ptTexture0.get(), m_ptTexture1.get()});
 
@@ -783,6 +854,12 @@ void Renderer::recreateViewport(ImVec2 newExtent) {
 		VK_ACCESS_SHADER_WRITE_BIT,
 		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	transferImageLayout(cmd, m_brightTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	transferImageLayout(cmd, m_blurHTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	transferImageLayout(cmd, m_blurVTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	transferImageLayout(cmd, m_bloomTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
+	
 	VulkanUtil::endSingleTimeCommands(m_context.get(), cmd);
 }
 
@@ -973,6 +1050,92 @@ void Renderer::recordToneMappingCommandBuffer() {
     vkCmdDraw(cmd, 3, 1, 0, 0);
 
     vkCmdEndRenderPass(cmd);
+}
+
+void Renderer::recordBloomCommandBuffer() {
+	VkCommandBuffer cmd = m_commandBuffers->getCommandBuffers()[currentFrame];
+
+	
+	// --- 1. Threshold Pass ---
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_thresholdPipeline->getPipeline());
+
+	VkDescriptorSet thresholdSet = m_set6DescSet->getDescriptorSet(); // set6
+
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
+		m_thresholdPipeline->getPipelineLayout(),
+		0, 1, &thresholdSet,
+		0, nullptr);
+
+	ThresholdGPU thresholdPush{};
+	thresholdPush.screenSize = glm::vec2(m_extent.width, m_extent.height);
+	thresholdPush.threshold  = 1.0f; // float 값 (예: 1.0f)
+
+	vkCmdPushConstants(cmd,
+		m_thresholdPipeline->getPipelineLayout(),
+		VK_SHADER_STAGE_COMPUTE_BIT,
+		0, sizeof(ThresholdGPU),
+		&thresholdPush);
+
+	uint32_t groupX = (m_extent.width + 15) / 16;
+	uint32_t groupY = (m_extent.height + 15) / 16;
+	vkCmdDispatch(cmd, groupX, groupY, 1);
+
+	// --- 2. Blur H Pass ---
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_blurHPipeline->getPipeline());
+
+	BlurGPU blurPush{};
+	blurPush.radius    = 5;    // int
+	blurPush.sigma     = 1.0f;     // float
+	blurPush.imageSize = glm::ivec2(m_extent.width, m_extent.height);
+
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
+		m_blurHPipeline->getPipelineLayout(),
+		0, 1, &thresholdSet,
+		0, nullptr);
+
+	vkCmdPushConstants(cmd,
+		m_blurHPipeline->getPipelineLayout(),
+		VK_SHADER_STAGE_COMPUTE_BIT,
+		0, sizeof(BlurGPU),
+		&blurPush);
+
+	vkCmdDispatch(cmd, groupX, groupY, 1);
+
+	// --- 3. Blur V Pass ---
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_blurVPipeline->getPipeline());
+
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
+		m_blurVPipeline->getPipelineLayout(),
+		0, 1, &thresholdSet,
+		0, nullptr);
+
+	vkCmdPushConstants(cmd,
+		m_blurVPipeline->getPipelineLayout(),
+		VK_SHADER_STAGE_COMPUTE_BIT,
+		0, sizeof(BlurGPU),
+		&blurPush);
+
+	vkCmdDispatch(cmd, groupX, groupY, 1);
+
+	// --- 4. Composite Pass ---
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_compositePipeline->getPipeline());
+
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
+		m_compositePipeline->getPipelineLayout(),
+		0, 1, &thresholdSet,
+		0, nullptr);
+
+	CompositeGPU compositePush{};
+	compositePush.screenSize    = glm::vec2(m_extent.width, m_extent.height);
+	compositePush.bloomStrength = 0.5f; // float 값 (예: 0.6f)
+
+	vkCmdPushConstants(cmd,
+		m_compositePipeline->getPipelineLayout(),
+		VK_SHADER_STAGE_COMPUTE_BIT,
+		0, sizeof(CompositeGPU),
+		&compositePush);
+
+	vkCmdDispatch(cmd, groupX, groupY, 1);
 }
 
 
@@ -1221,6 +1384,18 @@ void Renderer::printAllResources(){
 	// 	std::cout << "Mesh Index Buffer Size: " << mesh->getIndexBuffer()->getIndexCount() << std::endl;
 	// 	std::cout << "----------------------------" << std::endl;
 	// }
+
+	i = 0;
+	for (auto& aL : m_areaLightTriangleList) {
+		std::cout << "areaLightTriangle: " << i++ << std::endl;
+		std::cout << "worldPos0: " << aL.worldPos0.x << " " << aL.worldPos0.y << " " << aL.worldPos0.z << std::endl;
+		std::cout << "worldPos1: " << aL.worldPos1.x << " " << aL.worldPos1.y << " " << aL.worldPos1.z << std::endl;
+		std::cout << "worldPos2: " << aL.worldPos2.x << " " << aL.worldPos2.y << " " << aL.worldPos2.z << std::endl;
+		std::cout << "worldNormal: " << aL.worldNormal.x << " " << aL.worldNormal.y << " " << aL.worldNormal.z << std::endl;
+		std::cout << "area: " << aL.area << std::endl;
+		std::cout << "L: " << aL.L.x << " " << aL.L.y << " " << aL.L.z << std::endl;
+		std::cout << "----------------------------" << std::endl;
+	}
 }
 
 void Renderer::updateInitialBuffers() {
@@ -1235,6 +1410,7 @@ void Renderer::updateInitialBuffers() {
 	m_substrateBuffer->updateStorageBuffer(&m_substrateList[0], sizeof(SubstrateGPU) * m_substrateList.size());
 	m_plasticBuffer->updateStorageBuffer(&m_plasticList[0], sizeof(PlasticGPU) * m_plasticList.size());
 	m_areaLightBuffer->updateStorageBuffer(&m_areaLightList[0], sizeof(AreaLightGPU) * m_areaLightList.size());
+	m_areaLightTriangleBuffer->updateStorageBuffer(&m_areaLightTriangleList[0], sizeof(AreaLightTriangleGPU) * m_areaLightTriangleList.size());
 }
 
 glm::vec3 Renderer::Uncharted2Tonemap(glm::vec3 x) {

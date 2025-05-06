@@ -621,3 +621,210 @@ void Pipeline::initToneMapping(VulkanContext* context, RenderPass* renderPass, s
 	vkDestroyShaderModule(context->getDevice(), fragShaderModule, nullptr);
 	vkDestroyShaderModule(context->getDevice(), vertShaderModule, nullptr);
 }
+
+std::unique_ptr<Pipeline> Pipeline::createThresholdPipeline(VulkanContext* context, std::vector<DescriptorSetLayout*> descriptorSetLayouts) {
+	std::unique_ptr<Pipeline> pipeline = std::unique_ptr<Pipeline>(new Pipeline());
+	pipeline->initThreshold(context, descriptorSetLayouts);
+	return pipeline;
+}
+
+void Pipeline::initThreshold(VulkanContext* context, std::vector<DescriptorSetLayout*> descriptorSetLayouts) {
+	this->context = context;
+
+    auto shaderCode = VulkanUtil::readFile("spv/threshold.comp.spv");
+    VkShaderModule computeShaderModule = createShaderModule(context, shaderCode);
+
+    VkPipelineShaderStageCreateInfo shaderStageInfo{};
+    shaderStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStageInfo.stage  = VK_SHADER_STAGE_COMPUTE_BIT;
+    shaderStageInfo.module = computeShaderModule;
+    shaderStageInfo.pName  = "main";
+
+    std::vector<VkDescriptorSetLayout> layouts;
+    for (auto* setLayout : descriptorSetLayouts) {
+        layouts.push_back(setLayout->getDescriptorSetLayout());
+    }
+
+    VkPushConstantRange pushConstantRange{};
+    pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    pushConstantRange.offset = 0;
+    pushConstantRange.size   = sizeof(ThresholdGPU);
+
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
+    pipelineLayoutInfo.pSetLayouts = layouts.data();
+    pipelineLayoutInfo.pushConstantRangeCount = 1;
+    pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+
+    if (vkCreatePipelineLayout(context->getDevice(), &pipelineLayoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create threshold pipeline layout!");
+    }
+
+    VkComputePipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineInfo.stage = shaderStageInfo;
+    pipelineInfo.layout = m_pipelineLayout;
+
+    if (vkCreateComputePipelines(context->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create threshold pipeline!");
+    }
+
+    vkDestroyShaderModule(context->getDevice(), computeShaderModule, nullptr);
+}
+
+
+std::unique_ptr<Pipeline> Pipeline::createBlurHPipeline(VulkanContext* context, std::vector<DescriptorSetLayout*> descriptorSetLayouts) {
+	std::unique_ptr<Pipeline> pipeline = std::unique_ptr<Pipeline>(new Pipeline());
+	pipeline->initBlurH(context, descriptorSetLayouts);
+	return pipeline;
+}
+
+
+void Pipeline::initBlurH(VulkanContext* context, std::vector<DescriptorSetLayout*> descriptorSetLayouts) {
+	this->context = context;
+
+	auto shaderCode = VulkanUtil::readFile("spv/blur_h.comp.spv");
+	VkShaderModule computeShaderModule = createShaderModule(context, shaderCode);
+
+	VkPipelineShaderStageCreateInfo shaderStageInfo{};
+	shaderStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shaderStageInfo.stage  = VK_SHADER_STAGE_COMPUTE_BIT;
+	shaderStageInfo.module = computeShaderModule;
+	shaderStageInfo.pName  = "main";
+
+	std::vector<VkDescriptorSetLayout> layouts;
+	for (auto* setLayout : descriptorSetLayouts) {
+		layouts.push_back(setLayout->getDescriptorSetLayout());
+	}
+
+	VkPushConstantRange pushConstantRange{};
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	pushConstantRange.offset = 0;
+	pushConstantRange.size   = sizeof(BlurGPU); // radius + sigma + imageSize
+
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
+	pipelineLayoutInfo.pSetLayouts = layouts.data();
+	pipelineLayoutInfo.pushConstantRangeCount = 1;
+	pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+
+	if (vkCreatePipelineLayout(context->getDevice(), &pipelineLayoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create blurH pipeline layout!");
+	}
+
+	VkComputePipelineCreateInfo pipelineInfo{};
+	pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	pipelineInfo.stage = shaderStageInfo;
+	pipelineInfo.layout = m_pipelineLayout;
+
+	if (vkCreateComputePipelines(context->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create blurH pipeline!");
+	}
+
+	vkDestroyShaderModule(context->getDevice(), computeShaderModule, nullptr);
+}
+
+std::unique_ptr<Pipeline> Pipeline::createBlurVPipeline(VulkanContext* context, std::vector<DescriptorSetLayout*> descriptorSetLayouts) {
+	std::unique_ptr<Pipeline> pipeline = std::unique_ptr<Pipeline>(new Pipeline());
+	pipeline->initBlurV(context, descriptorSetLayouts);
+	return pipeline;
+}
+
+void Pipeline::initBlurV(VulkanContext* context, std::vector<DescriptorSetLayout*> descriptorSetLayouts) {
+	this->context = context;
+
+	auto shaderCode = VulkanUtil::readFile("spv/blur_v.comp.spv");
+	VkShaderModule computeShaderModule = createShaderModule(context, shaderCode);
+
+	VkPipelineShaderStageCreateInfo shaderStageInfo{};
+	shaderStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shaderStageInfo.stage  = VK_SHADER_STAGE_COMPUTE_BIT;
+	shaderStageInfo.module = computeShaderModule;
+	shaderStageInfo.pName  = "main";
+
+	std::vector<VkDescriptorSetLayout> layouts;
+	for (auto* setLayout : descriptorSetLayouts) {
+		layouts.push_back(setLayout->getDescriptorSetLayout());
+	}
+
+	VkPushConstantRange pushConstantRange{};
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	pushConstantRange.offset = 0;
+	pushConstantRange.size   = sizeof(BlurGPU); // radius + sigma + imageSize
+
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
+	pipelineLayoutInfo.pSetLayouts = layouts.data();
+	pipelineLayoutInfo.pushConstantRangeCount = 1;
+	pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+
+	if (vkCreatePipelineLayout(context->getDevice(), &pipelineLayoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create blurV pipeline layout!");
+	}
+
+	VkComputePipelineCreateInfo pipelineInfo{};
+	pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	pipelineInfo.stage = shaderStageInfo;
+	pipelineInfo.layout = m_pipelineLayout;
+
+	if (vkCreateComputePipelines(context->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create blurV pipeline!");
+	}
+
+	vkDestroyShaderModule(context->getDevice(), computeShaderModule, nullptr);
+}
+
+std::unique_ptr<Pipeline> Pipeline::createCompositePipeline(VulkanContext* context, std::vector<DescriptorSetLayout*> descriptorSetLayouts) {
+	std::unique_ptr<Pipeline> pipeline = std::unique_ptr<Pipeline>(new Pipeline());
+	pipeline->initComposite(context, descriptorSetLayouts);
+	return pipeline;
+}
+
+void Pipeline::initComposite(VulkanContext* context, std::vector<DescriptorSetLayout*> descriptorSetLayouts) {
+	this->context = context;
+
+	auto shaderCode = VulkanUtil::readFile("spv/composite.comp.spv");
+	VkShaderModule computeShaderModule = createShaderModule(context, shaderCode);
+
+	VkPipelineShaderStageCreateInfo shaderStageInfo{};
+	shaderStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shaderStageInfo.stage  = VK_SHADER_STAGE_COMPUTE_BIT;
+	shaderStageInfo.module = computeShaderModule;
+	shaderStageInfo.pName  = "main";
+
+	std::vector<VkDescriptorSetLayout> layouts;
+	for (auto* setLayout : descriptorSetLayouts) {
+		layouts.push_back(setLayout->getDescriptorSetLayout());
+	}
+
+	VkPushConstantRange pushConstantRange{};
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	pushConstantRange.offset = 0;
+	pushConstantRange.size   = sizeof(CompositeGPU);
+
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
+	pipelineLayoutInfo.pSetLayouts = layouts.data();
+	pipelineLayoutInfo.pushConstantRangeCount = 1;
+	pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+
+	if (vkCreatePipelineLayout(context->getDevice(), &pipelineLayoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create composite pipeline layout!");
+	}
+
+	VkComputePipelineCreateInfo pipelineInfo{};
+	pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	pipelineInfo.stage = shaderStageInfo;
+	pipelineInfo.layout = m_pipelineLayout;
+
+	if (vkCreateComputePipelines(context->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create composite pipeline!");
+	}
+
+	vkDestroyShaderModule(context->getDevice(), computeShaderModule, nullptr);
+}
+

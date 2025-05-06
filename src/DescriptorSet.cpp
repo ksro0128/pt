@@ -755,3 +755,108 @@ void DescriptorSet::initSet5DescSet(VulkanContext* context, DescriptorSetLayout*
 
     vkUpdateDescriptorSets(context->getDevice(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 }
+
+std::unique_ptr<DescriptorSet> DescriptorSet::createSet6DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+	Texture* hdrTexture, Texture* brightTexture, Texture* blurHTexture, Texture* blurVTexture, Texture* outputTexture) {
+	std::unique_ptr<DescriptorSet> descriptorSet = std::unique_ptr<DescriptorSet>(new DescriptorSet());
+	descriptorSet->initSet6DescSet(context, layout, hdrTexture, brightTexture, blurHTexture, blurVTexture, outputTexture);
+	return descriptorSet;
+}
+
+void DescriptorSet::initSet6DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+	Texture* hdrTexture, Texture* brightTexture, Texture* blurHTexture, Texture* blurVTexture, Texture* outputTexture) {
+	this->context = context;
+
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = context->getDescriptorPool();
+	allocInfo.descriptorSetCount = 1;
+	VkDescriptorSetLayout setLayout = layout->getDescriptorSetLayout();
+	allocInfo.pSetLayouts = &setLayout;
+
+	if (vkAllocateDescriptorSets(context->getDevice(), &allocInfo, &m_descriptorSet) != VK_SUCCESS) {
+		throw std::runtime_error("failed to allocate descriptor set (Set6)!");
+	}
+
+	std::vector<VkWriteDescriptorSet> descriptorWrites;
+	std::vector<VkDescriptorImageInfo> imageInfos(5);
+
+	// Binding 0: HDR (sampler2D)
+	imageInfos[0].sampler = hdrTexture->getSampler();
+	imageInfos[0].imageView = hdrTexture->getImageView();
+	imageInfos[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	VkWriteDescriptorSet hdrWrite{};
+	hdrWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	hdrWrite.dstSet = m_descriptorSet;
+	hdrWrite.dstBinding = 0;
+	hdrWrite.dstArrayElement = 0;
+	hdrWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	hdrWrite.descriptorCount = 1;
+	hdrWrite.pImageInfo = &imageInfos[0];
+	descriptorWrites.push_back(hdrWrite);
+
+	// Binding 1: Bright (image2D)
+	imageInfos[1].sampler = nullptr;
+	imageInfos[1].imageView = brightTexture->getImageView();
+	imageInfos[1].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkWriteDescriptorSet brightWrite{};
+	brightWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	brightWrite.dstSet = m_descriptorSet;
+	brightWrite.dstBinding = 1;
+	brightWrite.dstArrayElement = 0;
+	brightWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	brightWrite.descriptorCount = 1;
+	brightWrite.pImageInfo = &imageInfos[1];
+	descriptorWrites.push_back(brightWrite);
+
+	// Binding 2: BlurH (image2D)
+	imageInfos[2].sampler = nullptr;
+	imageInfos[2].imageView = blurHTexture->getImageView();
+	imageInfos[2].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkWriteDescriptorSet blurHWrite{};
+	blurHWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	blurHWrite.dstSet = m_descriptorSet;
+	blurHWrite.dstBinding = 2;
+	blurHWrite.dstArrayElement = 0;
+	blurHWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	blurHWrite.descriptorCount = 1;
+	blurHWrite.pImageInfo = &imageInfos[2];
+	descriptorWrites.push_back(blurHWrite);
+
+	// Binding 3: BlurV (image2D)
+	imageInfos[3].sampler = nullptr;
+	imageInfos[3].imageView = blurVTexture->getImageView();
+	imageInfos[3].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkWriteDescriptorSet blurVWrite{};
+	blurVWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	blurVWrite.dstSet = m_descriptorSet;
+	blurVWrite.dstBinding = 3;
+	blurVWrite.dstArrayElement = 0;
+	blurVWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	blurVWrite.descriptorCount = 1;
+	blurVWrite.pImageInfo = &imageInfos[3];
+	descriptorWrites.push_back(blurVWrite);
+
+	// Binding 4: Output (image2D)
+	imageInfos[4].sampler = nullptr;
+	imageInfos[4].imageView = outputTexture->getImageView();
+	imageInfos[4].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkWriteDescriptorSet outputWrite{};
+	outputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	outputWrite.dstSet = m_descriptorSet;
+	outputWrite.dstBinding = 4;
+	outputWrite.dstArrayElement = 0;
+	outputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	outputWrite.descriptorCount = 1;
+	outputWrite.pImageInfo = &imageInfos[4];
+	descriptorWrites.push_back(outputWrite);
+
+	vkUpdateDescriptorSets(context->getDevice(),
+		static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(),
+		0, nullptr);
+}

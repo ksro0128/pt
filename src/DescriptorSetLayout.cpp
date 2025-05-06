@@ -314,7 +314,7 @@ std::unique_ptr<DescriptorSetLayout> DescriptorSetLayout::createSet2DescLayout(V
 void DescriptorSetLayout::initSet2DescLayout(VulkanContext* context) {
 	this->context = context;
 
-	const int bindingCount = 9;
+	const int bindingCount = 10;
 	std::vector<VkDescriptorSetLayoutBinding> bindings(bindingCount);
 
 	for (int i = 0; i < bindingCount; i++) {
@@ -444,5 +444,67 @@ void DescriptorSetLayout::initSet5DescLayout(VulkanContext* context) {
 
 	if (vkCreateDescriptorSetLayout(context->getDevice(), &layoutInfo, nullptr, &m_layout) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create Set5 descriptor set layout!");
+	}
+}
+
+std::unique_ptr<DescriptorSetLayout> DescriptorSetLayout::createSet6DescLayout(VulkanContext* context) {
+	std::unique_ptr<DescriptorSetLayout> layout = std::unique_ptr<DescriptorSetLayout>(new DescriptorSetLayout());
+	layout->initSet6DescLayout(context);
+	return layout;
+}
+
+void DescriptorSetLayout::initSet6DescLayout(VulkanContext* context) {
+	this->context = context;
+
+	VkDescriptorSetLayoutBinding hdrBinding{};
+	hdrBinding.binding = 0;
+	hdrBinding.descriptorCount = 1;
+	hdrBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	hdrBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	hdrBinding.pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutBinding brightBinding{};	
+	brightBinding.binding = 1;
+	brightBinding.descriptorCount = 1;
+	brightBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	brightBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	brightBinding.pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutBinding blurHBinding{};
+	blurHBinding.binding = 2;
+	blurHBinding.descriptorCount = 1;
+	blurHBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	blurHBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	blurHBinding.pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutBinding blurVBinding{};
+	blurVBinding.binding = 3;
+	blurVBinding.descriptorCount = 1;
+	blurVBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	blurVBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	blurVBinding.pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutBinding outputBinding{};
+	outputBinding.binding = 4;
+	outputBinding.descriptorCount = 1;
+	outputBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	outputBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	outputBinding.pImmutableSamplers = nullptr;
+
+	std::array<VkDescriptorSetLayoutBinding, 5> bindings = {
+		hdrBinding,
+		brightBinding,
+		blurHBinding,
+		blurVBinding,
+		outputBinding
+	};
+
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+	layoutInfo.pBindings = bindings.data();
+
+	if (vkCreateDescriptorSetLayout(context->getDevice(), &layoutInfo, nullptr, &m_layout) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create Set6 descriptor set layout!");
 	}
 }

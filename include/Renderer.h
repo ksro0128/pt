@@ -48,6 +48,11 @@ private:
 	std::unique_ptr<Texture> m_ptTexture0;
 	std::unique_ptr<Texture> m_ptTexture1;
 	std::unique_ptr<Texture> m_outputTexture;
+
+	std::unique_ptr<Texture> m_brightTexture;
+	std::unique_ptr<Texture> m_blurHTexture;
+	std::unique_ptr<Texture> m_blurVTexture;
+	std::unique_ptr<Texture> m_bloomTexture;
 	
 	
 	std::vector<std::unique_ptr<Texture>> m_textureList;
@@ -61,6 +66,7 @@ private:
 	std::vector<MirrorGPU> m_mirrorList;
 	std::vector<SubstrateGPU> m_substrateList;
 	std::vector<PlasticGPU> m_plasticList;
+	std::vector<AreaLightTriangleGPU> m_areaLightTriangleList;
 
 	std::vector<AreaLightGPU> m_areaLightList;
 
@@ -73,6 +79,7 @@ private:
 	std::unique_ptr<DescriptorSetLayout> m_set3Layout;
 	std::unique_ptr<DescriptorSetLayout> m_set4Layout;
 	std::unique_ptr<DescriptorSetLayout> m_set5Layout;
+	std::unique_ptr<DescriptorSetLayout> m_set6Layout;
 
 	// buffer
 	std::unique_ptr<UniformBuffer> m_cameraBuffer;
@@ -89,7 +96,7 @@ private:
 	std::unique_ptr<StorageBuffer> m_plasticBuffer;
 	std::unique_ptr<StorageBuffer> m_areaLightBuffer;
 	std::unique_ptr<StorageBuffer> m_exposureBuffer;
-
+	std::unique_ptr<StorageBuffer> m_areaLightTriangleBuffer;
 
 	// renderpass
 	std::unique_ptr<RenderPass> m_gbufferRenderPass;
@@ -120,6 +127,7 @@ private:
 	std::unique_ptr<DescriptorSet> m_set3DescSet;
 	std::unique_ptr<DescriptorSet> m_set4DescSet;
 	std::unique_ptr<DescriptorSet> m_set5DescSet;
+	std::unique_ptr<DescriptorSet> m_set6DescSet;
 
 	// pipeline
 	std::unique_ptr<Pipeline> m_gbufferPipeline;
@@ -131,6 +139,12 @@ private:
 
 	std::unique_ptr<RayTracingPipeline> m_ptPipeline;
 	std::unique_ptr<Pipeline> m_toneMappingPipeline;
+	std::unique_ptr<Pipeline> m_thresholdPipeline;
+	std::unique_ptr<Pipeline> m_blurHPipeline;
+	std::unique_ptr<Pipeline> m_blurVPipeline;
+	std::unique_ptr<Pipeline> m_compositePipeline;
+
+
 
 	// command buffer
 	std::unique_ptr<CommandBuffers> m_commandBuffers;
@@ -178,6 +192,7 @@ private:
 	void recordGICmdBuffer();
 	void recordComputeExposureCommandBuffer();
 	void recordToneMappingCommandBuffer();
+	void recordBloomCommandBuffer();
 
 	void recordPTCommandBuffer();
 
