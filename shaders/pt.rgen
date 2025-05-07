@@ -230,6 +230,13 @@ layout(set = 4, binding = 1, rgba32f) uniform image2D pingImage;
 layout(set = 4, binding = 2, rgba32f) uniform image2D pongImage;
 
 
+float rand(inout uint seed) {
+    seed ^= seed << 13;
+    seed ^= seed >> 17;
+    seed ^= seed << 5;
+    return float(seed) / 4294967296.0;
+}
+
 uint tea(in uint val0, in uint val1)
 {
   uint v0 = val0;
@@ -252,13 +259,20 @@ uint initRandom(in uvec2 resolution, in uvec2 screenCoord, in uint frame)
 }
 
 struct RayPayload {
+	vec4 dummy;
     vec3 L;
+	float pad0;
     vec3 beta;
+	float pad1;
     vec3 nextOrigin;
+	float pad2;
     vec3 nextDir;
+	float pad3;
+
     int depth;
     uint seed;
-    bool terminated;
+    int terminated;
+	float pad4;
 };
 
 layout(location = 0) rayPayloadEXT RayPayload payload;
@@ -280,7 +294,12 @@ void main() {
 
     uvec2 pixel = gl_LaunchIDEXT.xy;
     uvec2 size = gl_LaunchSizeEXT.xy;
-    vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(size);
+    
+	// vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(size);
+	uint seed = initRandom(size, pixel, options.frameCount);
+	vec2 jitter = vec2(rand(seed), rand(seed));
+	vec2 uv = (vec2(pixel) + jitter) / vec2(size);
+
     vec2 screen = uv * 2.0 - 1.0;
 	screen.x = -screen.x;
     screen.y = -screen.y;
@@ -297,7 +316,7 @@ void main() {
 	payload.beta = vec3(1.0);
 	payload.seed = initRandom(size, pixel, options.frameCount);
 	payload.depth = 0;
-	payload.terminated = false;
+	payload.terminated = 0;
 
 	vec3 origin = camera.camPos;
 
@@ -306,7 +325,15 @@ void main() {
 		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0,
 					origin, 0.0001, dir, 1e30, 0);
 		
-		if (payload.terminated) break;
+		if (payload.terminated != 0) break;
+
+		if (i > 2) {
+			float p = clamp(max(payload.beta.r, max(payload.beta.g, payload.beta.b)), 0.05, 1.0);
+			if (rand(payload.seed) > p) {
+				break; // 경로 종료
+			}
+			payload.beta /= p; // 에너지 보존 보정
+		}
 
 		origin = payload.nextOrigin;
 		dir = payload.nextDir;

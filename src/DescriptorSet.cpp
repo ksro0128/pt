@@ -782,16 +782,30 @@ void DescriptorSet::initSet6DescSet(VulkanContext* context, DescriptorSetLayout*
 	std::vector<VkDescriptorImageInfo> imageInfos(5);
 
 	// Binding 0: HDR (sampler2D)
-	imageInfos[0].sampler = hdrTexture->getSampler();
+	// imageInfos[0].sampler = hdrTexture->getSampler();
+	// imageInfos[0].imageView = hdrTexture->getImageView();
+	// imageInfos[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	// VkWriteDescriptorSet hdrWrite{};
+	// hdrWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	// hdrWrite.dstSet = m_descriptorSet;
+	// hdrWrite.dstBinding = 0;
+	// hdrWrite.dstArrayElement = 0;
+	// hdrWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	// hdrWrite.descriptorCount = 1;
+	// hdrWrite.pImageInfo = &imageInfos[0];
+	// descriptorWrites.push_back(hdrWrite);
+
+	imageInfos[0].sampler = nullptr;
 	imageInfos[0].imageView = hdrTexture->getImageView();
-	imageInfos[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	imageInfos[0].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
 	VkWriteDescriptorSet hdrWrite{};
 	hdrWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	hdrWrite.dstSet = m_descriptorSet;
 	hdrWrite.dstBinding = 0;
 	hdrWrite.dstArrayElement = 0;
-	hdrWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	hdrWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	hdrWrite.descriptorCount = 1;
 	hdrWrite.pImageInfo = &imageInfos[0];
 	descriptorWrites.push_back(hdrWrite);

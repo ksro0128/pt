@@ -459,7 +459,7 @@ void DescriptorSetLayout::initSet6DescLayout(VulkanContext* context) {
 	VkDescriptorSetLayoutBinding hdrBinding{};
 	hdrBinding.binding = 0;
 	hdrBinding.descriptorCount = 1;
-	hdrBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	hdrBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	hdrBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 	hdrBinding.pImmutableSamplers = nullptr;
 

@@ -248,13 +248,21 @@ layout(set = 4, binding = 1, rgba32f) uniform image2D pingImage;
 layout(set = 4, binding = 2, rgba32f) uniform image2D pongImage;
 
 struct RayPayload {
+    vec4 dummy;
+
     vec3 L;
+    float pad0;
     vec3 beta;
+    float pad1;
     vec3 nextOrigin;
+    float pad2;
     vec3 nextDir;
+    float pad3;
+
     int depth;
     uint seed;
-    bool terminated;
+    int terminated;
+    float pad4;
 };
 
 layout(location = 0) rayPayloadInEXT RayPayload payload;
@@ -863,7 +871,6 @@ void sampleLight(vec3 P, vec3 N, inout uint seed, out vec3 light_wi, out vec3 le
     le = lightTriangle.L;
     float area = lightTriangle.area;
 
-
     float pickPdf = 1.0 / float(camera.areaLightTriangleCount);
     float samplePdf = 1.0 / area;
     float pdf_area = pickPdf * samplePdf;
@@ -872,6 +879,7 @@ void sampleLight(vec3 P, vec3 N, inout uint seed, out vec3 light_wi, out vec3 le
     float cosTheta_l = max(dot(lightTriangle.worldNormal, -normalize(light_wi)), 0.001);
 
     float pdf_solid_angle = (dist2 / cosTheta_l) * pdf_area;
+    
 
     light_pdf = pdf_solid_angle;
 }
@@ -922,6 +930,7 @@ void evalMetal(
 
     f = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
     pdf = (D * NdotH) / (4.0 * VdotH + 0.01);
+
 }
 
 void evalGlass(
@@ -964,6 +973,7 @@ void evalGlass(
 
     f = spec;
     pdf = (D * NdotH) / (4.0 * VdotH + 0.01);
+
 }
 
 void evalMirror(
@@ -1098,6 +1108,9 @@ void evalUber(
 
     float F0_scalar = pow((eta - 1.0) / (eta + 1.0), 2.0);
     vec3 F0 = Ks * F0_scalar;
+
+    float F_spec = luminance(F0);
+
     vec3 H = normalize(wo + wi);
 
     float NdotL = max(dot(N, wi), 0.01);
@@ -1109,16 +1122,15 @@ void evalUber(
     float G = geometrySmith(N, wo, wi, roughness);
     vec3 F = fresnelSchlick(VdotH_final, F0);
 
-    vec3 diffusef = Kd / PI * (vec3(1.0) - F);
-    vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
+    vec3 diffusef = Kd / PI * (1.0 - F_spec);
+    vec3 specularf = (D * G * F0) / max(4.0 * NdotV * NdotL, 0.01);
 
     f = diffusef + specularf;
 
     float diffusePdf = max(dot(N, wi), 0.0) / PI;
     float specularPdf = (D * NdotH) / (4.0 * VdotH_final + 0.01);
 
-    float wspec = (F.r + F.g + F.b) / 3.0;
-    pdf = diffusePdf * (1.0 - wspec) + specularPdf * wspec;
+    pdf = diffusePdf * (1.0 - F_spec) + specularPdf * F_spec;
 }
 
 void main() {
@@ -1132,13 +1144,13 @@ void main() {
 	if (shape.areaLightIdx >= 0) {
 		vec3 L = lights[shape.areaLightIdx].L;
         payload.L += payload.beta * L;
-		payload.terminated = true;
+		payload.terminated = 1;
 		return;
 	}
 
     int matIdx = shape.materialIdx;
     if (matIdx < 0) {
-		payload.terminated = true;
+		payload.terminated = 1;
         return;
     }
 
@@ -1172,7 +1184,7 @@ void main() {
 			sampleUber(ubers[mat.index], wo, N, payload.seed, wi, f, pdf);
 			break;
 		default:
-			payload.terminated = true;
+			payload.terminated = 1;
 			return;
 	}
 
@@ -1181,60 +1193,59 @@ void main() {
     payload.beta *= f * cosTheta / max(pdf, 0.01);
     payload.nextOrigin = P + wi * 0.0001;
     payload.nextDir = wi;
-    payload.terminated = false;
+    payload.terminated = 0;
     payload.depth += 1;
 
-    // vec3 light_wi = vec3(0.0);
-    // vec3 le = vec3(0.0);
-    // vec3 light_f = vec3(0.0);
-    // float light_pdf = 0.0;
 
-    // sampleLight(P, N, payload.seed, light_wi, le, light_pdf);
+    if (payload.depth > 1) {
+        return ;
+    }
 
-    // isShadowed = true;
-    // traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT,
-    //     0xFF, 0, 0, 1, P + N * 0.01, 0.001, normalize(light_wi), length(light_wi) * 0.999, 1);
+    vec3 light_wi = vec3(0.0);
+    vec3 le = vec3(0.0);
+    vec3 light_f = vec3(0.0);
+    float light_pdf = 0.0;
 
-    // if (isShadowed || dot(light_wi, N) < 0.0  || light_pdf <= 0.0) {
-    //     return;
-    // }
+    sampleLight(P, N, payload.seed, light_wi, le, light_pdf);
 
-    // light_wi = normalize(light_wi);
-    // float bsdfPdf = 0.0;
+    isShadowed = true;
+    traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT,
+        0xFF, 0, 0, 1, P + N * 0.01, 0.001, normalize(light_wi), length(light_wi) * 0.999, 1);
 
-    // switch (matType) {
-    //     case MATERIAL_MATTE:
-	// 		evalMatte(mattes[mat.index], wo, N, light_wi, light_f, bsdfPdf);
-	// 		break;
-	// 	case MATERIAL_METAL:
-	// 		evalMetal(metals[mat.index], wo, N, light_wi, light_f, bsdfPdf);
-	// 		break;
-	// 	case MATERIAL_GLASS:
-	// 		evalGlass(glasses[mat.index], wo, N, light_wi, light_f, bsdfPdf);
-	// 		break;
-	// 	case MATERIAL_MIRROR:
-	// 		evalMirror(mirrors[mat.index], wo, N, light_wi, light_f, bsdfPdf);
-	// 		break;
-	// 	case MATERIAL_PLASTIC:
-	// 		evalPlastic(plastics[mat.index], wo, N, light_wi, light_f, bsdfPdf);
-	// 		break;
-	// 	case MATERIAL_SUBSTRATE:
-	// 		evalSubstrate(substrates[mat.index], wo, N, light_wi, light_f, bsdfPdf);
-	// 		break;
-	// 	case MATERIAL_UBER:
-	// 		evalUber(ubers[mat.index], wo, N, light_wi, light_f, bsdfPdf);
-	// 		break;
-	// 	default:
-	// 		payload.terminated = true;
-	// 		return;
-    // }
-    // float misWeightLight = (light_pdf * light_pdf) /
-    //               (light_pdf * light_pdf + bsdfPdf * bsdfPdf) * 0.1;
-    // vec3 direct = (light_f * le * max(dot(N, light_wi), 0.0)) / light_pdf;
-    // payload.L += beta_pre * (direct * misWeightLight);
+    if (isShadowed || dot(light_wi, N) < 0.0  || light_pdf <= 0.0) {
+        return;
+    }
 
+    light_wi = normalize(light_wi);
+    float bsdfPdf = 0.0;
+
+    switch (matType) {
+        case MATERIAL_MATTE:
+			evalMatte(mattes[mat.index], wo, N, light_wi, light_f, bsdfPdf);
+			break;
+		case MATERIAL_METAL:
+			evalMetal(metals[mat.index], wo, N, light_wi, light_f, bsdfPdf);
+			break;
+		case MATERIAL_GLASS:
+			evalGlass(glasses[mat.index], wo, N, light_wi, light_f, bsdfPdf);
+			break;
+		case MATERIAL_PLASTIC:
+			evalPlastic(plastics[mat.index], wo, N, light_wi, light_f, bsdfPdf);
+			break;
+		case MATERIAL_SUBSTRATE:
+			evalSubstrate(substrates[mat.index], wo, N, light_wi, light_f, bsdfPdf);
+			break;
+		case MATERIAL_UBER:
+			evalUber(ubers[mat.index], wo, N, light_wi, light_f, bsdfPdf);
+			break;
+    }
+    if (light_f == vec3(0.0) || bsdfPdf <= 0.0 || light_f.r < 0.0 || light_f.g < 0.0 || light_f.b < 0.0) {
+        return;
+    }
+
+    float misWeightLight = light_pdf / (light_pdf + bsdfPdf);
+
+    vec3 direct = (light_f * le * max(dot(N, light_wi), 0.0)) / max(light_pdf, 0.01);
+
+    payload.L += (beta_pre * direct * misWeightLight);
 }
-
-// 빛 색 계산 라디안스 -> 완벽하게 함
-// NEE -> 공부는 하고 직접광은 제대로 됐으나 합치는 부분에서 문제가 있음
-// Bloom -> 일단 적용은 함

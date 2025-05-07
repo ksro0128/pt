@@ -662,7 +662,8 @@ void Renderer::render(float deltaTime) {
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 	
 	recordComputeExposureCommandBuffer();
-
+	recordBloomCommandBuffer();
+	
 	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
 		m_ptTexture0.get(),
 		VK_IMAGE_LAYOUT_GENERAL,
@@ -681,12 +682,10 @@ void Renderer::render(float deltaTime) {
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 	
-	recordToneMappingCommandBuffer();
-
-	recordBloomCommandBuffer();
-
-	
-	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
+		
+		
+		
+		transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
 		m_bloomTexture.get(),
 		VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -694,7 +693,8 @@ void Renderer::render(float deltaTime) {
 		VK_ACCESS_SHADER_READ_BIT,
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-
+		
+	recordToneMappingCommandBuffer();
 	recordImGuiCommandBuffer(imageIndex, deltaTime);
 
 	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
@@ -1068,7 +1068,7 @@ void Renderer::recordBloomCommandBuffer() {
 
 	ThresholdGPU thresholdPush{};
 	thresholdPush.screenSize = glm::vec2(m_extent.width, m_extent.height);
-	thresholdPush.threshold  = 1.0f; // float 값 (예: 1.0f)
+	thresholdPush.threshold  = 2.0f;
 
 	vkCmdPushConstants(cmd,
 		m_thresholdPipeline->getPipelineLayout(),
@@ -1127,7 +1127,7 @@ void Renderer::recordBloomCommandBuffer() {
 
 	CompositeGPU compositePush{};
 	compositePush.screenSize    = glm::vec2(m_extent.width, m_extent.height);
-	compositePush.bloomStrength = 0.5f; // float 값 (예: 0.6f)
+	compositePush.bloomStrength = 0.5f;
 
 	vkCmdPushConstants(cmd,
 		m_compositePipeline->getPipelineLayout(),
