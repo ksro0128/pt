@@ -508,3 +508,41 @@ void DescriptorSetLayout::initSet6DescLayout(VulkanContext* context) {
 		throw std::runtime_error("failed to create Set6 descriptor set layout!");
 	}
 }
+
+std::unique_ptr<DescriptorSetLayout> DescriptorSetLayout::createSet7DescLayout(VulkanContext* context) {
+	std::unique_ptr<DescriptorSetLayout> layout = std::unique_ptr<DescriptorSetLayout>(new DescriptorSetLayout());
+	layout->initSet7DescLayout(context);
+	return layout;
+}
+
+void DescriptorSetLayout::initSet7DescLayout(VulkanContext* context) {
+	this->context = context;
+
+	VkDescriptorSetLayoutBinding inputBinding{};
+	inputBinding.binding = 0;
+	inputBinding.descriptorCount = 1;
+	inputBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	inputBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	inputBinding.pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutBinding outputBinding{};
+	outputBinding.binding = 1;
+	outputBinding.descriptorCount = 1;
+	outputBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	outputBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	outputBinding.pImmutableSamplers = nullptr;
+
+	std::array<VkDescriptorSetLayoutBinding, 2> bindings = {
+		inputBinding,
+		outputBinding
+	};
+
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+	layoutInfo.pBindings = bindings.data();
+
+	if (vkCreateDescriptorSetLayout(context->getDevice(), &layoutInfo, nullptr, &m_layout) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create Set7 descriptor set layout!");
+	}
+}

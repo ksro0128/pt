@@ -320,7 +320,7 @@ void main() {
 
 	vec3 origin = camera.camPos;
 
-	for (int i = 0; i < 12; ++i) {
+	for (int i = 0; i < 8; ++i) {
 		payload.depth = i;
 		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0,
 					origin, 0.0001, dir, 1e30, 0);
@@ -330,9 +330,9 @@ void main() {
 		if (i > 2) {
 			float p = clamp(max(payload.beta.r, max(payload.beta.g, payload.beta.b)), 0.05, 1.0);
 			if (rand(payload.seed) > p) {
-				break; // 경로 종료
+				break;
 			}
-			payload.beta /= p; // 에너지 보존 보정
+			payload.beta /= p;
 		}
 
 		origin = payload.nextOrigin;
@@ -342,11 +342,24 @@ void main() {
 	vec4 result = vec4(payload.L, 1.0);
 	ivec2 ipixel = ivec2(pixel);
 
-	vec4 prev = imageLoad(pongImage, ipixel);
-    vec4 accum = prev + result;
-    imageStore(pongImage, ipixel, accum);
+	// vec4 prev = imageLoad(pongImage, ipixel);
+    // vec4 accum = prev + result;
+    // imageStore(pongImage, ipixel, accum);
 
-    float fc = float(options.sampleCount);
-    vec4 blended = accum / (fc + 1.0);
-	imageStore(pingImage, ipixel, vec4(blended.rgb, 1.0));
+    // float fc = float(options.sampleCount);
+    // vec4 blended = accum / (fc + 1.0);
+	// imageStore(pingImage, ipixel, vec4(blended.rgb, 1.0));
+
+
+	// 8대 2로 누적해보자
+	vec4 prev = imageLoad(pongImage, ipixel);
+	vec4 accum = vec4(0.0, 0.0, 0.0, 1.0);
+	if (prev.a == 0.0) {
+		accum = result;
+	} else {
+		accum = prev * 0.8 + result * 0.2;
+	}
+	imageStore(pongImage, ipixel, accum);
+
+	imageStore(pingImage, ipixel, vec4(accum.rgb, 1.0));
 }

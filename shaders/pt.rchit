@@ -299,6 +299,13 @@ float rand(inout uint seed) {
     return float(seed) / 4294967296.0;
 }
 
+// float rand(inout uint seed)
+// {
+//     seed = seed * 747796405u + 2891336453u;
+//     uint word = ((seed >> ((seed >> 28) + 4)) ^ seed) * 277803737u;
+//     return float((word >> 22) ^ word) / 4294967296.0;
+// }
+
 vec2 sample2D(inout uint seed)
 {
     float u = rand(seed);
@@ -1196,10 +1203,9 @@ void main() {
     payload.terminated = 0;
     payload.depth += 1;
 
-
-    if (payload.depth > 1) {
-        return ;
-    }
+    // if (payload.depth > 2) {
+    //     return ;
+    // }
 
     vec3 light_wi = vec3(0.0);
     vec3 le = vec3(0.0);
@@ -1213,6 +1219,8 @@ void main() {
         0xFF, 0, 0, 1, P + N * 0.01, 0.001, normalize(light_wi), length(light_wi) * 0.999, 1);
 
     if (isShadowed || dot(light_wi, N) < 0.0  || light_pdf <= 0.0) {
+        // direct light 
+        // payload.terminated = 1;
         return;
     }
 
@@ -1240,6 +1248,8 @@ void main() {
 			break;
     }
     if (light_f == vec3(0.0) || bsdfPdf <= 0.0 || light_f.r < 0.0 || light_f.g < 0.0 || light_f.b < 0.0) {
+        // direct light 
+        // payload.terminated = 1;
         return;
     }
 
@@ -1248,4 +1258,7 @@ void main() {
     vec3 direct = (light_f * le * max(dot(N, light_wi), 0.0)) / max(light_pdf, 0.01);
 
     payload.L += (beta_pre * direct * misWeightLight);
+
+    // direct light 
+    // payload.terminated = 1;
 }

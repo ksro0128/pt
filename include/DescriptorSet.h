@@ -77,6 +77,8 @@ public:
 		StorageBuffer* luminanceBuffer, Texture* texture);
 	static std::unique_ptr<DescriptorSet> createSet6DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		Texture* hdrTexture, Texture* brightTexture, Texture* blurHTexture, Texture* blurVTexture, Texture* outputTexture);
+	static std::unique_ptr<DescriptorSet> createSet7DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+		Texture* inputTexture, Texture* outputTexture);
 		
 	VkDescriptorSet& getDescriptorSet() { return m_descriptorSet; }
 
@@ -112,5 +114,8 @@ private:
 		StorageBuffer* exposureBuffer, Texture* texture);
 	void initSet6DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		Texture* hdrTexture, Texture* brightTexture, Texture* blurHTexture, Texture* blurVTexture, Texture* outputTexture);
+	void initSet7DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+		Texture* inputTexture, Texture* outputTexture);
+
 	void cleanup();
 };

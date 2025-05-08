@@ -782,20 +782,6 @@ void DescriptorSet::initSet6DescSet(VulkanContext* context, DescriptorSetLayout*
 	std::vector<VkDescriptorImageInfo> imageInfos(5);
 
 	// Binding 0: HDR (sampler2D)
-	// imageInfos[0].sampler = hdrTexture->getSampler();
-	// imageInfos[0].imageView = hdrTexture->getImageView();
-	// imageInfos[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-	// VkWriteDescriptorSet hdrWrite{};
-	// hdrWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	// hdrWrite.dstSet = m_descriptorSet;
-	// hdrWrite.dstBinding = 0;
-	// hdrWrite.dstArrayElement = 0;
-	// hdrWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	// hdrWrite.descriptorCount = 1;
-	// hdrWrite.pImageInfo = &imageInfos[0];
-	// descriptorWrites.push_back(hdrWrite);
-
 	imageInfos[0].sampler = nullptr;
 	imageInfos[0].imageView = hdrTexture->getImageView();
 	imageInfos[0].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -873,4 +859,64 @@ void DescriptorSet::initSet6DescSet(VulkanContext* context, DescriptorSetLayout*
 	vkUpdateDescriptorSets(context->getDevice(),
 		static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(),
 		0, nullptr);
+}
+
+
+std::unique_ptr<DescriptorSet> DescriptorSet::createSet7DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+	Texture* inputTexture, Texture* outputTexture) {
+	std::unique_ptr<DescriptorSet> descriptorSet = std::unique_ptr<DescriptorSet>(new DescriptorSet());
+	descriptorSet->initSet7DescSet(context, layout, inputTexture, outputTexture);
+	return descriptorSet;
+}
+
+void DescriptorSet::initSet7DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+	Texture* inputTexture, Texture* outputTexture) {
+
+		this->context = context;
+
+		VkDescriptorSetAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo.descriptorPool = context->getDescriptorPool();
+		allocInfo.descriptorSetCount = 1;
+		VkDescriptorSetLayout setLayout = layout->getDescriptorSetLayout();
+		allocInfo.pSetLayouts = &setLayout;
+	
+		if (vkAllocateDescriptorSets(context->getDevice(), &allocInfo, &m_descriptorSet) != VK_SUCCESS) {
+			throw std::runtime_error("failed to allocate descriptor set (Set7)!");
+		}
+	
+		std::vector<VkWriteDescriptorSet> descriptorWrites;
+		std::vector<VkDescriptorImageInfo> imageInfos(2);
+	
+		imageInfos[0].sampler = nullptr;
+		imageInfos[0].imageView = inputTexture->getImageView();
+		imageInfos[0].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	
+		VkWriteDescriptorSet inputWrite{};
+		inputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		inputWrite.dstSet = m_descriptorSet;
+		inputWrite.dstBinding = 0;
+		inputWrite.dstArrayElement = 0;
+		inputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		inputWrite.descriptorCount = 1;
+		inputWrite.pImageInfo = &imageInfos[0];
+		descriptorWrites.push_back(inputWrite);
+	
+		imageInfos[1].sampler = nullptr;
+		imageInfos[1].imageView = outputTexture->getImageView();
+		imageInfos[1].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	
+		VkWriteDescriptorSet outputWrite{};
+		outputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		outputWrite.dstSet = m_descriptorSet;
+		outputWrite.dstBinding = 1;
+		outputWrite.dstArrayElement = 0;
+		outputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		outputWrite.descriptorCount = 1;
+		outputWrite.pImageInfo = &imageInfos[1];
+		descriptorWrites.push_back(outputWrite);
+	
+		vkUpdateDescriptorSets(context->getDevice(),
+			static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(),
+			0, nullptr);
 }

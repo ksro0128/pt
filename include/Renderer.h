@@ -53,6 +53,8 @@ private:
 	std::unique_ptr<Texture> m_blurHTexture;
 	std::unique_ptr<Texture> m_blurVTexture;
 	std::unique_ptr<Texture> m_bloomTexture;
+
+	std::unique_ptr<Texture> m_aTorusTexture;
 	
 	
 	std::vector<std::unique_ptr<Texture>> m_textureList;
@@ -80,6 +82,7 @@ private:
 	std::unique_ptr<DescriptorSetLayout> m_set4Layout;
 	std::unique_ptr<DescriptorSetLayout> m_set5Layout;
 	std::unique_ptr<DescriptorSetLayout> m_set6Layout;
+	std::unique_ptr<DescriptorSetLayout> m_set7Layout;
 
 	// buffer
 	std::unique_ptr<UniformBuffer> m_cameraBuffer;
@@ -128,6 +131,7 @@ private:
 	std::unique_ptr<DescriptorSet> m_set4DescSet;
 	std::unique_ptr<DescriptorSet> m_set5DescSet;
 	std::unique_ptr<DescriptorSet> m_set6DescSet;
+	std::array<std::unique_ptr<DescriptorSet>, 2> m_set7DescSets;
 
 	// pipeline
 	std::unique_ptr<Pipeline> m_gbufferPipeline;
@@ -143,6 +147,7 @@ private:
 	std::unique_ptr<Pipeline> m_blurHPipeline;
 	std::unique_ptr<Pipeline> m_blurVPipeline;
 	std::unique_ptr<Pipeline> m_compositePipeline;
+	std::unique_ptr<Pipeline> m_aTorusFilterPipeline;
 
 
 
@@ -193,6 +198,7 @@ private:
 	void recordComputeExposureCommandBuffer();
 	void recordToneMappingCommandBuffer();
 	void recordBloomCommandBuffer();
+	void recordATorusFilterCommandBuffer();
 
 	void recordPTCommandBuffer();
 

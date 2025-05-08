@@ -19,6 +19,7 @@ public:
 	static std::unique_ptr<DescriptorSetLayout> createSet4DescLayout(VulkanContext* context);
 	static std::unique_ptr<DescriptorSetLayout> createSet5DescLayout(VulkanContext* context);
 	static std::unique_ptr<DescriptorSetLayout> createSet6DescLayout(VulkanContext* context);
+	static std::unique_ptr<DescriptorSetLayout> createSet7DescLayout(VulkanContext* context);
 
 	~DescriptorSetLayout();
 
@@ -42,5 +43,6 @@ private:
 	void initSet4DescLayout(VulkanContext* context);
 	void initSet5DescLayout(VulkanContext* context);
 	void initSet6DescLayout(VulkanContext* context);
+	void initSet7DescLayout(VulkanContext* context);
 	void cleanup();
 };

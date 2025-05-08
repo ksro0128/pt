@@ -828,3 +828,54 @@ void Pipeline::initComposite(VulkanContext* context, std::vector<DescriptorSetLa
 	vkDestroyShaderModule(context->getDevice(), computeShaderModule, nullptr);
 }
 
+std::unique_ptr<Pipeline> Pipeline::createATorusFilterPipeline(VulkanContext* context, std::vector<DescriptorSetLayout*> descriptorSetLayouts) {
+	std::unique_ptr<Pipeline> pipeline = std::unique_ptr<Pipeline>(new Pipeline());
+	pipeline->initATorusFilter(context, descriptorSetLayouts);
+	return pipeline;
+}
+
+
+void Pipeline::initATorusFilter(VulkanContext* context, std::vector<DescriptorSetLayout*> descriptorSetLayouts) {
+	this->context = context;
+
+	auto shaderCode = VulkanUtil::readFile("spv/a_torus_filter.comp.spv");
+	VkShaderModule computeShaderModule = createShaderModule(context, shaderCode);
+
+	VkPipelineShaderStageCreateInfo shaderStageInfo{};
+	shaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+	shaderStageInfo.module = computeShaderModule;
+	shaderStageInfo.pName = "main";
+
+	std::vector<VkDescriptorSetLayout> layouts;
+	for (auto* setLayout : descriptorSetLayouts) {
+		layouts.push_back(setLayout->getDescriptorSetLayout());
+	}
+
+	VkPushConstantRange pushConstantRange{};
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	pushConstantRange.offset = 0;
+	pushConstantRange.size = sizeof(int);
+
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
+	pipelineLayoutInfo.pSetLayouts = layouts.data();
+	pipelineLayoutInfo.pushConstantRangeCount = 1;
+	pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+
+	if (vkCreatePipelineLayout(context->getDevice(), &pipelineLayoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create A-Trous pipeline layout!");
+	}
+
+	VkComputePipelineCreateInfo pipelineInfo{};
+	pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	pipelineInfo.stage = shaderStageInfo;
+	pipelineInfo.layout = m_pipelineLayout;
+
+	if (vkCreateComputePipelines(context->getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create A-Trous compute pipeline!");
+	}
+
+	vkDestroyShaderModule(context->getDevice(), computeShaderModule, nullptr);
+}
