@@ -1210,9 +1210,9 @@ void main() {
     payload.terminated = 0;
     payload.bounce += 1;
 
-    if (payload.bounce > 1) {
-        return ;
-    }
+    // if (payload.bounce > 1) {
+    //     return ;
+    // }
 
     vec3 light_wi = vec3(0.0);
     vec3 le = vec3(0.0);

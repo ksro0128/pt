@@ -14,6 +14,7 @@ layout(push_constant) uniform PushConsts {
 const int kernelRadius = 2;
 const float sigma_n = 128.0;
 const float sigma_z = 1.0;
+const float sigma_c = 4.0;
 const float epsilon = 1e-2;
 
 
@@ -29,6 +30,7 @@ void main() {
     ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
     ivec2 imageSize = imageSize(inputImage);
 
+    vec3 centerColor = imageLoad(inputImage, coord).rgb;
     vec3 centerNormal = normalize(imageLoad(normalImage, coord).rgb);
     float centerDepth = imageLoad(depthImage, coord).r;
 
@@ -60,9 +62,14 @@ void main() {
             float gradProj = abs(dot(dzdp, pixelOffset));
             float w_z = exp(-abs(centerDepth - sampleDepth) / (sigma_z * gradProj + epsilon));
 
+            float luminanceDiff = length(centerColor - sampleColor);
+            float w_c = exp(-luminanceDiff * luminanceDiff / (sigma_c * sigma_c));
+
             // spatial + edge weights
             float spatialWeight = kernel[dy + kernelRadius][dx + kernelRadius];
-            float w = spatialWeight * w_n * w_z;
+            float w = spatialWeight * w_n * w_z * w_c;
+            // float w = spatialWeight * w_n * w_z;
+
 
             accum += sampleColor * w;
             totalWeight += w;

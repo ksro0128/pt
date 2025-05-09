@@ -1397,7 +1397,7 @@ void Renderer::recordATorusFilterCommandBuffer() {
 	const uint32_t groupX = (m_extent.width + 7) / 8;
 	const uint32_t groupY = (m_extent.height + 7) / 8;
 
-	const int iterationCount = 1;
+	const int iterationCount = 5;
 	for (int i = 0; i < iterationCount; ++i) {
 		VkDescriptorSet set7 = m_set7DescSets[i % 2]->getDescriptorSet(); // 0 / 1
 		VkDescriptorSet set8 = m_set8DescSet->getDescriptorSet();
