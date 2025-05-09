@@ -47,6 +47,20 @@ private:
 
 	std::unique_ptr<Texture> m_ptTexture0;
 	std::unique_ptr<Texture> m_ptTexture1;
+
+	// desc4 
+	std::unique_ptr<Texture> m_directAccumTexture;
+	std::unique_ptr<Texture> m_directOutputTexture;
+	std::unique_ptr<Texture> m_indirectAccumTexture;
+	std::unique_ptr<Texture> m_indirectOutputTexture;
+
+	std::unique_ptr<Texture> m_directFilterdTexture;
+	std::unique_ptr<Texture> m_indirectFilteredTexture;
+
+	std::unique_ptr<Texture> m_compositeTexture;
+
+
+
 	std::unique_ptr<Texture> m_outputTexture;
 
 	std::unique_ptr<Texture> m_brightTexture;
@@ -55,6 +69,10 @@ private:
 	std::unique_ptr<Texture> m_bloomTexture;
 
 	std::unique_ptr<Texture> m_aTorusTexture;
+	
+	std::unique_ptr<Texture> m_gBufferNormalTexture;
+	std::unique_ptr<Texture> m_gBufferDepthTexture;
+	std::unique_ptr<Texture> m_gBufferAlbedoTexture;
 	
 	
 	std::vector<std::unique_ptr<Texture>> m_textureList;
@@ -83,6 +101,8 @@ private:
 	std::unique_ptr<DescriptorSetLayout> m_set5Layout;
 	std::unique_ptr<DescriptorSetLayout> m_set6Layout;
 	std::unique_ptr<DescriptorSetLayout> m_set7Layout;
+	std::unique_ptr<DescriptorSetLayout> m_set8Layout;
+	std::unique_ptr<DescriptorSetLayout> m_set9Layout;
 
 	// buffer
 	std::unique_ptr<UniformBuffer> m_cameraBuffer;
@@ -131,7 +151,9 @@ private:
 	std::unique_ptr<DescriptorSet> m_set4DescSet;
 	std::unique_ptr<DescriptorSet> m_set5DescSet;
 	std::unique_ptr<DescriptorSet> m_set6DescSet;
-	std::array<std::unique_ptr<DescriptorSet>, 2> m_set7DescSets;
+	std::array<std::unique_ptr<DescriptorSet>, 4> m_set7DescSets;
+	std::unique_ptr<DescriptorSet> m_set8DescSet;
+	std::unique_ptr<DescriptorSet> m_set9DescSet;
 
 	// pipeline
 	std::unique_ptr<Pipeline> m_gbufferPipeline;
@@ -146,8 +168,9 @@ private:
 	std::unique_ptr<Pipeline> m_thresholdPipeline;
 	std::unique_ptr<Pipeline> m_blurHPipeline;
 	std::unique_ptr<Pipeline> m_blurVPipeline;
-	std::unique_ptr<Pipeline> m_compositePipeline;
+	std::unique_ptr<Pipeline> m_compositeBloomPipeline;
 	std::unique_ptr<Pipeline> m_aTorusFilterPipeline;
+	std::unique_ptr<Pipeline> m_compositePipeline;
 
 
 
@@ -199,6 +222,7 @@ private:
 	void recordToneMappingCommandBuffer();
 	void recordBloomCommandBuffer();
 	void recordATorusFilterCommandBuffer();
+	void recordCompositeCommandBuffer();
 
 	void recordPTCommandBuffer();
 

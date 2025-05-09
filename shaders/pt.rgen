@@ -226,8 +226,14 @@ layout(set = 2, binding = 8) readonly buffer PlasticBuffer {
 layout(set = 3, binding = 0) uniform sampler2D textures[];
 
 layout(set = 4, binding = 0) uniform accelerationStructureEXT topLevelAS;
-layout(set = 4, binding = 1, rgba32f) uniform image2D pingImage;
-layout(set = 4, binding = 2, rgba32f) uniform image2D pongImage;
+layout(set = 4, binding = 1, rgba32f) uniform image2D directAccumImage;
+layout(set = 4, binding = 2, rgba32f) uniform image2D directOutputImage;
+layout(set = 4, binding = 3, rgba32f) uniform image2D indirectAccumImage;
+layout(set = 4, binding = 4, rgba32f) uniform image2D indirectOutputImage;
+
+layout(set = 5, binding = 0, rgba32f) uniform image2D normalImage;
+layout(set = 5, binding = 1, r32f) uniform image2D depthImage;
+layout(set = 5, binding = 2, rgba32f) uniform image2D albedoImage;
 
 
 float rand(inout uint seed) {
@@ -259,20 +265,21 @@ uint initRandom(in uvec2 resolution, in uvec2 screenCoord, in uint frame)
 }
 
 struct RayPayload {
-	vec4 dummy;
-    vec3 L;
-	float pad0;
-    vec3 beta;
-	float pad1;
-    vec3 nextOrigin;
-	float pad2;
-    vec3 nextDir;
-	float pad3;
+    float dummy;
 
-    int depth;
+    vec3 L_direct;
+    vec3 L_indirect;
+    vec3 beta;
+    vec3 nextOrigin;
+    vec3 nextDir;
+
+    int bounce;
     uint seed;
     int terminated;
-	float pad4;
+
+	vec3 normal;
+	vec3 albedo;
+	float depth;
 };
 
 layout(location = 0) rayPayloadEXT RayPayload payload;
@@ -285,8 +292,10 @@ vec3 toneMapACES(vec3 x) {
 void main() {
 
 	if (options.sampleCount == 0) {
-        imageStore(pongImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
-		imageStore(pingImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
+        imageStore(directAccumImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
+		imageStore(directOutputImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
+		imageStore(indirectAccumImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
+		imageStore(indirectOutputImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
     }
 	if (options.sampleCount == options.maxSampleCount) {
 		return;
@@ -295,10 +304,10 @@ void main() {
     uvec2 pixel = gl_LaunchIDEXT.xy;
     uvec2 size = gl_LaunchSizeEXT.xy;
     
-	// vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(size);
-	uint seed = initRandom(size, pixel, options.frameCount);
-	vec2 jitter = vec2(rand(seed), rand(seed));
-	vec2 uv = (vec2(pixel) + jitter) / vec2(size);
+	vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(size);
+	// uint seed = initRandom(size, pixel, options.frameCount);
+	// vec2 jitter = vec2(rand(seed), rand(seed));
+	// vec2 uv = (vec2(pixel) + jitter) / vec2(size);
 
     vec2 screen = uv * 2.0 - 1.0;
 	screen.x = -screen.x;
@@ -312,19 +321,31 @@ void main() {
         camera.camDir
     );
 
-	payload.L = vec3(0.0);
+	payload.L_direct = vec3(0.0);
+	payload.L_indirect = vec3(0.0);
 	payload.beta = vec3(1.0);
 	payload.seed = initRandom(size, pixel, options.frameCount);
-	payload.depth = 0;
+	payload.bounce = 0;
 	payload.terminated = 0;
+	payload.normal = vec3(0.0);
+	payload.albedo = vec3(0.0);
+	payload.depth = 0.0;
 
 	vec3 origin = camera.camPos;
+	ivec2 ipixel = ivec2(pixel);
+	vec3 albedo = vec3(0.0);
 
 	for (int i = 0; i < 8; ++i) {
-		payload.depth = i;
+		payload.bounce = i;
 		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0,
 					origin, 0.0001, dir, 1e30, 0);
 		
+		if (i == 0) {
+			imageStore(normalImage, ipixel, vec4(payload.normal, 1.0));
+			imageStore(depthImage, ipixel, vec4(payload.depth));
+			imageStore(albedoImage, ipixel, vec4(payload.albedo, 1.0));
+			albedo = payload.albedo;
+		}
 		if (payload.terminated != 0) break;
 
 		if (i > 2) {
@@ -339,27 +360,51 @@ void main() {
 		dir = payload.nextDir;
 	}
 
-	vec4 result = vec4(payload.L, 1.0);
-	ivec2 ipixel = ivec2(pixel);
+	// vec4 result = vec4(payload.L, 1.0);
 
-	// vec4 prev = imageLoad(pongImage, ipixel);
+	// vec4 prev = imageLoad(directAccumImage, ipixel);
     // vec4 accum = prev + result;
-    // imageStore(pongImage, ipixel, accum);
+    // imageStore(directAccumImage, ipixel, accum);
 
     // float fc = float(options.sampleCount);
     // vec4 blended = accum / (fc + 1.0);
-	// imageStore(pingImage, ipixel, vec4(blended.rgb, 1.0));
+	// imageStore(directOutputImage, ipixel, vec4(blended.rgb, 1.0));
 
+	vec3 safeAlbedo = max(albedo, vec3(0.01));
+	payload.L_direct /= safeAlbedo;
+	payload.L_indirect /= safeAlbedo;
+
+	// payload.L_direct *= albedo;
+	// payload.L_indirect *= albedo;
+
+	float fc = float(options.sampleCount);
+
+	vec4 directResult = vec4(payload.L_direct, 1.0);
+	vec4 directPrev = imageLoad(directAccumImage, ipixel);
+	vec4 directAccum = directPrev + directResult;
+	imageStore(directAccumImage, ipixel, directAccum);
+
+	vec4 directBlended = directAccum / (fc + 1.0);
+	imageStore(directOutputImage, ipixel, vec4(directBlended.rgb, 1.0));
+
+
+	vec4 indirectResult = vec4(payload.L_indirect, 1.0);
+	vec4 indirectPrev = imageLoad(indirectAccumImage, ipixel);
+	vec4 indirectAccum = indirectPrev + indirectResult;
+	imageStore(indirectAccumImage, ipixel, indirectAccum);
+
+	vec4 indirectBlended = indirectAccum / (fc + 1.0);
+	imageStore(indirectOutputImage, ipixel, vec4(indirectBlended.rgb, 1.0));
 
 	// 8대 2로 누적해보자
-	vec4 prev = imageLoad(pongImage, ipixel);
-	vec4 accum = vec4(0.0, 0.0, 0.0, 1.0);
-	if (prev.a == 0.0) {
-		accum = result;
-	} else {
-		accum = prev * 0.8 + result * 0.2;
-	}
-	imageStore(pongImage, ipixel, accum);
+	// vec4 prev = imageLoad(pongImage, ipixel);
+	// vec4 accum = vec4(0.0, 0.0, 0.0, 1.0);
+	// if (prev.a == 0.0) {
+	// 	accum = result;
+	// } else {
+	// 	accum = prev * 0.8 + result * 0.2;
+	// }
+	// imageStore(pongImage, ipixel, accum);
 
-	imageStore(pingImage, ipixel, vec4(accum.rgb, 1.0));
+	// imageStore(pingImage, ipixel, vec4(accum.rgb, 1.0));
 }

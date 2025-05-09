@@ -244,25 +244,23 @@ layout(set = 2, binding = 9) readonly buffer AreaLightTriangleBuffer {
 layout(set = 3, binding = 0) uniform sampler2D textures[];
 
 layout(set = 4, binding = 0) uniform accelerationStructureEXT topLevelAS;
-layout(set = 4, binding = 1, rgba32f) uniform image2D pingImage;
-layout(set = 4, binding = 2, rgba32f) uniform image2D pongImage;
 
 struct RayPayload {
-    vec4 dummy;
+    float dummy;
 
-    vec3 L;
-    float pad0;
+    vec3 L_direct;
+    vec3 L_indirect;
     vec3 beta;
-    float pad1;
     vec3 nextOrigin;
-    float pad2;
     vec3 nextDir;
-    float pad3;
 
-    int depth;
+    int bounce;
     uint seed;
     int terminated;
-    float pad4;
+
+	vec3 normal;
+	vec3 albedo;
+	float depth;
 };
 
 layout(location = 0) rayPayloadInEXT RayPayload payload;
@@ -540,6 +538,7 @@ void sampleMatte(
         vec2 uv = getUV();
         Kd = texture(textures[matte.KdIdx], uv).rgb;
     }
+    payload.albedo = Kd;
     f = Kd / PI;
     pdf = max(dot(N, wi), 0.0) / PI;
 }
@@ -576,6 +575,7 @@ void sampleMetal(
     float D = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, wo, wi, roughness);
 	vec3 F = fresnelConductor(VdotH, eta, k);
+    payload.albedo = fresnelConductor(1.0, eta, k);
 
     f = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
     pdf = D * NdotH / (4.0 * VdotH + 0.01);
@@ -619,6 +619,7 @@ void sampleGlass(
     float D = distributionGGX(N, H, roughness);
     float G = geometrySmith(N, wo, wi, roughness);
     float F = fresnelDielectric(VdotH, 1.0, eta);
+    payload.albedo = vec3(1.0);
 
     vec3 spec = (D * G * Kr * F) / max(4.0 * NdotV * NdotL, 0.01);
 
@@ -642,6 +643,7 @@ void sampleMirror(
 
     float NdotL = max(dot(N, wi), 0.0);
 
+    payload.albedo = vec3(1.0);
     if (NdotL > 0.0) {
         f = Kr / NdotL;
         pdf = 1.0;
@@ -671,6 +673,7 @@ void samplePlastic(
         vec2 uv = getUV();
         Ks = texture(textures[plastic.KsIdx], uv).rgb;
     }
+    payload.albedo = Kd;
 
     vec3 F0 = Ks;
     float F_spec = luminance(F0);
@@ -739,6 +742,7 @@ void sampleSubstrate(
         vec2 uv = getUV();
         Ks = texture(textures[substrate.KsIdx], uv).rgb;
     }
+    payload.albedo = Kd;
 
 	vec3 F0 = Ks;
     float F_spec = luminance(F0);
@@ -808,6 +812,7 @@ void sampleUber(
         vec2 uv = getUV();
         Ks = texture(textures[uber.KsIdx], uv).rgb;
     }
+    payload.albedo = Kd;
 
     float F0_scalar = pow((eta - 1.0) / (eta + 1.0), 2.0);
     vec3 F0 = Ks * F0_scalar;
@@ -1144,13 +1149,15 @@ void main() {
 	vec3 N, P;
 	computeHitNormal(N, P);
 	vec3 wo = -normalize(gl_WorldRayDirectionEXT);
+    payload.normal = N;
+    payload.depth = length(P - gl_WorldRayOriginEXT);
 
     const uint instanceID = gl_InstanceCustomIndexEXT;
     ShapeGPU shape = instances[instanceID];
 
 	if (shape.areaLightIdx >= 0) {
 		vec3 L = lights[shape.areaLightIdx].L;
-        payload.L += payload.beta * L;
+        payload.L_indirect += payload.beta * L;
 		payload.terminated = 1;
 		return;
 	}
@@ -1201,11 +1208,11 @@ void main() {
     payload.nextOrigin = P + wi * 0.0001;
     payload.nextDir = wi;
     payload.terminated = 0;
-    payload.depth += 1;
+    payload.bounce += 1;
 
-    // if (payload.depth > 2) {
-    //     return ;
-    // }
+    if (payload.bounce > 1) {
+        return ;
+    }
 
     vec3 light_wi = vec3(0.0);
     vec3 le = vec3(0.0);
@@ -1257,7 +1264,7 @@ void main() {
 
     vec3 direct = (light_f * le * max(dot(N, light_wi), 0.0)) / max(light_pdf, 0.01);
 
-    payload.L += (beta_pre * direct * misWeightLight);
+    payload.L_direct += (beta_pre * direct * misWeightLight);
 
     // direct light 
     // payload.terminated = 1;

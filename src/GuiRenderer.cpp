@@ -110,12 +110,13 @@ void GuiRenderer::render(VkCommandBuffer cmd, float deltaTime, OptionsGPU &optio
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
     ImGui::SetNextWindowViewport(viewport->ID);
-
+	
+	static int selectedViewport = 0;
     ImGui::Begin("FullscreenImage", nullptr, window_flags);
 
     m_viewportSize = ImGui::GetContentRegionAvail();
     // ImGui::Image((ImTextureID)(uint64_t)m_viewPortDescriptorSet[currentFrame], m_viewportSize);
-	ImGui::Image((ImTextureID)(uint64_t)m_viewPortDescriptorSet[0], m_viewportSize); // 우선 ping 만 사용
+	ImGui::Image((ImTextureID)(uint64_t)m_viewPortDescriptorSet[selectedViewport], m_viewportSize);
 
     ImGui::End();
 
@@ -132,6 +133,29 @@ void GuiRenderer::render(VkCommandBuffer cmd, float deltaTime, OptionsGPU &optio
 			options.maxSampleCount = std::max(1, options.maxSampleCount);
 			options.sampleCount = -1;
 		}
+
+		const char* viewportNames[] = { "0", "1", "2" };
+		const int viewportCount = IM_ARRAYSIZE(viewportNames);
+
+		if (ImGui::Combo("Viewport", &selectedViewport, viewportNames, viewportCount)) {
+		}
+		ImGui::End();
+	}
+
+	{
+		ImGui::Begin("G-buffer View", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+		float size = 128.0f; // 미리보기 크기
+
+		ImGui::Text("Normal");
+		ImGui::Image((ImTextureID)(uint64_t)m_gBufferDescriptorSet[0], ImVec2(size, size));
+
+		ImGui::Text("Depth");
+		ImGui::Image((ImTextureID)(uint64_t)m_gBufferDescriptorSet[1], ImVec2(size, size));
+
+		ImGui::Text("Albedo");
+		ImGui::Image((ImTextureID)(uint64_t)m_gBufferDescriptorSet[2], ImVec2(size, size));
+
 		ImGui::End();
 	}
 
@@ -142,8 +166,8 @@ void GuiRenderer::render(VkCommandBuffer cmd, float deltaTime, OptionsGPU &optio
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
  }
 
-void GuiRenderer::createViewPortDescriptorSet(std::array<Texture*, 2> textures) {
-	if (m_viewPortDescriptorSet.size() == 2) {
+void GuiRenderer::createViewPortDescriptorSet(std::array<Texture*, 3> textures) {
+	if (m_viewPortDescriptorSet.size() == 3) {
 		for (auto& descSet : m_viewPortDescriptorSet) {
 			ImGui_ImplVulkan_RemoveTexture(descSet);
 		}
@@ -152,6 +176,20 @@ void GuiRenderer::createViewPortDescriptorSet(std::array<Texture*, 2> textures) 
     m_viewPortDescriptorSet.resize(textures.size());
 	m_viewPortDescriptorSet[0] = ImGui_ImplVulkan_AddTexture(textures[0]->getSampler(), textures[0]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_viewPortDescriptorSet[1] = ImGui_ImplVulkan_AddTexture(textures[1]->getSampler(), textures[1]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_viewPortDescriptorSet[2] = ImGui_ImplVulkan_AddTexture(textures[2]->getSampler(), textures[2]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+}
+
+void GuiRenderer::createGBufferDescriptorSet(std::array<Texture*, 3> textures) {
+	if (m_gBufferDescriptorSet.size() == 3) {
+		for (auto& descSet : m_gBufferDescriptorSet) {
+			ImGui_ImplVulkan_RemoveTexture(descSet);
+		}
+	}
+
+	m_gBufferDescriptorSet.resize(textures.size());
+	m_gBufferDescriptorSet[0] = ImGui_ImplVulkan_AddTexture(textures[0]->getSampler(), textures[0]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_gBufferDescriptorSet[1] = ImGui_ImplVulkan_AddTexture(textures[1]->getSampler(), textures[1]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_gBufferDescriptorSet[2] = ImGui_ImplVulkan_AddTexture(textures[2]->getSampler(), textures[2]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void GuiRenderer::setDarkThemeColors()

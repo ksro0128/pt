@@ -16,7 +16,8 @@ public:
 
     void newFrame();
     void render(VkCommandBuffer cmd, float deltaTime, OptionsGPU &options);
-    void createViewPortDescriptorSet(std::array<Texture*, 2> textures);
+    void createViewPortDescriptorSet(std::array<Texture*, 3> textures);
+    void createGBufferDescriptorSet(std::array<Texture*, 3> textures);
     ImVec2 getViewportSize() const { return m_viewportSize; }
 	bool isBenchmarkRunning() const { return m_benchmarkRunning; }
 
@@ -34,6 +35,7 @@ private:
 	float m_fpsSum = 0.0f;
 
     std::vector<VkDescriptorSet> m_viewPortDescriptorSet;
+    std::vector<VkDescriptorSet> m_gBufferDescriptorSet;
 
     bool m_dockLayoutBuilt;
     ImVec2 m_viewportSize;

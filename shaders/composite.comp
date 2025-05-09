@@ -1,26 +1,21 @@
 #version 450
-layout(local_size_x = 16, local_size_y = 16) in;
+layout(local_size_x = 8, local_size_y = 8) in;
 
-// layout(binding = 0) uniform sampler2D uHDRImage;
-layout(binding = 0, rgba32f) readonly uniform image2D uHDRImage;
-layout(binding = 3, rgba32f) readonly uniform image2D uBloomImage;
-layout(binding = 4, rgba32f) writeonly uniform image2D uOutputImage;
-
-layout(push_constant) uniform PC_Composite {
-    vec2 screenSize;
-    float bloomStrength;
-} pc;
+layout(set = 0, binding = 2, rgba32f) uniform readonly image2D albedo;
+layout(set = 1, binding = 0, rgba32f) uniform readonly image2D directFilteredImage;
+layout(set = 1, binding = 1, rgba32f) uniform readonly image2D indirectFilteredImage;
+layout(set = 1, binding = 2, rgba32f) uniform writeonly image2D compositeImage;
 
 void main() {
-    ivec2 uv = ivec2(gl_GlobalInvocationID.xy);
-    if (uv.x >= int(pc.screenSize.x) || uv.y >= int(pc.screenSize.y))
-        return;
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
 
-    vec2 texCoord = vec2(uv) / pc.screenSize;
-    // vec3 hdr   = texture(uHDRImage,   texCoord).rgb;
-    vec3 hdr   = imageLoad(uHDRImage, uv).rgb;
-    vec3 bloom = imageLoad(uBloomImage, uv).rgb;
+    vec3 direct = imageLoad(directFilteredImage, coord).rgb;
+    vec3 indirect = imageLoad(indirectFilteredImage, coord).rgb;
 
-    vec3 finalColor = hdr + bloom * pc.bloomStrength;
-    imageStore(uOutputImage, uv, vec4(finalColor, 1.0));
+    vec3 baseColor = imageLoad(albedo, coord).rgb;
+    vec3 safeAlbedo = max(baseColor, vec3(0.01));
+
+    vec3 color = (direct + indirect) * safeAlbedo;
+
+    imageStore(compositeImage, coord, vec4(color, 1.0));
 }
