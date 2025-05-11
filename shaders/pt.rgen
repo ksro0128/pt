@@ -231,6 +231,14 @@ layout(set = 4, binding = 2, rgba32f) uniform image2D directOutputImage;
 layout(set = 4, binding = 3, rgba32f) uniform image2D indirectAccumImage;
 layout(set = 4, binding = 4, rgba32f) uniform image2D indirectOutputImage;
 
+layout(set = 4, binding = 5, r32f) uniform image2D directM1Image;
+layout(set = 4, binding = 6, r32f) uniform image2D directM2Image;
+layout(set = 4, binding = 7, r32f) uniform image2D indirectM1Image;
+layout(set = 4, binding = 8, r32f) uniform image2D indirectM2Image;
+
+layout(set = 4, binding = 9, r32f) uniform image2D directVarianceImage;
+layout(set = 4, binding = 10, r32f) uniform image2D indirectVarianceImage;
+
 layout(set = 5, binding = 0, rgba32f) uniform image2D normalImage;
 layout(set = 5, binding = 1, r32f) uniform image2D depthImage;
 layout(set = 5, binding = 2, rgba32f) uniform image2D albedoImage;
@@ -264,9 +272,11 @@ uint initRandom(in uvec2 resolution, in uvec2 screenCoord, in uint frame)
   return tea(screenCoord.y * resolution.x + screenCoord.x, frame);
 }
 
-struct RayPayload {
-    float dummy;
+float luminance(vec3 x) {
+	return dot(x, vec3(0.2126, 0.7152, 0.0722));
+}
 
+struct RayPayload {
     vec3 L_direct;
     vec3 L_indirect;
     vec3 beta;
@@ -296,6 +306,10 @@ void main() {
 		imageStore(directOutputImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
 		imageStore(indirectAccumImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
 		imageStore(indirectOutputImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
+		imageStore(directM1Image, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
+		imageStore(directM2Image, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
+		imageStore(indirectM1Image, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
+		imageStore(indirectM2Image, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
     }
 	if (options.sampleCount == options.maxSampleCount) {
 		return;
@@ -374,37 +388,75 @@ void main() {
 	payload.L_direct /= safeAlbedo;
 	payload.L_indirect /= safeAlbedo;
 
-	// payload.L_direct *= albedo;
-	// payload.L_indirect *= albedo;
+	// float fc = float(options.sampleCount);
 
+	// vec4 directResult = vec4(payload.L_direct, 1.0);
+	// vec4 directPrev = imageLoad(directAccumImage, ipixel);
+	// vec4 directAccum = directPrev + directResult;
+	// imageStore(directAccumImage, ipixel, directAccum);
+
+	// vec4 directBlended = directAccum / (fc + 1.0);
+	// imageStore(directOutputImage, ipixel, vec4(directBlended.rgb, 1.0));
+
+
+	// vec4 indirectResult = vec4(payload.L_indirect, 1.0);
+	// vec4 indirectPrev = imageLoad(indirectAccumImage, ipixel);
+	// vec4 indirectAccum = indirectPrev + indirectResult;
+	// imageStore(indirectAccumImage, ipixel, indirectAccum);
+
+	// vec4 indirectBlended = indirectAccum / (fc + 1.0);
+	// imageStore(indirectOutputImage, ipixel, vec4(indirectBlended.rgb, 1.0));
+
+	// ema
 	float fc = float(options.sampleCount);
 
 	vec4 directResult = vec4(payload.L_direct, 1.0);
 	vec4 directPrev = imageLoad(directAccumImage, ipixel);
-	vec4 directAccum = directPrev + directResult;
-	imageStore(directAccumImage, ipixel, directAccum);
-
-	vec4 directBlended = directAccum / (fc + 1.0);
-	imageStore(directOutputImage, ipixel, vec4(directBlended.rgb, 1.0));
-
+	vec4 directCurrent = vec4(0.0);
+	if (directPrev.a > 0.0) {
+		directCurrent = directPrev * 0.8 + directResult * 0.2;
+	} else {
+		directCurrent = directResult;
+	}
+	imageStore(directOutputImage, ipixel, directCurrent);
 
 	vec4 indirectResult = vec4(payload.L_indirect, 1.0);
 	vec4 indirectPrev = imageLoad(indirectAccumImage, ipixel);
-	vec4 indirectAccum = indirectPrev + indirectResult;
-	imageStore(indirectAccumImage, ipixel, indirectAccum);
+	vec4 indirectCurrent = vec4(0.0);
+	if (indirectPrev.a > 0.0) {
+		indirectCurrent = indirectPrev * 0.8 + indirectResult * 0.2;
+	} else {
+		indirectCurrent = indirectResult;
+	}
+	imageStore(indirectOutputImage, ipixel, indirectCurrent);
 
-	vec4 indirectBlended = indirectAccum / (fc + 1.0);
-	imageStore(indirectOutputImage, ipixel, vec4(indirectBlended.rgb, 1.0));
+	float directM1 = imageLoad(directM1Image, ipixel).r;
+	float directM2 = imageLoad(directM2Image, ipixel).r;
+	float indirectM1 = imageLoad(indirectM1Image, ipixel).r;
+	float indirectM2 = imageLoad(indirectM2Image, ipixel).r;
 
-	// 8대 2로 누적해보자
-	// vec4 prev = imageLoad(pongImage, ipixel);
-	// vec4 accum = vec4(0.0, 0.0, 0.0, 1.0);
-	// if (prev.a == 0.0) {
-	// 	accum = result;
-	// } else {
-	// 	accum = prev * 0.8 + result * 0.2;
-	// }
-	// imageStore(pongImage, ipixel, accum);
+	float directVariance = 0.0;
+	float indirectVariance = 0.0;
 
-	// imageStore(pingImage, ipixel, vec4(accum.rgb, 1.0));
+	float directLum = luminance(directResult.rgb);
+	float indirectLum = luminance(indirectResult.rgb);
+
+	float fcNext = fc + 1.0;
+
+	float updatedDirectM1 = (directM1 * fc + directLum) / fcNext;
+	float updatedDirectM2 = (directM2 * fc + directLum * directLum) / fcNext;
+
+	float updatedIndirectM1 = (indirectM1 * fc + indirectLum) / fcNext;
+	float updatedIndirectM2 = (indirectM2 * fc + indirectLum * indirectLum) / fcNext;
+
+	directVariance = updatedDirectM2 - updatedDirectM1 * updatedDirectM1;
+	indirectVariance = updatedIndirectM2 - updatedIndirectM1 * updatedIndirectM1;
+
+	imageStore(directM1Image, ipixel, vec4(updatedDirectM1));
+	imageStore(directM2Image, ipixel, vec4(updatedDirectM2));
+	imageStore(indirectM1Image, ipixel, vec4(updatedIndirectM1));
+	imageStore(indirectM2Image, ipixel, vec4(updatedIndirectM2));
+
+	imageStore(directVarianceImage, ipixel, vec4(directVariance));
+	imageStore(indirectVarianceImage, ipixel, vec4(indirectVariance));
 }

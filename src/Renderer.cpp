@@ -33,13 +33,27 @@ void Renderer::init(GLFWwindow* window) {
 	m_emptyTLAS = TopLevelAS::createEmptyTopLevelAS(m_context.get());
 
 	m_tlas = TopLevelAS::createTopLevelAS(m_context.get(), m_blasList, m_shapeList);
-	m_directAccumTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_directOutputTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_indirectAccumTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT); 
-	m_indirectOutputTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_directHistoryTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_directCurrentTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_indirectHistoryTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT); 
+	m_indirectCurrentTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
-	m_directFilterdTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_directFilteredTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_indirectFilteredTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+	m_directM1Texture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_directM2Texture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_indirectM1Texture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_indirectM2Texture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+	m_directVarianceTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_indirectVarianceTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+	m_directBlurredVarianceTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_indirectBlurredVarianceTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+	m_directUpdatedVarianceTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_indirectUpdatedVarianceTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
 	m_compositeTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT); 
 
@@ -61,12 +75,13 @@ void Renderer::init(GLFWwindow* window) {
 	m_set1Layout = DescriptorSetLayout::createSet1DescLayout(m_context.get()); // instance buffer
 	m_set2Layout = DescriptorSetLayout::createSet2DescLayout(m_context.get()); // material buffer
 	m_set3Layout = DescriptorSetLayout::createSet3DescLayout(m_context.get()); // texture buffer
-	m_set4Layout = DescriptorSetLayout::createSet4DescLayout(m_context.get()); // tlas, ping, pong
+	m_set4Layout = DescriptorSetLayout::createSet4DescLayout(m_context.get()); // tlas, direct history, direct current, indirect history, indirect current, direct m1, direct m2, indirect m1, indirect m2, direct variance, indirect variance
 	m_set5Layout = DescriptorSetLayout::createSet5DescLayout(m_context.get()); // exposure buffer
 	m_set6Layout = DescriptorSetLayout::createSet6DescLayout(m_context.get()); // bloom texture
 	m_set7Layout = DescriptorSetLayout::createSet7DescLayout(m_context.get()); // aTorus texture
 	m_set8Layout = DescriptorSetLayout::createSet8DescLayout(m_context.get()); // g buffer - 0: normal, 1: depth, 2: albedo
 	m_set9Layout = DescriptorSetLayout::createSet9DescLayout(m_context.get()); // direct, indirect, composite
+	m_set10Layout = DescriptorSetLayout::createSet10DescLayout(m_context.get()); // gaussian blur variance input, output
 
 	// buffer
 	m_cameraBuffer = UniformBuffer::createUniformBuffer(m_context.get(), sizeof(CameraGPU));
@@ -120,17 +135,20 @@ void Renderer::init(GLFWwindow* window) {
 		m_plasticBuffer.get(),
 		m_areaLightTriangleBuffer.get()});
 	m_set3DescSet = DescriptorSet::createSet3DescSet(m_context.get(), m_set3Layout.get(), m_textureList);
-	m_set4DescSet = DescriptorSet::createSet4DescSet(m_context.get(), m_set4Layout.get(), m_tlas->getHandle(), m_directAccumTexture.get(), m_directOutputTexture.get(), m_indirectAccumTexture.get(), m_indirectOutputTexture.get());
+	m_set4DescSet = DescriptorSet::createSet4DescSet(m_context.get(), m_set4Layout.get(), m_tlas->getHandle(), m_directHistoryTexture.get(), m_directCurrentTexture.get(), m_indirectHistoryTexture.get(), m_indirectCurrentTexture.get(),
+		m_directM1Texture.get(), m_directM2Texture.get(), m_indirectM1Texture.get(), m_indirectM2Texture.get(), m_directVarianceTexture.get(), m_indirectVarianceTexture.get());
 	// m_set5DescSet = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_exposureBuffer.get(), m_ptTexture0.get());
 	// m_set5DescSet = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_exposureBuffer.get(), m_bloomTexture.get());
 	m_set5DescSet = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_exposureBuffer.get(), m_aTorusTexture.get());
 	m_set6DescSet = DescriptorSet::createSet6DescSet(m_context.get(), m_set6Layout.get(), m_ptTexture0.get(), m_brightTexture.get(), m_blurHTexture.get(), m_blurVTexture.get(), m_bloomTexture.get());
-	m_set7DescSets[0] = DescriptorSet::createSet7DescSet(m_context.get(), m_set7Layout.get(), m_directOutputTexture.get(), m_directFilterdTexture.get());
-	m_set7DescSets[1] = DescriptorSet::createSet7DescSet(m_context.get(), m_set7Layout.get(), m_directFilterdTexture.get(), m_directOutputTexture.get());
-	m_set7DescSets[2] = DescriptorSet::createSet7DescSet(m_context.get(), m_set7Layout.get(), m_indirectOutputTexture.get(), m_indirectFilteredTexture.get());
-	m_set7DescSets[3] = DescriptorSet::createSet7DescSet(m_context.get(), m_set7Layout.get(), m_indirectFilteredTexture.get(), m_indirectOutputTexture.get());
+	m_set7DescSets[0] = DescriptorSet::createSet7DescSet(m_context.get(), m_set7Layout.get(), m_directCurrentTexture.get(), m_directFilteredTexture.get(), m_directHistoryTexture.get(), m_directBlurredVarianceTexture.get(), m_directUpdatedVarianceTexture.get());
+	m_set7DescSets[1] = DescriptorSet::createSet7DescSet(m_context.get(), m_set7Layout.get(), m_directFilteredTexture.get(), m_directCurrentTexture.get(), m_directHistoryTexture.get(), m_directUpdatedVarianceTexture.get(), m_directBlurredVarianceTexture.get());
+	m_set7DescSets[2] = DescriptorSet::createSet7DescSet(m_context.get(), m_set7Layout.get(), m_indirectCurrentTexture.get(), m_indirectFilteredTexture.get(), m_indirectHistoryTexture.get(), m_indirectBlurredVarianceTexture.get(), m_indirectUpdatedVarianceTexture.get());
+	m_set7DescSets[3] = DescriptorSet::createSet7DescSet(m_context.get(), m_set7Layout.get(), m_indirectFilteredTexture.get(), m_indirectCurrentTexture.get(), m_indirectHistoryTexture.get(), m_indirectUpdatedVarianceTexture.get(), m_indirectBlurredVarianceTexture.get());
 	m_set8DescSet = DescriptorSet::createSet8DescSet(m_context.get(), m_set8Layout.get(), m_gBufferNormalTexture.get(), m_gBufferDepthTexture.get(), m_gBufferAlbedoTexture.get());
-	m_set9DescSet = DescriptorSet::createSet9DescSet(m_context.get(), m_set9Layout.get(), m_directFilterdTexture.get(), m_indirectFilteredTexture.get(), m_compositeTexture.get());
+	m_set9DescSet = DescriptorSet::createSet9DescSet(m_context.get(), m_set9Layout.get(), m_directFilteredTexture.get(), m_indirectFilteredTexture.get(), m_compositeTexture.get());
+	m_set10DescSets[0] = DescriptorSet::createSet10DescSet(m_context.get(), m_set10Layout.get(), m_directVarianceTexture.get(), m_directBlurredVarianceTexture.get());
+	m_set10DescSets[1] = DescriptorSet::createSet10DescSet(m_context.get(), m_set10Layout.get(), m_indirectVarianceTexture.get(), m_indirectBlurredVarianceTexture.get());
 
 	// renderpass
 	m_toneMappingRenderPass = RenderPass::createToneMappingRenderPass(m_context.get());
@@ -146,6 +164,7 @@ void Renderer::init(GLFWwindow* window) {
 	m_compositeBloomPipeline = Pipeline::createCompositeBloomPipeline(m_context.get(), {m_set6Layout.get()});
 	m_aTorusFilterPipeline = Pipeline::createATorusFilterPipeline(m_context.get(), {m_set7Layout.get(), m_set8Layout.get()});
 	m_compositePipeline = Pipeline::createCompositePipeline(m_context.get(), {m_set8Layout.get(), m_set9Layout.get()});
+	m_gaussianBlurPipeline = Pipeline::createGaussianBlurPipeline(m_context.get(), {m_set10Layout.get()});
 
 	auto cmd = VulkanUtil::beginSingleTimeCommands(m_context.get());
 	transferImageLayout(cmd, m_ptTexture0.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
@@ -158,13 +177,23 @@ void Renderer::init(GLFWwindow* window) {
 	transferImageLayout(cmd, m_gBufferNormalTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
 	transferImageLayout(cmd, m_gBufferDepthTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
 	transferImageLayout(cmd, m_gBufferAlbedoTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-	transferImageLayout(cmd, m_directAccumTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-	transferImageLayout(cmd, m_directOutputTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-	transferImageLayout(cmd, m_indirectAccumTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-	transferImageLayout(cmd, m_indirectOutputTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-	transferImageLayout(cmd, m_directFilterdTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	transferImageLayout(cmd, m_directHistoryTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_directCurrentTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_indirectHistoryTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_indirectCurrentTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_directM1Texture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_directM2Texture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_indirectM1Texture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_indirectM2Texture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_directVarianceTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_indirectVarianceTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_directFilteredTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 	transferImageLayout(cmd, m_indirectFilteredTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 	transferImageLayout(cmd, m_compositeTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	transferImageLayout(cmd, m_directBlurredVarianceTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	transferImageLayout(cmd, m_indirectBlurredVarianceTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	transferImageLayout(cmd, m_directUpdatedVarianceTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_indirectUpdatedVarianceTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
 
 	VulkanUtil::endSingleTimeCommands(m_context.get(), cmd);
 
@@ -174,7 +203,7 @@ void Renderer::init(GLFWwindow* window) {
 		m_imguiFrameBuffers[i] = FrameBuffer::createImGuiFrameBuffer(m_context.get(), m_imguiRenderPass.get(), m_swapChain->getSwapChainImageViews()[i], m_swapChain->getSwapChainExtent());
 	}
 	m_guiRenderer = GuiRenderer::createGuiRenderer(m_context.get(), window, m_imguiRenderPass.get(), m_swapChain.get());
-	m_guiRenderer->createViewPortDescriptorSet({m_compositeTexture.get(), m_directFilterdTexture.get(), m_indirectFilteredTexture.get()});
+	m_guiRenderer->createViewPortDescriptorSet({m_compositeTexture.get(), m_directFilteredTexture.get(), m_indirectFilteredTexture.get()});
 	// m_guiRenderer->createViewPortDescriptorSet({m_ptTexture0.get(), m_ptTexture1.get()});
 	m_guiRenderer->createGBufferDescriptorSet({m_gBufferNormalTexture.get(), m_gBufferDepthTexture.get(), m_gBufferAlbedoTexture.get()});
 	
@@ -696,11 +725,13 @@ void Renderer::render(float deltaTime) {
 		VK_ACCESS_SHADER_READ_BIT,
 		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
+	recordGaussianBlurCommandBuffer();
 	
 	// recordComputeExposureCommandBuffer();
 	// recordBloomCommandBuffer();
-	if (m_options.sampleCount < m_options.maxSampleCount) 
-		recordATorusFilterCommandBuffer();
+	// if (m_options.sampleCount < m_options.maxSampleCount) 
+	recordATorusFilterCommandBuffer();
 
 	recordCompositeCommandBuffer();
 	
@@ -768,7 +799,7 @@ void Renderer::render(float deltaTime) {
 		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
 	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
-		m_directOutputTexture.get(),
+		m_directCurrentTexture.get(),
 		VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_ACCESS_SHADER_WRITE_BIT,
@@ -776,7 +807,7 @@ void Renderer::render(float deltaTime) {
 		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
 		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
-		m_indirectOutputTexture.get(),
+		m_indirectCurrentTexture.get(),
 		VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_ACCESS_SHADER_WRITE_BIT,
@@ -785,7 +816,7 @@ void Renderer::render(float deltaTime) {
 		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
 	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
-		m_directFilterdTexture.get(),
+		m_directFilteredTexture.get(),
 		VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_ACCESS_SHADER_WRITE_BIT,
@@ -878,7 +909,7 @@ void Renderer::render(float deltaTime) {
 
 
 	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
-		m_directOutputTexture.get(),
+		m_directCurrentTexture.get(),
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_IMAGE_LAYOUT_GENERAL,
 		VK_ACCESS_SHADER_READ_BIT,
@@ -887,7 +918,7 @@ void Renderer::render(float deltaTime) {
 		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
 
 	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
-		m_indirectOutputTexture.get(),
+		m_indirectCurrentTexture.get(),
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_IMAGE_LAYOUT_GENERAL,
 		VK_ACCESS_SHADER_READ_BIT,
@@ -896,7 +927,7 @@ void Renderer::render(float deltaTime) {
 		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
 
 	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
-		m_directFilterdTexture.get(),
+		m_directFilteredTexture.get(),
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_IMAGE_LAYOUT_GENERAL,
 		VK_ACCESS_SHADER_READ_BIT,
@@ -1016,13 +1047,22 @@ void Renderer::recreateViewport(ImVec2 newExtent) {
 	m_set9DescSet.reset();
 
 
-	m_directAccumTexture.reset();
-	m_directOutputTexture.reset();
-	m_indirectAccumTexture.reset();
-	m_indirectOutputTexture.reset();
-	m_directFilterdTexture.reset();
+	m_directHistoryTexture.reset();
+	m_directCurrentTexture.reset();
+	m_indirectHistoryTexture.reset();
+	m_indirectCurrentTexture.reset();
+	m_directFilteredTexture.reset();
 	m_indirectFilteredTexture.reset();
 	m_compositeTexture.reset();
+
+	m_directM1Texture.reset();
+	m_directM2Texture.reset();
+	m_indirectM1Texture.reset();
+	m_indirectM2Texture.reset();
+	m_directVarianceTexture.reset();
+	m_indirectVarianceTexture.reset();
+	m_directBlurredVarianceTexture.reset();
+	m_indirectBlurredVarianceTexture.reset();
 
 	m_ptTexture0.reset();
 	m_ptTexture1.reset();
@@ -1048,55 +1088,55 @@ void Renderer::recreateViewport(ImVec2 newExtent) {
 	m_gBufferDepthTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_gBufferAlbedoTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
-	m_directAccumTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_directOutputTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_indirectAccumTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_indirectOutputTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_directFilterdTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_directHistoryTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_directCurrentTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_indirectHistoryTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_indirectCurrentTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_directFilteredTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_indirectFilteredTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+	m_directM1Texture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_directM2Texture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_indirectM1Texture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_indirectM2Texture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+	m_directVarianceTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_indirectVarianceTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+	m_directBlurredVarianceTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_indirectBlurredVarianceTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
 	m_compositeTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
 	m_ptTexture0 = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_ptTexture1 = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_set4DescSet = DescriptorSet::createSet4DescSet(m_context.get(), m_set4Layout.get(), m_tlas->getHandle(), m_directAccumTexture.get(), m_directOutputTexture.get(), m_indirectAccumTexture.get(), m_indirectOutputTexture.get());
+	m_set4DescSet = DescriptorSet::createSet4DescSet(m_context.get(), m_set4Layout.get(), m_tlas->getHandle(), m_directHistoryTexture.get(), m_directCurrentTexture.get(), m_indirectHistoryTexture.get(), m_indirectCurrentTexture.get(),
+		m_directM1Texture.get(), m_directM2Texture.get(), m_indirectM1Texture.get(), m_indirectM2Texture.get(), m_directVarianceTexture.get(), m_indirectVarianceTexture.get());
 	// m_set5DescSet = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_exposureBuffer.get(), m_ptTexture0.get());
 	// m_set5DescSet = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_exposureBuffer.get(), m_bloomTexture.get());
 	m_set5DescSet = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_exposureBuffer.get(), m_aTorusTexture.get());
 	
-	m_set7DescSets[0] = DescriptorSet::createSet7DescSet(m_context.get(), m_set7Layout.get(), m_directOutputTexture.get(), m_directFilterdTexture.get());
-	m_set7DescSets[1] = DescriptorSet::createSet7DescSet(m_context.get(), m_set7Layout.get(), m_directFilterdTexture.get(), m_directOutputTexture.get());
-	m_set7DescSets[2] = DescriptorSet::createSet7DescSet(m_context.get(), m_set7Layout.get(), m_indirectOutputTexture.get(), m_indirectFilteredTexture.get());
-	m_set7DescSets[3] = DescriptorSet::createSet7DescSet(m_context.get(), m_set7Layout.get(), m_indirectFilteredTexture.get(), m_indirectOutputTexture.get());
+	m_set7DescSets[0] = DescriptorSet::createSet7DescSet(m_context.get(), m_set7Layout.get(), m_directCurrentTexture.get(), m_directFilteredTexture.get(), m_directHistoryTexture.get(), m_directVarianceTexture.get(), m_directUpdatedVarianceTexture.get());
+	m_set7DescSets[1] = DescriptorSet::createSet7DescSet(m_context.get(), m_set7Layout.get(), m_directFilteredTexture.get(), m_directCurrentTexture.get(), m_directHistoryTexture.get(), m_directUpdatedVarianceTexture.get(), m_directVarianceTexture.get());
+	m_set7DescSets[2] = DescriptorSet::createSet7DescSet(m_context.get(), m_set7Layout.get(), m_indirectCurrentTexture.get(), m_indirectFilteredTexture.get(), m_indirectHistoryTexture.get(), m_indirectVarianceTexture.get(), m_indirectUpdatedVarianceTexture.get());
+	m_set7DescSets[3] = DescriptorSet::createSet7DescSet(m_context.get(), m_set7Layout.get(), m_indirectFilteredTexture.get(), m_indirectCurrentTexture.get(), m_indirectHistoryTexture.get(), m_indirectUpdatedVarianceTexture.get(), m_indirectVarianceTexture.get());
 	m_set8DescSet = DescriptorSet::createSet8DescSet(m_context.get(), m_set8Layout.get(), m_gBufferNormalTexture.get(), m_gBufferDepthTexture.get(), m_gBufferAlbedoTexture.get());
-	m_set9DescSet = DescriptorSet::createSet9DescSet(m_context.get(), m_set9Layout.get(), m_directFilterdTexture.get(), m_indirectFilteredTexture.get(), m_compositeTexture.get());
+	m_set9DescSet = DescriptorSet::createSet9DescSet(m_context.get(), m_set9Layout.get(), m_directFilteredTexture.get(), m_indirectFilteredTexture.get(), m_compositeTexture.get());
+	m_set10DescSets[0] = DescriptorSet::createSet10DescSet(m_context.get(), m_set10Layout.get(), m_directVarianceTexture.get(), m_directBlurredVarianceTexture.get());
+	m_set10DescSets[1] = DescriptorSet::createSet10DescSet(m_context.get(), m_set10Layout.get(), m_indirectVarianceTexture.get(), m_indirectBlurredVarianceTexture.get());
 
 	m_outputTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_toneMappingFrameBuffer = FrameBuffer::createToneMappingFrameBuffer(m_context.get(), m_toneMappingRenderPass.get(), m_outputTexture.get(), m_extent);
 
 	m_set6DescSet = DescriptorSet::createSet6DescSet(m_context.get(), m_set6Layout.get(), m_ptTexture0.get(), m_brightTexture.get(), m_blurHTexture.get(), m_blurVTexture.get(), m_bloomTexture.get());
 
-	m_guiRenderer->createViewPortDescriptorSet({m_compositeTexture.get(), m_directFilterdTexture.get(), m_indirectFilteredTexture.get()});
+	m_guiRenderer->createViewPortDescriptorSet({m_compositeTexture.get(), m_directFilteredTexture.get(), m_indirectFilteredTexture.get()});
 	// m_guiRenderer->createViewPortDescriptorSet({m_ptTexture0.get(), m_ptTexture1.get()});
 	m_guiRenderer->createGBufferDescriptorSet({m_gBufferNormalTexture.get(), m_gBufferDepthTexture.get(), m_gBufferAlbedoTexture.get()});
 
 	auto cmd = VulkanUtil::beginSingleTimeCommands(m_context.get());
-	transferImageLayout(cmd,
-		m_ptTexture0.get(),
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_GENERAL,
-		VK_ACCESS_NONE_KHR,
-		VK_ACCESS_SHADER_WRITE_BIT,
-		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-	transferImageLayout(cmd,
-		m_ptTexture1.get(),
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_GENERAL,
-		VK_ACCESS_NONE_KHR,
-		VK_ACCESS_SHADER_WRITE_BIT,
-		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_ptTexture0.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_ptTexture1.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
 	transferImageLayout(cmd, m_brightTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 	transferImageLayout(cmd, m_blurHTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 	transferImageLayout(cmd, m_blurVTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
@@ -1105,13 +1145,24 @@ void Renderer::recreateViewport(ImVec2 newExtent) {
 	transferImageLayout(cmd, m_gBufferNormalTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
 	transferImageLayout(cmd, m_gBufferDepthTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
 	transferImageLayout(cmd, m_gBufferAlbedoTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-	transferImageLayout(cmd, m_directAccumTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-	transferImageLayout(cmd, m_directOutputTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-	transferImageLayout(cmd, m_indirectAccumTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-	transferImageLayout(cmd, m_indirectOutputTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-	transferImageLayout(cmd, m_directFilterdTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	transferImageLayout(cmd, m_directHistoryTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_directCurrentTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_indirectHistoryTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_indirectCurrentTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_directFilteredTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 	transferImageLayout(cmd, m_indirectFilteredTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 	transferImageLayout(cmd, m_compositeTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	transferImageLayout(cmd, m_directM1Texture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_directM2Texture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_indirectM1Texture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_indirectM2Texture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_directVarianceTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_indirectVarianceTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_directBlurredVarianceTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	transferImageLayout(cmd, m_indirectBlurredVarianceTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	transferImageLayout(cmd, m_directUpdatedVarianceTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_indirectUpdatedVarianceTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	
 	VulkanUtil::endSingleTimeCommands(m_context.get(), cmd);
 }
 
@@ -1449,6 +1500,29 @@ void Renderer::recordCompositeCommandBuffer() {
 		2,
 		sets,
 		0, nullptr);
+
+	vkCmdDispatch(cmd, groupX, groupY, 1);
+}
+
+void Renderer::recordGaussianBlurCommandBuffer() {
+	VkCommandBuffer cmd = m_commandBuffers->getCommandBuffers()[currentFrame];
+
+	const uint32_t groupX = (m_extent.width + 7) / 8;
+	const uint32_t groupY = (m_extent.height + 7) / 8;
+
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_gaussianBlurPipeline->getPipeline());
+
+	VkDescriptorSet sets[] = {
+		m_set10DescSets[0]->getDescriptorSet()
+	};
+
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_gaussianBlurPipeline->getPipelineLayout(), 0, 1, sets, 0, nullptr);
+
+	vkCmdDispatch(cmd, groupX, groupY, 1);
+
+	sets[0] = m_set10DescSets[1]->getDescriptorSet();
+
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_gaussianBlurPipeline->getPipelineLayout(), 0, 1, sets, 0, nullptr);
 
 	vkCmdDispatch(cmd, groupX, groupY, 1);
 }

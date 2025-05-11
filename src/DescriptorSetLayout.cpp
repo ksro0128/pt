@@ -382,7 +382,7 @@ std::unique_ptr<DescriptorSetLayout> DescriptorSetLayout::createSet4DescLayout(V
 
 void DescriptorSetLayout::initSet4DescLayout(VulkanContext* context) {
 	this->context = context;
-	std::vector<VkDescriptorSetLayoutBinding> bindings(5);
+	std::vector<VkDescriptorSetLayoutBinding> bindings(11);
 
 	bindings[0].binding = 0;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
@@ -390,33 +390,75 @@ void DescriptorSetLayout::initSet4DescLayout(VulkanContext* context) {
 	bindings[0].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 	bindings[0].pImmutableSamplers = nullptr;
 
-	// Direct Accum
+	// Direct history
 	bindings[1].binding = 1;
 	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	bindings[1].descriptorCount = 1;
 	bindings[1].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT;
 	bindings[1].pImmutableSamplers = nullptr;
 
-	// Direct Output
+	// Direct current
 	bindings[2].binding = 2;
 	bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	bindings[2].descriptorCount = 1;
 	bindings[2].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 	bindings[2].pImmutableSamplers = nullptr;
 
-	// Indirect Accum
+	// Indirect history
 	bindings[3].binding = 3;
 	bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	bindings[3].descriptorCount = 1;
 	bindings[3].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT;
 	bindings[3].pImmutableSamplers = nullptr;
 
-	// Indirect Output
+	// Indirect current
 	bindings[4].binding = 4;
 	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	bindings[4].descriptorCount = 1;
 	bindings[4].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 	bindings[4].pImmutableSamplers = nullptr;
+
+	// direct m1
+	bindings[5].binding = 5;
+	bindings[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[5].descriptorCount = 1;
+	bindings[5].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+	bindings[5].pImmutableSamplers = nullptr;
+
+	// direct m2
+	bindings[6].binding = 6;
+	bindings[6].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[6].descriptorCount = 1;
+	bindings[6].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+	bindings[6].pImmutableSamplers = nullptr;
+
+	// indirect m1
+	bindings[7].binding = 7;
+	bindings[7].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[7].descriptorCount = 1;
+	bindings[7].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+	bindings[7].pImmutableSamplers = nullptr;
+
+	// indirect m2
+	bindings[8].binding = 8;
+	bindings[8].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[8].descriptorCount = 1;
+	bindings[8].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+	bindings[8].pImmutableSamplers = nullptr;
+
+	// direct variance
+	bindings[9].binding = 9;
+	bindings[9].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[9].descriptorCount = 1;
+	bindings[9].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+	bindings[9].pImmutableSamplers = nullptr;
+
+	// indirect variance
+	bindings[10].binding = 10;
+	bindings[10].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[10].descriptorCount = 1;
+	bindings[10].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+	bindings[10].pImmutableSamplers = nullptr;
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -548,9 +590,33 @@ void DescriptorSetLayout::initSet7DescLayout(VulkanContext* context) {
 	outputBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 	outputBinding.pImmutableSamplers = nullptr;
 
-	std::array<VkDescriptorSetLayoutBinding, 2> bindings = {
+	VkDescriptorSetLayoutBinding historyBinding{};
+	historyBinding.binding = 2;
+	historyBinding.descriptorCount = 1;
+	historyBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	historyBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	historyBinding.pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutBinding varianceInputBinding{};
+	varianceInputBinding.binding = 3;
+	varianceInputBinding.descriptorCount = 1;
+	varianceInputBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	varianceInputBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	varianceInputBinding.pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutBinding varianceOutputBinding{};	
+	varianceOutputBinding.binding = 4;
+	varianceOutputBinding.descriptorCount = 1;
+	varianceOutputBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	varianceOutputBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	varianceOutputBinding.pImmutableSamplers = nullptr;
+
+	std::array<VkDescriptorSetLayoutBinding, 5> bindings = {
 		inputBinding,
-		outputBinding
+		outputBinding,
+		historyBinding,
+		varianceInputBinding,
+		varianceOutputBinding
 	};
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -640,5 +706,41 @@ void DescriptorSetLayout::initSet9DescLayout(VulkanContext* context) {
 
 	if (vkCreateDescriptorSetLayout(context->getDevice(), &layoutInfo, nullptr, &m_layout) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create Set9 descriptor set layout!");
+	}
+}
+
+std::unique_ptr<DescriptorSetLayout> DescriptorSetLayout::createSet10DescLayout(VulkanContext* context) {
+	std::unique_ptr<DescriptorSetLayout> layout = std::unique_ptr<DescriptorSetLayout>(new DescriptorSetLayout());
+	layout->initSet10DescLayout(context);
+	return layout;
+}
+
+
+void DescriptorSetLayout::initSet10DescLayout(VulkanContext* context) {
+	this->context = context;
+
+	VkDescriptorSetLayoutBinding inputBinding{};
+	inputBinding.binding = 0;
+	inputBinding.descriptorCount = 1;
+	inputBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	inputBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	inputBinding.pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutBinding outputBinding{};
+	outputBinding.binding = 1;
+	outputBinding.descriptorCount = 1;
+	outputBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	outputBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	outputBinding.pImmutableSamplers = nullptr;
+
+	std::array<VkDescriptorSetLayoutBinding, 2> bindings = { inputBinding, outputBinding };
+
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+	layoutInfo.pBindings = bindings.data();
+
+	if (vkCreateDescriptorSetLayout(context->getDevice(), &layoutInfo, nullptr, &m_layout) != VK_SUCCESS) {	
+		throw std::runtime_error("failed to create Set10 descriptor set layout!");
 	}
 }

@@ -623,14 +623,20 @@ void DescriptorSet::initSet2DescSet(VulkanContext* context, DescriptorSetLayout*
 
 
 std::unique_ptr<DescriptorSet> DescriptorSet::createSet4DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-	VkAccelerationStructureKHR tlas, Texture* directAccumTexture, Texture* directOutputTexture, Texture* indirectAccumTexture, Texture* indirectOutputTexture) {
+	VkAccelerationStructureKHR tlas, Texture* directAccumHistoryTexture, Texture* directCurrentTexture, Texture* indirectAccumHistoryTexture, Texture* indirectCurrentTexture,
+	Texture* directM1Texture, Texture* directM2Texture, Texture* indirectM1Texture, Texture* indirectM2Texture,
+	Texture* directVarianceTexture, Texture* indirectVarianceTexture) {
 	std::unique_ptr<DescriptorSet> descriptorSet = std::unique_ptr<DescriptorSet>(new DescriptorSet());
-	descriptorSet->initSet4DescSet(context, layout, tlas, directAccumTexture, directOutputTexture, indirectAccumTexture, indirectOutputTexture);
+	descriptorSet->initSet4DescSet(context, layout, tlas, directAccumHistoryTexture, directCurrentTexture, indirectAccumHistoryTexture, indirectCurrentTexture,
+		directM1Texture, directM2Texture, indirectM1Texture, indirectM2Texture,
+		directVarianceTexture, indirectVarianceTexture);
 	return descriptorSet;
 }
 
 void DescriptorSet::initSet4DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-	VkAccelerationStructureKHR tlas, Texture* directAccumTexture, Texture* directOutputTexture, Texture* indirectAccumTexture, Texture* indirectOutputTexture) {
+	VkAccelerationStructureKHR tlas, Texture* directAccumHistoryTexture, Texture* directCurrentTexture, Texture* indirectAccumHistoryTexture, Texture* indirectCurrentTexture,
+	Texture* directM1Texture, Texture* directM2Texture, Texture* indirectM1Texture, Texture* indirectM2Texture,
+	Texture* directVarianceTexture, Texture* indirectVarianceTexture) {
 		this->context = context;
 
 		VkDescriptorSetAllocateInfo allocInfo{};
@@ -667,7 +673,7 @@ void DescriptorSet::initSet4DescSet(VulkanContext* context, DescriptorSetLayout*
 		// Binding 1: directAccumTexture
 		VkDescriptorImageInfo directAccumInfo{};
 		directAccumInfo.sampler = VK_NULL_HANDLE;
-		directAccumInfo.imageView = directAccumTexture->getImageView();
+		directAccumInfo.imageView = directAccumHistoryTexture->getImageView();
 		directAccumInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 	
 		VkWriteDescriptorSet directAccumWrite{};
@@ -684,7 +690,7 @@ void DescriptorSet::initSet4DescSet(VulkanContext* context, DescriptorSetLayout*
 		// Binding 2: directOutputTexture
 		VkDescriptorImageInfo directOutputInfo{};
 		directOutputInfo.sampler = VK_NULL_HANDLE;
-		directOutputInfo.imageView = directOutputTexture->getImageView();
+		directOutputInfo.imageView = directCurrentTexture->getImageView();
 		directOutputInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 	
 		VkWriteDescriptorSet directOutputWrite{};
@@ -701,7 +707,7 @@ void DescriptorSet::initSet4DescSet(VulkanContext* context, DescriptorSetLayout*
 		// Binding 3: indirectAccumTexture
 		VkDescriptorImageInfo indirectAccumInfo{};
 		indirectAccumInfo.sampler = VK_NULL_HANDLE;
-		indirectAccumInfo.imageView = indirectAccumTexture->getImageView();
+		indirectAccumInfo.imageView = indirectAccumHistoryTexture->getImageView();
 		indirectAccumInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 	
 		VkWriteDescriptorSet indirectAccumWrite{};
@@ -718,7 +724,7 @@ void DescriptorSet::initSet4DescSet(VulkanContext* context, DescriptorSetLayout*
 		// Binding 4: indirectOutputTexture
 		VkDescriptorImageInfo indirectOutputInfo{};
 		indirectOutputInfo.sampler = VK_NULL_HANDLE;
-		indirectOutputInfo.imageView = indirectOutputTexture->getImageView();
+		indirectOutputInfo.imageView = indirectCurrentTexture->getImageView();
 		indirectOutputInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 	
 		VkWriteDescriptorSet indirectOutputWrite{};
@@ -731,6 +737,108 @@ void DescriptorSet::initSet4DescSet(VulkanContext* context, DescriptorSetLayout*
 		indirectOutputWrite.pImageInfo = &indirectOutputInfo;
 	
 		descriptorWrites.push_back(indirectOutputWrite);
+
+		// Binding 5: directM1Texture
+		VkDescriptorImageInfo directM1Info{};
+		directM1Info.sampler = VK_NULL_HANDLE;
+		directM1Info.imageView = directM1Texture->getImageView();
+		directM1Info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+		VkWriteDescriptorSet directM1Write{};
+		directM1Write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		directM1Write.dstSet = m_descriptorSet;
+		directM1Write.dstBinding = 5;
+		directM1Write.dstArrayElement = 0;
+		directM1Write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		directM1Write.descriptorCount = 1;
+		directM1Write.pImageInfo = &directM1Info;
+	
+		descriptorWrites.push_back(directM1Write);
+
+		// Binding 6: directM2Texture
+		VkDescriptorImageInfo directM2Info{};
+		directM2Info.sampler = VK_NULL_HANDLE;
+		directM2Info.imageView = directM2Texture->getImageView();
+		directM2Info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		
+		VkWriteDescriptorSet directM2Write{};
+		directM2Write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		directM2Write.dstSet = m_descriptorSet;
+		directM2Write.dstBinding = 6;
+		directM2Write.dstArrayElement = 0;
+		directM2Write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		directM2Write.descriptorCount = 1;
+		directM2Write.pImageInfo = &directM2Info;
+
+		descriptorWrites.push_back(directM2Write);
+
+		// Binding 7: indirectM1Texture
+		VkDescriptorImageInfo indirectM1Info{};
+		indirectM1Info.sampler = VK_NULL_HANDLE;
+		indirectM1Info.imageView = indirectM1Texture->getImageView();
+		indirectM1Info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+		VkWriteDescriptorSet indirectM1Write{};
+		indirectM1Write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		indirectM1Write.dstSet = m_descriptorSet;
+		indirectM1Write.dstBinding = 7;
+		indirectM1Write.dstArrayElement = 0;
+		indirectM1Write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		indirectM1Write.descriptorCount = 1;
+		indirectM1Write.pImageInfo = &indirectM1Info;
+
+		descriptorWrites.push_back(indirectM1Write);
+
+		// Binding 8: indirectM2Texture
+		VkDescriptorImageInfo indirectM2Info{};
+		indirectM2Info.sampler = VK_NULL_HANDLE;
+		indirectM2Info.imageView = indirectM2Texture->getImageView();
+		indirectM2Info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+		VkWriteDescriptorSet indirectM2Write{};
+		indirectM2Write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		indirectM2Write.dstSet = m_descriptorSet;
+		indirectM2Write.dstBinding = 8;
+		indirectM2Write.dstArrayElement = 0;
+		indirectM2Write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		indirectM2Write.descriptorCount = 1;
+		indirectM2Write.pImageInfo = &indirectM2Info;
+
+		descriptorWrites.push_back(indirectM2Write);
+
+		// Binding 9: directVarianceTexture
+		VkDescriptorImageInfo directVarianceInfo{};
+		directVarianceInfo.sampler = VK_NULL_HANDLE;
+		directVarianceInfo.imageView = directVarianceTexture->getImageView();
+		directVarianceInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+		VkWriteDescriptorSet directVarianceWrite{};
+		directVarianceWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		directVarianceWrite.dstSet = m_descriptorSet;
+		directVarianceWrite.dstBinding = 9;
+		directVarianceWrite.dstArrayElement = 0;
+		directVarianceWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		directVarianceWrite.descriptorCount = 1;
+		directVarianceWrite.pImageInfo = &directVarianceInfo;
+
+		descriptorWrites.push_back(directVarianceWrite);
+
+		// Binding 10: indirectVarianceTexture
+		VkDescriptorImageInfo indirectVarianceInfo{};
+		indirectVarianceInfo.sampler = VK_NULL_HANDLE;
+		indirectVarianceInfo.imageView = indirectVarianceTexture->getImageView();
+		indirectVarianceInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+		VkWriteDescriptorSet indirectVarianceWrite{};
+		indirectVarianceWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		indirectVarianceWrite.dstSet = m_descriptorSet;
+		indirectVarianceWrite.dstBinding = 10;
+		indirectVarianceWrite.dstArrayElement = 0;
+		indirectVarianceWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		indirectVarianceWrite.descriptorCount = 1;
+		indirectVarianceWrite.pImageInfo = &indirectVarianceInfo;
+
+		descriptorWrites.push_back(indirectVarianceWrite);
 	
 		// Update all
 		vkUpdateDescriptorSets(context->getDevice(),
@@ -904,62 +1012,105 @@ void DescriptorSet::initSet6DescSet(VulkanContext* context, DescriptorSetLayout*
 
 
 std::unique_ptr<DescriptorSet> DescriptorSet::createSet7DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-	Texture* inputTexture, Texture* outputTexture) {
+	Texture* inputTexture, Texture* outputTexture, Texture* historyTexture, Texture* varianceInputTexture, Texture* varianceOutputTexture) {
 	std::unique_ptr<DescriptorSet> descriptorSet = std::unique_ptr<DescriptorSet>(new DescriptorSet());
-	descriptorSet->initSet7DescSet(context, layout, inputTexture, outputTexture);
+	descriptorSet->initSet7DescSet(context, layout, inputTexture, outputTexture, historyTexture, varianceInputTexture, varianceOutputTexture);
 	return descriptorSet;
 }
 
 void DescriptorSet::initSet7DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-	Texture* inputTexture, Texture* outputTexture) {
+	Texture* inputTexture, Texture* outputTexture, Texture* historyTexture, Texture* varianceInputTexture, Texture* varianceOutputTexture) {
 
-		this->context = context;
+	this->context = context;
 
-		VkDescriptorSetAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		allocInfo.descriptorPool = context->getDescriptorPool();
-		allocInfo.descriptorSetCount = 1;
-		VkDescriptorSetLayout setLayout = layout->getDescriptorSetLayout();
-		allocInfo.pSetLayouts = &setLayout;
-	
-		if (vkAllocateDescriptorSets(context->getDevice(), &allocInfo, &m_descriptorSet) != VK_SUCCESS) {
-			throw std::runtime_error("failed to allocate descriptor set (Set7)!");
-		}
-	
-		std::vector<VkWriteDescriptorSet> descriptorWrites;
-		std::vector<VkDescriptorImageInfo> imageInfos(2);
-	
-		imageInfos[0].sampler = nullptr;
-		imageInfos[0].imageView = inputTexture->getImageView();
-		imageInfos[0].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-	
-		VkWriteDescriptorSet inputWrite{};
-		inputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		inputWrite.dstSet = m_descriptorSet;
-		inputWrite.dstBinding = 0;
-		inputWrite.dstArrayElement = 0;
-		inputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		inputWrite.descriptorCount = 1;
-		inputWrite.pImageInfo = &imageInfos[0];
-		descriptorWrites.push_back(inputWrite);
-	
-		imageInfos[1].sampler = nullptr;
-		imageInfos[1].imageView = outputTexture->getImageView();
-		imageInfos[1].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-	
-		VkWriteDescriptorSet outputWrite{};
-		outputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		outputWrite.dstSet = m_descriptorSet;
-		outputWrite.dstBinding = 1;
-		outputWrite.dstArrayElement = 0;
-		outputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		outputWrite.descriptorCount = 1;
-		outputWrite.pImageInfo = &imageInfos[1];
-		descriptorWrites.push_back(outputWrite);
-	
-		vkUpdateDescriptorSets(context->getDevice(),
-			static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(),
-			0, nullptr);
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = context->getDescriptorPool();
+	allocInfo.descriptorSetCount = 1;
+	VkDescriptorSetLayout setLayout = layout->getDescriptorSetLayout();
+	allocInfo.pSetLayouts = &setLayout;
+
+	if (vkAllocateDescriptorSets(context->getDevice(), &allocInfo, &m_descriptorSet) != VK_SUCCESS) {
+		throw std::runtime_error("failed to allocate descriptor set (Set7)!");
+	}
+
+	std::vector<VkWriteDescriptorSet> descriptorWrites;
+	std::vector<VkDescriptorImageInfo> imageInfos(5);
+
+	imageInfos[0].sampler = nullptr;
+	imageInfos[0].imageView = inputTexture->getImageView();
+	imageInfos[0].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkWriteDescriptorSet inputWrite{};
+	inputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	inputWrite.dstSet = m_descriptorSet;
+	inputWrite.dstBinding = 0;
+	inputWrite.dstArrayElement = 0;
+	inputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	inputWrite.descriptorCount = 1;
+	inputWrite.pImageInfo = &imageInfos[0];
+	descriptorWrites.push_back(inputWrite);
+
+	imageInfos[1].sampler = nullptr;
+	imageInfos[1].imageView = outputTexture->getImageView();
+	imageInfos[1].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkWriteDescriptorSet outputWrite{};
+	outputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	outputWrite.dstSet = m_descriptorSet;
+	outputWrite.dstBinding = 1;
+	outputWrite.dstArrayElement = 0;
+	outputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	outputWrite.descriptorCount = 1;
+	outputWrite.pImageInfo = &imageInfos[1];
+	descriptorWrites.push_back(outputWrite);
+
+	imageInfos[2].sampler = nullptr;
+	imageInfos[2].imageView = historyTexture->getImageView();
+	imageInfos[2].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkWriteDescriptorSet historyWrite{};
+	historyWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	historyWrite.dstSet = m_descriptorSet;
+	historyWrite.dstBinding = 2;
+	historyWrite.dstArrayElement = 0;
+	historyWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	historyWrite.descriptorCount = 1;
+	historyWrite.pImageInfo = &imageInfos[2];
+	descriptorWrites.push_back(historyWrite);
+
+	imageInfos[3].sampler = nullptr;
+	imageInfos[3].imageView = varianceInputTexture->getImageView();
+	imageInfos[3].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkWriteDescriptorSet varianceInputWrite{};
+	varianceInputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	varianceInputWrite.dstSet = m_descriptorSet;
+	varianceInputWrite.dstBinding = 3;
+	varianceInputWrite.dstArrayElement = 0;
+	varianceInputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	varianceInputWrite.descriptorCount = 1;
+	varianceInputWrite.pImageInfo = &imageInfos[3];
+	descriptorWrites.push_back(varianceInputWrite);
+
+	imageInfos[4].sampler = nullptr;
+	imageInfos[4].imageView = varianceOutputTexture->getImageView();
+	imageInfos[4].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkWriteDescriptorSet varianceOutputWrite{};
+	varianceOutputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	varianceOutputWrite.dstSet = m_descriptorSet;
+	varianceOutputWrite.dstBinding = 4;
+	varianceOutputWrite.dstArrayElement = 0;
+	varianceOutputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	varianceOutputWrite.descriptorCount = 1;
+	varianceOutputWrite.pImageInfo = &imageInfos[4];
+	descriptorWrites.push_back(varianceOutputWrite);
+
+
+	vkUpdateDescriptorSets(context->getDevice(),
+		static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(),
+		0, nullptr);
 }
 
 std::unique_ptr<DescriptorSet> DescriptorSet::createSet8DescSet(VulkanContext* context, DescriptorSetLayout* layout,
@@ -1107,3 +1258,63 @@ void DescriptorSet::initSet9DescSet(VulkanContext* context, DescriptorSetLayout*
 		static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(),
 		0, nullptr);
 }
+
+std::unique_ptr<DescriptorSet> DescriptorSet::createSet10DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+	Texture* inputTexture, Texture* outputTexture) {
+	std::unique_ptr<DescriptorSet> descriptorSet = std::unique_ptr<DescriptorSet>(new DescriptorSet());
+	descriptorSet->initSet10DescSet(context, layout, inputTexture, outputTexture);
+	return descriptorSet;
+}
+
+
+void DescriptorSet::initSet10DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+	Texture* inputTexture, Texture* outputTexture) {
+	this->context = context;
+
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = context->getDescriptorPool();
+	allocInfo.descriptorSetCount = 1;
+	VkDescriptorSetLayout setLayout = layout->getDescriptorSetLayout();
+	allocInfo.pSetLayouts = &setLayout;
+
+	if (vkAllocateDescriptorSets(context->getDevice(), &allocInfo, &m_descriptorSet) != VK_SUCCESS) {
+		throw std::runtime_error("failed to allocate descriptor set (Set10)!");
+	}
+
+	std::vector<VkWriteDescriptorSet> descriptorWrites;
+	std::vector<VkDescriptorImageInfo> imageInfos(2);
+
+	imageInfos[0].sampler = nullptr;
+	imageInfos[0].imageView = inputTexture->getImageView();
+	imageInfos[0].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkWriteDescriptorSet inputWrite{};
+	inputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	inputWrite.dstSet = m_descriptorSet;
+	inputWrite.dstBinding = 0;
+	inputWrite.dstArrayElement = 0;
+	inputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	inputWrite.descriptorCount = 1;
+	inputWrite.pImageInfo = &imageInfos[0];
+	descriptorWrites.push_back(inputWrite);
+
+	imageInfos[1].sampler = nullptr;
+	imageInfos[1].imageView = outputTexture->getImageView();
+	imageInfos[1].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkWriteDescriptorSet outputWrite{};
+	outputWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	outputWrite.dstSet = m_descriptorSet;
+	outputWrite.dstBinding = 1;
+	outputWrite.dstArrayElement = 0;
+	outputWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	outputWrite.descriptorCount = 1;
+	outputWrite.pImageInfo = &imageInfos[1];
+	descriptorWrites.push_back(outputWrite);
+	
+	vkUpdateDescriptorSets(context->getDevice(),
+		static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(),
+		0, nullptr);
+}
+

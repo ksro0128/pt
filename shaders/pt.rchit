@@ -246,8 +246,6 @@ layout(set = 3, binding = 0) uniform sampler2D textures[];
 layout(set = 4, binding = 0) uniform accelerationStructureEXT topLevelAS;
 
 struct RayPayload {
-    float dummy;
-
     vec3 L_direct;
     vec3 L_indirect;
     vec3 beta;
@@ -265,7 +263,7 @@ struct RayPayload {
 
 layout(location = 0) rayPayloadInEXT RayPayload payload;
 
-layout(location = 1) rayPayloadInEXT bool isShadowed;
+layout(location = 1) rayPayloadEXT bool isShadowed;
 
 const int MATERIAL_DISNEY     = 0;
 const int MATERIAL_FOURIER    = 1;

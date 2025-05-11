@@ -49,13 +49,27 @@ private:
 	std::unique_ptr<Texture> m_ptTexture1;
 
 	// desc4 
-	std::unique_ptr<Texture> m_directAccumTexture;
-	std::unique_ptr<Texture> m_directOutputTexture;
-	std::unique_ptr<Texture> m_indirectAccumTexture;
-	std::unique_ptr<Texture> m_indirectOutputTexture;
+	std::unique_ptr<Texture> m_directHistoryTexture;
+	std::unique_ptr<Texture> m_directCurrentTexture;
+	std::unique_ptr<Texture> m_indirectHistoryTexture;
+	std::unique_ptr<Texture> m_indirectCurrentTexture;
 
-	std::unique_ptr<Texture> m_directFilterdTexture;
+	std::unique_ptr<Texture> m_directFilteredTexture;
 	std::unique_ptr<Texture> m_indirectFilteredTexture;
+
+	std::unique_ptr<Texture> m_directM1Texture;
+	std::unique_ptr<Texture> m_directM2Texture;
+	std::unique_ptr<Texture> m_indirectM1Texture;
+	std::unique_ptr<Texture> m_indirectM2Texture;
+
+	std::unique_ptr<Texture> m_directVarianceTexture;
+	std::unique_ptr<Texture> m_indirectVarianceTexture;
+
+	std::unique_ptr<Texture> m_directBlurredVarianceTexture;
+	std::unique_ptr<Texture> m_indirectBlurredVarianceTexture;
+
+	std::unique_ptr<Texture> m_directUpdatedVarianceTexture;
+	std::unique_ptr<Texture> m_indirectUpdatedVarianceTexture;
 
 	std::unique_ptr<Texture> m_compositeTexture;
 
@@ -103,6 +117,7 @@ private:
 	std::unique_ptr<DescriptorSetLayout> m_set7Layout;
 	std::unique_ptr<DescriptorSetLayout> m_set8Layout;
 	std::unique_ptr<DescriptorSetLayout> m_set9Layout;
+	std::unique_ptr<DescriptorSetLayout> m_set10Layout;
 
 	// buffer
 	std::unique_ptr<UniformBuffer> m_cameraBuffer;
@@ -154,6 +169,7 @@ private:
 	std::array<std::unique_ptr<DescriptorSet>, 4> m_set7DescSets;
 	std::unique_ptr<DescriptorSet> m_set8DescSet;
 	std::unique_ptr<DescriptorSet> m_set9DescSet;
+	std::array<std::unique_ptr<DescriptorSet>, 2> m_set10DescSets;
 
 	// pipeline
 	std::unique_ptr<Pipeline> m_gbufferPipeline;
@@ -171,6 +187,7 @@ private:
 	std::unique_ptr<Pipeline> m_compositeBloomPipeline;
 	std::unique_ptr<Pipeline> m_aTorusFilterPipeline;
 	std::unique_ptr<Pipeline> m_compositePipeline;
+	std::unique_ptr<Pipeline> m_gaussianBlurPipeline;
 
 
 
@@ -223,6 +240,7 @@ private:
 	void recordBloomCommandBuffer();
 	void recordATorusFilterCommandBuffer();
 	void recordCompositeCommandBuffer();
+	void recordGaussianBlurCommandBuffer();
 
 	void recordPTCommandBuffer();
 

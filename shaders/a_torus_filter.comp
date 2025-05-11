@@ -3,6 +3,9 @@ layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(set = 0, binding = 0, rgba32f) uniform readonly image2D inputImage;
 layout(set = 0, binding = 1, rgba32f) uniform writeonly image2D outputImage;
+layout(set = 0, binding = 2, rgba32f) uniform writeonly image2D historyImage;
+layout(set = 0, binding = 3, r32f) uniform readonly image2D varianceImage;
+layout(set = 0, binding = 4, r32f) uniform writeonly image2D updatedVarianceImage;
 
 layout(set = 1, binding = 0, rgba32f) uniform readonly image2D normalImage;
 layout(set = 1, binding = 1, r32f) uniform readonly image2D depthImage;
@@ -34,6 +37,9 @@ void main() {
     vec3 centerNormal = normalize(imageLoad(normalImage, coord).rgb);
     float centerDepth = imageLoad(depthImage, coord).r;
 
+    float centerL = dot(centerColor, vec3(0.299, 0.587, 0.114));
+    float sigma_l = sqrt(max(imageLoad(varianceImage, coord).r, epsilon));
+
     // depth gradient
     float dzdx = imageLoad(depthImage, clamp(coord + ivec2(1, 0), ivec2(0), imageSize - 1)).r -
                  imageLoad(depthImage, clamp(coord - ivec2(1, 0), ivec2(0), imageSize - 1)).r;
@@ -42,6 +48,7 @@ void main() {
     vec2 dzdp = vec2(dzdx, dzdy);
 
     vec3 accum = vec3(0.0);
+    float accumVar = 0.0;
     float totalWeight = 0.0;
 
     for (int dy = -kernelRadius; dy <= kernelRadius; ++dy) {
@@ -62,20 +69,29 @@ void main() {
             float gradProj = abs(dot(dzdp, pixelOffset));
             float w_z = exp(-abs(centerDepth - sampleDepth) / (sigma_z * gradProj + epsilon));
 
-            float luminanceDiff = length(centerColor - sampleColor);
-            float w_c = exp(-luminanceDiff * luminanceDiff / (sigma_c * sigma_c));
 
-            // spatial + edge weights
+            float sampleL = dot(sampleColor, vec3(0.299, 0.587, 0.114));
+            float deltaL = abs(centerL - sampleL);
+            float w_l = exp(-deltaL / (sigma_l * sigma_c + epsilon));
+
             float spatialWeight = kernel[dy + kernelRadius][dx + kernelRadius];
-            float w = spatialWeight * w_n * w_z * w_c;
-            // float w = spatialWeight * w_n * w_z;
+            float w = spatialWeight * w_n * w_z * w_l;
 
 
             accum += sampleColor * w;
             totalWeight += w;
+
+            float sampleVar = imageLoad(varianceImage, sampleCoord).r;
+            accumVar += w * w * sampleVar;
         }
     }
 
     vec3 filtered = (totalWeight > 0.0) ? (accum / totalWeight) : vec3(0.0);
+    float updatedVar = (totalWeight > 0.0) ? (accumVar / (totalWeight * totalWeight + epsilon)) : 0.0;
+
     imageStore(outputImage, coord, vec4(filtered, 1.0));
+    imageStore(updatedVarianceImage, coord, vec4(updatedVar));
+    if (pc.stepSize == 1) {
+        imageStore(historyImage, coord, vec4(filtered, 1.0));
+    }
 }

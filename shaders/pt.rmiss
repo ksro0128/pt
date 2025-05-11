@@ -2,8 +2,6 @@
 #extension GL_EXT_ray_tracing : require
 
 struct RayPayload {
-    float dummy;
-
     vec3 L_direct;
     vec3 L_indirect;
     vec3 beta;

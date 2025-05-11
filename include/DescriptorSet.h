@@ -72,18 +72,22 @@ public:
 	static std::unique_ptr<DescriptorSet> createSet3DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		std::vector<std::unique_ptr<Texture>>& textureList);
 	static std::unique_ptr<DescriptorSet> createSet4DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-		VkAccelerationStructureKHR tlas, Texture* directAccumTexture, Texture* directOutputTexture, Texture* indirectAccumTexture, Texture* indirectOutputTexture);
+		VkAccelerationStructureKHR tlas, Texture* directAccumHistoryTexture, Texture* directCurrentTexture, Texture* indirectAccumHistoryTexture, Texture* indirectCurrentTexture,
+		Texture* directM1Texture, Texture* directM2Texture, Texture* indirectM1Texture, Texture* indirectM2Texture,
+		Texture* directVarianceTexture, Texture* indirectVarianceTexture);
 	static std::unique_ptr<DescriptorSet> createSet5DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		StorageBuffer* luminanceBuffer, Texture* texture);
 	static std::unique_ptr<DescriptorSet> createSet6DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		Texture* hdrTexture, Texture* brightTexture, Texture* blurHTexture, Texture* blurVTexture, Texture* outputTexture);
 	static std::unique_ptr<DescriptorSet> createSet7DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-		Texture* inputTexture, Texture* outputTexture);
+		Texture* inputTexture, Texture* outputTexture, Texture* historyTexture, Texture* varianceInputTexture, Texture* varianceOutputTexture);
 	static std::unique_ptr<DescriptorSet> createSet8DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		Texture* normalTexture, Texture* depthTexture, Texture* albedoTexture);
 	static std::unique_ptr<DescriptorSet> createSet9DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		Texture* directFilterdTexture, Texture* indirectFilteredTexture, Texture* compositeTexture);
-		
+	static std::unique_ptr<DescriptorSet> createSet10DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+		Texture* inputTexture, Texture* outputTexture);
+
 	VkDescriptorSet& getDescriptorSet() { return m_descriptorSet; }
 
 	void updateTLAS(VkAccelerationStructureKHR tlas);
@@ -113,17 +117,21 @@ private:
 	void initSet3DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		std::vector<std::unique_ptr<Texture>>& textureList);
 	void initSet4DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-		VkAccelerationStructureKHR tlas, Texture* directAccumTexture, Texture* directOutputTexture, Texture* indirectAccumTexture, Texture* indirectOutputTexture);
+		VkAccelerationStructureKHR tlas, Texture* directAccumHistoryTexture, Texture* directCurrentTexture, Texture* indirectAccumHistoryTexture, Texture* indirectCurrentTexture,
+		Texture* directM1Texture, Texture* directM2Texture, Texture* indirectM1Texture, Texture* indirectM2Texture,
+		Texture* directVarianceTexture, Texture* indirectVarianceTexture);
 	void initSet5DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		StorageBuffer* exposureBuffer, Texture* texture);
 	void initSet6DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		Texture* hdrTexture, Texture* brightTexture, Texture* blurHTexture, Texture* blurVTexture, Texture* outputTexture);
 	void initSet7DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-		Texture* inputTexture, Texture* outputTexture);
+		Texture* inputTexture, Texture* outputTexture, Texture* historyTexture, Texture* varianceInputTexture, Texture* varianceOutputTexture);
 	void initSet8DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		Texture* normalTexture, Texture* depthTexture, Texture* albedoTexture);
 	void initSet9DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		Texture* directFilterdTexture, Texture* indirectFilteredTexture, Texture* compositeTexture);
+	void initSet10DescSet(VulkanContext* context, DescriptorSetLayout* layout,
+		Texture* inputTexture, Texture* outputTexture);
 
 	void cleanup();
 };
