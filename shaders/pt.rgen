@@ -475,26 +475,26 @@ void main() {
 
 		if (ndot > 0.98 && ddiff < 0.01 && match) {
 			float w = W[i];
-			acc_direct   += imageLoad(directAccumImage, p) * w;
-			acc_m1_dir   += imageLoad(directM1Image, p).r * w;
-			acc_m2_dir   += imageLoad(directM2Image, p).r * w;
+			acc_direct += imageLoad(directAccumImage, p) * w;
+			acc_m1_dir += imageLoad(directM1Image, p).r * w;
+			acc_m2_dir += imageLoad(directM2Image, p).r * w;
 			acc_indirect += imageLoad(indirectAccumImage, p) * w;
-			acc_m1_ind   += imageLoad(indirectM1Image, p).r * w;
-			acc_m2_ind   += imageLoad(indirectM2Image, p).r * w;
-			acc_fc       += imageLoad(sampleCountImage, p).r * w;
-			totalW       += w;
+			acc_m1_ind += imageLoad(indirectM1Image, p).r * w;
+			acc_m2_ind += imageLoad(indirectM2Image, p).r * w;
+			acc_fc += imageLoad(sampleCountImage, p).r * w;
+			totalW += w;
 		}
 	}
 	
 	bool consistent = totalW > 0.0;
 	if (consistent) {
-		acc_direct   /= totalW;
-		acc_m1_dir   /= totalW;
-		acc_m2_dir   /= totalW;
+		acc_direct /= totalW;
+		acc_m1_dir /= totalW;
+		acc_m2_dir /= totalW;
 		acc_indirect /= totalW;
-		acc_m1_ind   /= totalW;
-		acc_m2_ind   /= totalW;
-		acc_fc       /= totalW;
+		acc_m1_ind /= totalW;
+		acc_m2_ind /= totalW;
+		acc_fc /= totalW;
 	}
 	else {
 		acc_direct = vec4(0.0);
@@ -517,26 +517,26 @@ void main() {
 				bool match = abs(id - currentMeshID) < 0.5;
 
 				if (ndot > 0.98 && ddiff < 0.01 && match) {
-					acc_direct   += imageLoad(directAccumImage, p);
-					acc_m1_dir   += imageLoad(directM1Image, p).r;
-					acc_m2_dir   += imageLoad(directM2Image, p).r;
+					acc_direct += imageLoad(directAccumImage, p);
+					acc_m1_dir += imageLoad(directM1Image, p).r;
+					acc_m2_dir += imageLoad(directM2Image, p).r;
 					acc_indirect += imageLoad(indirectAccumImage, p);
-					acc_m1_ind   += imageLoad(indirectM1Image, p).r;
-					acc_m2_ind   += imageLoad(indirectM2Image, p).r;
-					acc_fc       += imageLoad(sampleCountImage, p).r;
+					acc_m1_ind += imageLoad(indirectM1Image, p).r;
+					acc_m2_ind += imageLoad(indirectM2Image, p).r;
+					acc_fc += imageLoad(sampleCountImage, p).r;
 					totalW += 1.0;
 				}
 			}
 		}
 
 		if (totalW > 0.0) {
-			acc_direct   /= totalW;
-			acc_m1_dir   /= totalW;
-			acc_m2_dir   /= totalW;
+			acc_direct /= totalW;
+			acc_m1_dir /= totalW;
+			acc_m2_dir /= totalW;
 			acc_indirect /= totalW;
-			acc_m1_ind   /= totalW;
-			acc_m2_ind   /= totalW;
-			acc_fc       /= totalW;
+			acc_m1_ind /= totalW;
+			acc_m2_ind /= totalW;
+			acc_fc /= totalW;
 			consistent = true; // fallback 성공
 		}
 	}
@@ -564,17 +564,17 @@ void main() {
 	vec4  indirectCurrent = mix(acc_indirect, indirectResult, alpha);
 	float indirectVar = max(updatedM2Ind - updatedM1Ind * updatedM1Ind, 0.0);
 
-	imageStore(directOutputImage    , ipixel, directCurrent);
-	imageStore(directM1Image        , ipixel, vec4(updatedM1Dir));
-	imageStore(directM2Image        , ipixel, vec4(updatedM2Dir));
-	imageStore(directVarianceImage  , ipixel, vec4(directVar));
+	imageStore(directOutputImage, ipixel, directCurrent);
+	imageStore(directM1Image, ipixel, vec4(updatedM1Dir));
+	imageStore(directM2Image, ipixel, vec4(updatedM2Dir));
+	imageStore(directVarianceImage, ipixel, vec4(directVar));
 
-	imageStore(indirectOutputImage  , ipixel, indirectCurrent);
-	imageStore(indirectM1Image      , ipixel, vec4(updatedM1Ind));
-	imageStore(indirectM2Image      , ipixel, vec4(updatedM2Ind));
+	imageStore(indirectOutputImage, ipixel, indirectCurrent);
+	imageStore(indirectM1Image, ipixel, vec4(updatedM1Ind));
+	imageStore(indirectM2Image, ipixel, vec4(updatedM2Ind));
 	imageStore(indirectVarianceImage, ipixel, vec4(indirectVar));
 
-	imageStore(sampleCountImage     , ipixel, vec4(fcNext));
+	imageStore(sampleCountImage, ipixel, vec4(fcNext));
 
 
 
