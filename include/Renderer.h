@@ -87,6 +87,12 @@ private:
 	std::unique_ptr<Texture> m_gBufferNormalTexture;
 	std::unique_ptr<Texture> m_gBufferDepthTexture;
 	std::unique_ptr<Texture> m_gBufferAlbedoTexture;
+	std::unique_ptr<Texture> m_gBufferMeshIDTexture;
+	std::unique_ptr<Texture> m_gBufferSampleCountTexture;
+	std::unique_ptr<Texture> m_gBufferMotionVectorTexture;
+	std::unique_ptr<Texture> m_gBufferPrevNormalTexture;
+	std::unique_ptr<Texture> m_gBufferPrevDepthTexture;
+	std::unique_ptr<Texture> m_gBufferPrevMeshIDTexture;
 	
 	
 	std::vector<std::unique_ptr<Texture>> m_textureList;
@@ -121,6 +127,7 @@ private:
 
 	// buffer
 	std::unique_ptr<UniformBuffer> m_cameraBuffer;
+	std::unique_ptr<UniformBuffer> m_prevCameraBuffer;
 	std::unique_ptr<UniformBuffer> m_optionsBuffer;
 	std::unique_ptr<StorageBuffer> m_instanceBuffer;
 
@@ -203,6 +210,7 @@ private:
 	// new
 	minipbrt::Scene* m_pbrtScene = nullptr;
 	CameraGPU m_camera;
+	CameraGPU m_prevCamera;
 	bool m_mousePressed = false;
 	double m_lastMouseX = 0.0, m_lastMouseY = 0.0;
 	float m_yaw = -90.0f;

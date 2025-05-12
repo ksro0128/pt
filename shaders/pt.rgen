@@ -191,6 +191,17 @@ layout(set = 0, binding = 1) uniform OptionsGPU {
     float pad2;
 } options;
 
+layout(set = 0, binding = 2) uniform PrevCameraGPU {
+    vec3 camPos;
+    float pad0;
+    vec3 camDir;
+    float pad1;
+    vec3 camUp;
+    float pad2;
+    vec3 camRight;
+    float fovY;
+} prevCamera;
+
 layout(set = 1, binding = 0) readonly buffer instanceBuffer {
     ShapeGPU instances[];
 };
@@ -242,6 +253,12 @@ layout(set = 4, binding = 10, r32f) uniform image2D indirectVarianceImage;
 layout(set = 5, binding = 0, rgba32f) uniform image2D normalImage;
 layout(set = 5, binding = 1, r32f) uniform image2D depthImage;
 layout(set = 5, binding = 2, rgba32f) uniform image2D albedoImage;
+layout(set = 5, binding = 3, r32f) uniform image2D meshIDImage;
+layout(set = 5, binding = 4, r32f) uniform image2D sampleCountImage;
+layout(set = 5, binding = 5, rg32f) uniform image2D motionVectorImage;
+layout(set = 5, binding = 6, rgba32f) uniform image2D prevNormalImage;
+layout(set = 5, binding = 7, r32f) uniform image2D prevDepthImage;
+layout(set = 5, binding = 8, r32f) uniform image2D prevMeshIDImage;
 
 
 float rand(inout uint seed) {
@@ -272,6 +289,34 @@ uint initRandom(in uvec2 resolution, in uvec2 screenCoord, in uint frame)
   return tea(screenCoord.y * resolution.x + screenCoord.x, frame);
 }
 
+float radicalInverse_VdC(uint bits) {
+    bits = (bits << 16) | (bits >> 16);
+    bits = ((bits & 0x55555555u) << 1) | ((bits & 0xAAAAAAAAu) >> 1);
+    bits = ((bits & 0x33333333u) << 2) | ((bits & 0xCCCCCCCCu) >> 2);
+    bits = ((bits & 0x0F0F0F0Fu) << 4) | ((bits & 0xF0F0F0F0u) >> 4);
+    bits = ((bits & 0x00FF00FFu) << 8) | ((bits & 0xFF00FF00u) >> 8);
+    return float(bits) * 2.3283064365386963e-10; // 1/2^32
+}
+
+float radicalInverseBase3(uint n) {
+    float invBase = 1.0 / 3.0;
+    float result = 0.0;
+    float f = invBase;
+    while (n > 0u) {
+        result += float(n % 3u) * f;
+        n /= 3u;
+        f *= invBase;
+    }
+    return result;
+}
+
+vec2 halton(uint index) {
+    return vec2(
+        radicalInverse_VdC(index),       // base 2
+        radicalInverseBase3(index)       // base 3
+    );
+}
+
 float luminance(vec3 x) {
 	return dot(x, vec3(0.2126, 0.7152, 0.0722));
 }
@@ -286,10 +331,12 @@ struct RayPayload {
     int bounce;
     uint seed;
     int terminated;
+	float lastPdf;
 
 	vec3 normal;
 	vec3 albedo;
 	float depth;
+	int meshID;
 };
 
 layout(location = 0) rayPayloadEXT RayPayload payload;
@@ -299,22 +346,10 @@ vec3 toneMapACES(vec3 x) {
     return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
 }
 
+
+
+
 void main() {
-
-	if (options.sampleCount == 0) {
-        imageStore(directAccumImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
-		imageStore(directOutputImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
-		imageStore(indirectAccumImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
-		imageStore(indirectOutputImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
-		imageStore(directM1Image, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
-		imageStore(directM2Image, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
-		imageStore(indirectM1Image, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
-		imageStore(indirectM2Image, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));
-    }
-	if (options.sampleCount == options.maxSampleCount) {
-		return;
-	}
-
     uvec2 pixel = gl_LaunchIDEXT.xy;
     uvec2 size = gl_LaunchSizeEXT.xy;
     
@@ -334,20 +369,27 @@ void main() {
         screen.y * scale * camera.camUp +
         camera.camDir
     );
+	vec3 currentDir = dir;
 
 	payload.L_direct = vec3(0.0);
 	payload.L_indirect = vec3(0.0);
 	payload.beta = vec3(1.0);
 	payload.seed = initRandom(size, pixel, options.frameCount);
+	// payload.seed = options.frameCount;
 	payload.bounce = 0;
 	payload.terminated = 0;
 	payload.normal = vec3(0.0);
 	payload.albedo = vec3(0.0);
 	payload.depth = 0.0;
+	payload.lastPdf = 0.0;
 
 	vec3 origin = camera.camPos;
 	ivec2 ipixel = ivec2(pixel);
 	vec3 albedo = vec3(0.0);
+
+	vec3 currentNormal = vec3(0.0);
+	float currentDepth = 0.0;
+	int currentMeshID = -1;
 
 	for (int i = 0; i < 8; ++i) {
 		payload.bounce = i;
@@ -355,9 +397,15 @@ void main() {
 					origin, 0.0001, dir, 1e30, 0);
 		
 		if (i == 0) {
+			currentNormal = payload.normal;
+			currentDepth = payload.depth;
+			currentMeshID = payload.meshID;
+
+			imageStore(albedoImage, ipixel, vec4(payload.albedo, 1.0));
 			imageStore(normalImage, ipixel, vec4(payload.normal, 1.0));
 			imageStore(depthImage, ipixel, vec4(payload.depth));
-			imageStore(albedoImage, ipixel, vec4(payload.albedo, 1.0));
+			imageStore(meshIDImage, ipixel, vec4(float(payload.meshID)));
+
 			albedo = payload.albedo;
 		}
 		if (payload.terminated != 0) break;
@@ -374,89 +422,259 @@ void main() {
 		dir = payload.nextDir;
 	}
 
-	// vec4 result = vec4(payload.L, 1.0);
 
-	// vec4 prev = imageLoad(directAccumImage, ipixel);
-    // vec4 accum = prev + result;
-    // imageStore(directAccumImage, ipixel, accum);
+	vec3 worldPos = camera.camPos + currentDir * currentDepth;
 
-    // float fc = float(options.sampleCount);
-    // vec4 blended = accum / (fc + 1.0);
-	// imageStore(directOutputImage, ipixel, vec4(blended.rgb, 1.0));
+	float prevScale = tan(radians(prevCamera.fovY) * 0.5);
+	vec3 rel = worldPos - prevCamera.camPos;
+
+	float dx = dot(rel, prevCamera.camRight);
+	dx = -dx;
+	float dy = dot(rel, prevCamera.camUp);
+	dy = -dy;
+	float dz = dot(rel, prevCamera.camDir);
+	float safeDZ = max(abs(dz), 1e-2);
+
+	vec2 prevNDC;
+	prevNDC.x = dx / (safeDZ * aspect * prevScale);
+	prevNDC.y = dy / (safeDZ * prevScale);
+
+	vec2 prevUV = prevNDC * 0.5 + 0.5;
+	ivec2 res = ivec2(size);
+	ivec2 prevPixel = ivec2(prevUV * vec2(res));
+	prevPixel = clamp(prevPixel, ivec2(0), res - 1);
+
+
+	vec2 f = fract(prevUV * vec2(res) - 0.5);
+	float W[4] = float[4](
+		(1.0 - f.x) * (1.0 - f.y), // (0,0)
+		f.x * (1.0 - f.y),         // (1,0)
+		(1.0 - f.x) * f.y,         // (0,1)
+		f.x * f.y                  // (1,1)
+	);
+
+	ivec2 OFF[4] = ivec2[4](ivec2(0,0), ivec2(1,0), ivec2(0,1), ivec2(1,1));
+	float totalW = 0.0;
+
+	vec4 acc_direct = vec4(0.0);
+	vec4 acc_indirect = vec4(0.0);
+	float acc_m1_dir = 0.0, acc_m2_dir = 0.0;
+	float acc_m1_ind = 0.0, acc_m2_ind = 0.0;
+	float acc_fc = 0.0;
+
+	for (int i = 0; i < 4; ++i) {
+		ivec2 p = clamp(prevPixel + OFF[i], ivec2(0), res - 1);
+
+		vec3 n = imageLoad(prevNormalImage, p).xyz;
+		float d = imageLoad(prevDepthImage, p).r;
+		float id = imageLoad(prevMeshIDImage, p).r;
+
+		float ndot = dot(currentNormal, n);
+		float ddiff = abs(d - currentDepth) / max(currentDepth, 1e-2);
+		bool match = abs(id - currentMeshID) < 0.5;
+
+		if (ndot > 0.98 && ddiff < 0.01 && match) {
+			float w = W[i];
+			acc_direct   += imageLoad(directAccumImage, p) * w;
+			acc_m1_dir   += imageLoad(directM1Image, p).r * w;
+			acc_m2_dir   += imageLoad(directM2Image, p).r * w;
+			acc_indirect += imageLoad(indirectAccumImage, p) * w;
+			acc_m1_ind   += imageLoad(indirectM1Image, p).r * w;
+			acc_m2_ind   += imageLoad(indirectM2Image, p).r * w;
+			acc_fc       += imageLoad(sampleCountImage, p).r * w;
+			totalW       += w;
+		}
+	}
+	
+	bool consistent = totalW > 0.0;
+	if (consistent) {
+		acc_direct   /= totalW;
+		acc_m1_dir   /= totalW;
+		acc_m2_dir   /= totalW;
+		acc_indirect /= totalW;
+		acc_m1_ind   /= totalW;
+		acc_m2_ind   /= totalW;
+		acc_fc       /= totalW;
+	}
+	else {
+		acc_direct = vec4(0.0);
+		acc_indirect = vec4(0.0);
+		acc_m1_dir = acc_m2_dir = 0.0;
+		acc_m1_ind = acc_m2_ind = 0.0;
+		acc_fc = 0.0;
+		totalW = 0.0;
+
+		for (int dy = -1; dy <= 1; ++dy) {
+			for (int dx = -1; dx <= 1; ++dx) {
+				ivec2 p = clamp(prevPixel + ivec2(dx, dy), ivec2(0), res - 1);
+
+				vec3 n = imageLoad(prevNormalImage, p).xyz;
+				float d = imageLoad(prevDepthImage, p).r;
+				float id = imageLoad(prevMeshIDImage, p).r;
+
+				float ndot = dot(currentNormal, n);
+				float ddiff = abs(d - currentDepth) / max(currentDepth, 1e-2);
+				bool match = abs(id - currentMeshID) < 0.5;
+
+				if (ndot > 0.98 && ddiff < 0.01 && match) {
+					acc_direct   += imageLoad(directAccumImage, p);
+					acc_m1_dir   += imageLoad(directM1Image, p).r;
+					acc_m2_dir   += imageLoad(directM2Image, p).r;
+					acc_indirect += imageLoad(indirectAccumImage, p);
+					acc_m1_ind   += imageLoad(indirectM1Image, p).r;
+					acc_m2_ind   += imageLoad(indirectM2Image, p).r;
+					acc_fc       += imageLoad(sampleCountImage, p).r;
+					totalW += 1.0;
+				}
+			}
+		}
+
+		if (totalW > 0.0) {
+			acc_direct   /= totalW;
+			acc_m1_dir   /= totalW;
+			acc_m2_dir   /= totalW;
+			acc_indirect /= totalW;
+			acc_m1_ind   /= totalW;
+			acc_m2_ind   /= totalW;
+			acc_fc       /= totalW;
+			consistent = true; // fallback 성공
+		}
+	}
 
 	vec3 safeAlbedo = max(albedo, vec3(0.01));
-	payload.L_direct /= safeAlbedo;
+	payload.L_direct   /= safeAlbedo;
 	payload.L_indirect /= safeAlbedo;
 
-	// float fc = float(options.sampleCount);
+	vec4 directResult   = vec4(payload.L_direct,   1.0);
+	vec4 indirectResult = vec4(payload.L_indirect, 1.0);
+
+	float alpha  = consistent ? 0.05 : 1.0;
+	float fcOld  = consistent ? acc_fc : 0.0;
+	float fcNext = fcOld + 1.0;
+
+	float directLum = luminance(directResult.rgb);
+	float updatedM1Dir = (acc_m1_dir * fcOld + directLum) / fcNext;
+	float updatedM2Dir = (acc_m2_dir * fcOld + directLum * directLum) / fcNext;
+	vec4  directCurrent = mix(acc_direct, directResult, alpha);
+	float directVar = max(updatedM2Dir - updatedM1Dir * updatedM1Dir, 0.0);
+
+	float indirectLum = luminance(indirectResult.rgb);
+	float updatedM1Ind = (acc_m1_ind * fcOld + indirectLum) / fcNext;
+	float updatedM2Ind = (acc_m2_ind * fcOld + indirectLum * indirectLum) / fcNext;
+	vec4  indirectCurrent = mix(acc_indirect, indirectResult, alpha);
+	float indirectVar = max(updatedM2Ind - updatedM1Ind * updatedM1Ind, 0.0);
+
+	imageStore(directOutputImage    , ipixel, directCurrent);
+	imageStore(directM1Image        , ipixel, vec4(updatedM1Dir));
+	imageStore(directM2Image        , ipixel, vec4(updatedM2Dir));
+	imageStore(directVarianceImage  , ipixel, vec4(directVar));
+
+	imageStore(indirectOutputImage  , ipixel, indirectCurrent);
+	imageStore(indirectM1Image      , ipixel, vec4(updatedM1Ind));
+	imageStore(indirectM2Image      , ipixel, vec4(updatedM2Ind));
+	imageStore(indirectVarianceImage, ipixel, vec4(indirectVar));
+
+	imageStore(sampleCountImage     , ipixel, vec4(fcNext));
+
+
+
+
+
+
+
+
+
+
+
+
+	// vec3 prevNormal = imageLoad(prevNormalImage, prevPixel).xyz;
+	// float prevDepth = imageLoad(prevDepthImage, prevPixel).r;
+	// float prevMeshID = imageLoad(prevMeshIDImage, prevPixel).r;
+
+	// float normalDot = dot(currentNormal, prevNormal);
+	// float depthDiff = abs(prevDepth - currentDepth) / max(currentDepth, 1e-2);
+	// bool meshMatch = abs(prevMeshID - currentMeshID) < 0.5;
+
+	// bool consistent = normalDot > 0.98 && depthDiff < 0.01 && meshMatch;
+
+	// float alpha = 0.0;
+	// if (consistent) {
+	// 	alpha = 0.05;
+	// } else {
+	// 	alpha = 1.0;
+	// }
+
+	// vec3 safeAlbedo = max(albedo, vec3(0.01));
+	// payload.L_direct /= safeAlbedo;
+	// payload.L_indirect /= safeAlbedo;
+
 
 	// vec4 directResult = vec4(payload.L_direct, 1.0);
-	// vec4 directPrev = imageLoad(directAccumImage, ipixel);
-	// vec4 directAccum = directPrev + directResult;
-	// imageStore(directAccumImage, ipixel, directAccum);
 
-	// vec4 directBlended = directAccum / (fc + 1.0);
-	// imageStore(directOutputImage, ipixel, vec4(directBlended.rgb, 1.0));
+	// float fc = imageLoad(sampleCountImage, prevPixel).r;
+
+	// float directM1 = imageLoad(directM1Image, prevPixel).r;
+	// float directM2 = imageLoad(directM2Image, prevPixel).r;
+	// vec4 directPrev = imageLoad(directAccumImage, prevPixel);
+
+	// float directLum = luminance(directResult.rgb);
+
+	// float fcNext;
+	// float updatedDirectM1;
+	// float updatedDirectM2;
+	// vec4 directCurrent;
+
+	// if (consistent) {
+	// 	// EMA 누적
+	// 	fcNext = fc + 1.0;
+	// 	updatedDirectM1 = (directM1 * fc + directLum) / fcNext;
+	// 	updatedDirectM2 = (directM2 * fc + directLum * directLum) / fcNext;
+	// 	directCurrent = directPrev * (1.0 - alpha) + directResult * alpha;
+	// } else {
+	// 	// 초기화
+	// 	fcNext = 1.0;
+	// 	updatedDirectM1 = directLum;
+	// 	updatedDirectM2 = directLum * directLum;
+	// 	directCurrent = directResult;
+	// }
+
+
+	// float directVariance = max(updatedDirectM2 - updatedDirectM1 * updatedDirectM1, 0.0);
+
+	// // store result
+	// imageStore(directOutputImage, ipixel, directCurrent);
+	// imageStore(directM1Image, ipixel, vec4(updatedDirectM1));
+	// imageStore(directM2Image, ipixel, vec4(updatedDirectM2));
+	// imageStore(directVarianceImage, ipixel, vec4(directVariance));
 
 
 	// vec4 indirectResult = vec4(payload.L_indirect, 1.0);
-	// vec4 indirectPrev = imageLoad(indirectAccumImage, ipixel);
-	// vec4 indirectAccum = indirectPrev + indirectResult;
-	// imageStore(indirectAccumImage, ipixel, indirectAccum);
+	// vec4 indirectPrev = imageLoad(indirectAccumImage, prevPixel);
+	// float indirectM1 = imageLoad(indirectM1Image, prevPixel).r;
+	// float indirectM2 = imageLoad(indirectM2Image, prevPixel).r;
+	// float indirectLum = luminance(indirectResult.rgb);
 
-	// vec4 indirectBlended = indirectAccum / (fc + 1.0);
-	// imageStore(indirectOutputImage, ipixel, vec4(indirectBlended.rgb, 1.0));
+	// float updatedIndirectM1;
+	// float updatedIndirectM2;
+	// vec4 indirectCurrent;
 
-	// ema
-	float fc = float(options.sampleCount);
+	// if (consistent) {
+	// 	fcNext = fc + 1.0;
+	// 	updatedIndirectM1 = (indirectM1 * fc + indirectLum) / fcNext;
+	// 	updatedIndirectM2 = (indirectM2 * fc + indirectLum * indirectLum) / fcNext;
+	// 	indirectCurrent = indirectPrev * (1.0 - alpha) + indirectResult * alpha;
+	// } else {
+	// 	fcNext = 1.0;
+	// 	updatedIndirectM1 = indirectLum;
+	// 	updatedIndirectM2 = indirectLum * indirectLum;
+	// 	indirectCurrent = indirectResult;
+	// }
 
-	vec4 directResult = vec4(payload.L_direct, 1.0);
-	vec4 directPrev = imageLoad(directAccumImage, ipixel);
-	vec4 directCurrent = vec4(0.0);
-	if (directPrev.a > 0.0) {
-		directCurrent = directPrev * 0.8 + directResult * 0.2;
-	} else {
-		directCurrent = directResult;
-	}
-	imageStore(directOutputImage, ipixel, directCurrent);
+	// float indirectVariance = max(updatedIndirectM2 - updatedIndirectM1 * updatedIndirectM1, 0.0);
 
-	vec4 indirectResult = vec4(payload.L_indirect, 1.0);
-	vec4 indirectPrev = imageLoad(indirectAccumImage, ipixel);
-	vec4 indirectCurrent = vec4(0.0);
-	if (indirectPrev.a > 0.0) {
-		indirectCurrent = indirectPrev * 0.8 + indirectResult * 0.2;
-	} else {
-		indirectCurrent = indirectResult;
-	}
-	imageStore(indirectOutputImage, ipixel, indirectCurrent);
-
-	float directM1 = imageLoad(directM1Image, ipixel).r;
-	float directM2 = imageLoad(directM2Image, ipixel).r;
-	float indirectM1 = imageLoad(indirectM1Image, ipixel).r;
-	float indirectM2 = imageLoad(indirectM2Image, ipixel).r;
-
-	float directVariance = 0.0;
-	float indirectVariance = 0.0;
-
-	float directLum = luminance(directResult.rgb);
-	float indirectLum = luminance(indirectResult.rgb);
-
-	float fcNext = fc + 1.0;
-
-	float updatedDirectM1 = (directM1 * fc + directLum) / fcNext;
-	float updatedDirectM2 = (directM2 * fc + directLum * directLum) / fcNext;
-
-	float updatedIndirectM1 = (indirectM1 * fc + indirectLum) / fcNext;
-	float updatedIndirectM2 = (indirectM2 * fc + indirectLum * indirectLum) / fcNext;
-
-	directVariance = updatedDirectM2 - updatedDirectM1 * updatedDirectM1;
-	indirectVariance = updatedIndirectM2 - updatedIndirectM1 * updatedIndirectM1;
-
-	imageStore(directM1Image, ipixel, vec4(updatedDirectM1));
-	imageStore(directM2Image, ipixel, vec4(updatedDirectM2));
-	imageStore(indirectM1Image, ipixel, vec4(updatedIndirectM1));
-	imageStore(indirectM2Image, ipixel, vec4(updatedIndirectM2));
-
-	imageStore(directVarianceImage, ipixel, vec4(directVariance));
-	imageStore(indirectVarianceImage, ipixel, vec4(indirectVariance));
+	// imageStore(indirectOutputImage, ipixel, indirectCurrent);
+	// imageStore(indirectM1Image, ipixel, vec4(updatedIndirectM1));
+	// imageStore(indirectM2Image, ipixel, vec4(updatedIndirectM2));
+	// imageStore(indirectVarianceImage, ipixel, vec4(indirectVariance));
+	// imageStore(sampleCountImage, ipixel, vec4(fcNext));
 }

@@ -254,19 +254,25 @@ std::unique_ptr<DescriptorSetLayout> DescriptorSetLayout::createSet0DescLayout(V
 void DescriptorSetLayout::initSet0DescLayout(VulkanContext* context) {
 	this->context = context;
 
-	std::vector<VkDescriptorSetLayoutBinding> bindings(2);
+	std::vector<VkDescriptorSetLayoutBinding> bindings(3);
 
 	bindings[0].binding = 0;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	bindings[0].descriptorCount = 1;
-	bindings[0].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+	bindings[0].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT;
 	bindings[0].pImmutableSamplers = nullptr;
 
 	bindings[1].binding = 1;
 	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	bindings[1].descriptorCount = 1;
-	bindings[1].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+	bindings[1].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT;
 	bindings[1].pImmutableSamplers = nullptr;
+
+	bindings[2].binding = 2;
+	bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	bindings[2].descriptorCount = 1;
+	bindings[2].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT;
+	bindings[2].pImmutableSamplers = nullptr;
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -639,7 +645,7 @@ void DescriptorSetLayout::initSet8DescLayout(VulkanContext* context) {
 	this->context = context;
 
 
-	std::array<VkDescriptorSetLayoutBinding, 3> bindings{};
+	std::array<VkDescriptorSetLayoutBinding, 9> bindings{};
 
 	// 0: Normal image
 	bindings[0].binding = 0;
@@ -658,6 +664,43 @@ void DescriptorSetLayout::initSet8DescLayout(VulkanContext* context) {
 	bindings[2].descriptorCount = 1;
 	bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	bindings[2].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT;
+
+	// 3: mesh id image
+	bindings[3].binding = 3;
+	bindings[3].descriptorCount = 1;
+	bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[3].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT;
+
+	// 4: sample count image
+	bindings[4].binding = 4;
+	bindings[4].descriptorCount = 1;
+	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[4].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT;
+
+	// 5: motion vector image
+	bindings[5].binding = 5;
+	bindings[5].descriptorCount = 1;
+	bindings[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[5].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+
+	// 6: prev normal image
+	bindings[6].binding = 6;
+	bindings[6].descriptorCount = 1;
+	bindings[6].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[6].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT;
+	
+	// 7: prev depth image
+	bindings[7].binding = 7;
+	bindings[7].descriptorCount = 1;
+	bindings[7].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[7].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT;
+	
+	// 8: prev mesh id image
+	bindings[8].binding = 8;
+	bindings[8].descriptorCount = 1;
+	bindings[8].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[8].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT;
+
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;

@@ -255,10 +255,12 @@ struct RayPayload {
     int bounce;
     uint seed;
     int terminated;
+    float lastPdf;
 
 	vec3 normal;
 	vec3 albedo;
 	float depth;
+	int meshID;
 };
 
 layout(location = 0) rayPayloadInEXT RayPayload payload;
@@ -288,6 +290,34 @@ const int SAMPLE_REFLECT = 2;
 
 const float PI = 3.1415926535;
 
+float radicalInverse_VdC(uint bits) {
+    bits = (bits << 16) | (bits >> 16);
+    bits = ((bits & 0x55555555u) << 1) | ((bits & 0xAAAAAAAAu) >> 1);
+    bits = ((bits & 0x33333333u) << 2) | ((bits & 0xCCCCCCCCu) >> 2);
+    bits = ((bits & 0x0F0F0F0Fu) << 4) | ((bits & 0xF0F0F0F0u) >> 4);
+    bits = ((bits & 0x00FF00FFu) << 8) | ((bits & 0xFF00FF00u) >> 8);
+    return float(bits) * 2.3283064365386963e-10; // 1/2^32
+}
+
+float radicalInverseBase3(uint n) {
+    float invBase = 1.0 / 3.0;
+    float result = 0.0;
+    float f = invBase;
+    while (n > 0u) {
+        result += float(n % 3u) * f;
+        n /= 3u;
+        f *= invBase;
+    }
+    return result;
+}
+
+vec2 halton(uint index) {
+    return vec2(
+        radicalInverse_VdC(index),       // base 2
+        radicalInverseBase3(index)       // base 3
+    );
+}
+
 float rand(inout uint seed) {
     seed ^= seed << 13;
     seed ^= seed >> 17;
@@ -304,14 +334,21 @@ float rand(inout uint seed) {
 
 vec2 sample2D(inout uint seed)
 {
-    float u = rand(seed);
-    float v = rand(seed);
-    return vec2(u, v);
+    // float u = rand(seed);
+    // float v = rand(seed);
+    // return vec2(u, v);
+
+    return halton(seed);
 }
 
 vec3 cosineSampleHemisphere(inout uint seed) {
-    float u1 = rand(seed);
-    float u2 = rand(seed);
+    // float u1 = rand(seed);
+    // float u2 = rand(seed);
+
+    vec2 xy = halton(seed);
+    float u1 = xy.x;
+    float u2 = xy.y;
+
     float r = sqrt(u1);
     float theta = 2.0 * 3.141592 * u2;
     return vec3(r * cos(theta), r * sin(theta), sqrt(max(0.0, 1.0 - u1)));
@@ -1151,10 +1188,16 @@ void main() {
     payload.depth = length(P - gl_WorldRayOriginEXT);
 
     const uint instanceID = gl_InstanceCustomIndexEXT;
+    payload.meshID = int(instanceID);
     ShapeGPU shape = instances[instanceID];
 
 	if (shape.areaLightIdx >= 0) {
 		vec3 L = lights[shape.areaLightIdx].L;
+
+        if (luminance(L) > 30.0) {
+            L *= 30.0 / luminance(L);
+        }
+
         payload.L_indirect += payload.beta * L;
 		payload.terminated = 1;
 		return;
@@ -1207,6 +1250,7 @@ void main() {
     payload.nextDir = wi;
     payload.terminated = 0;
     payload.bounce += 1;
+    payload.lastPdf = pdf;
 
     // if (payload.bounce > 1) {
     //     return ;
@@ -1261,6 +1305,10 @@ void main() {
     float misWeightLight = light_pdf / (light_pdf + bsdfPdf);
 
     vec3 direct = (light_f * le * max(dot(N, light_wi), 0.0)) / max(light_pdf, 0.01);
+
+    if (luminance(direct) > 30.0) {
+        direct *= 30.0 / luminance(direct);
+    }
 
     payload.L_direct += (beta_pre * direct * misWeightLight);
 

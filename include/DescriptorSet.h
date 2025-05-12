@@ -64,7 +64,7 @@ public:
 	);
 
 	static std::unique_ptr<DescriptorSet> createSet0DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-		UniformBuffer* cameraBuffer, UniformBuffer* optionsBuffer);
+		UniformBuffer* cameraBuffer, UniformBuffer* optionsBuffer, UniformBuffer* prevCameraBuffer);
 	static std::unique_ptr<DescriptorSet> createSet1DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		StorageBuffer* instanceBuffer);
 	static std::unique_ptr<DescriptorSet> createSet2DescSet(VulkanContext* context, DescriptorSetLayout* layout,
@@ -82,7 +82,8 @@ public:
 	static std::unique_ptr<DescriptorSet> createSet7DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		Texture* inputTexture, Texture* outputTexture, Texture* historyTexture, Texture* varianceInputTexture, Texture* varianceOutputTexture);
 	static std::unique_ptr<DescriptorSet> createSet8DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-		Texture* normalTexture, Texture* depthTexture, Texture* albedoTexture);
+		Texture* normalTexture, Texture* depthTexture, Texture* albedoTexture, Texture* meshIDTexture, Texture* sampleCountTexture, Texture* motionVectorTexture,
+		Texture* prevNormalTexture, Texture* prevDepthTexture, Texture* prevMeshIDTexture);
 	static std::unique_ptr<DescriptorSet> createSet9DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		Texture* directFilterdTexture, Texture* indirectFilteredTexture, Texture* compositeTexture);
 	static std::unique_ptr<DescriptorSet> createSet10DescSet(VulkanContext* context, DescriptorSetLayout* layout,
@@ -109,7 +110,7 @@ private:
 	void initRayTracing(VulkanContext* context, DescriptorSetLayout* layout, Texture* rtReflectionTexture, VkAccelerationStructureKHR tlas);
 	
 	void initSet0DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-		UniformBuffer* cameraBuffer, UniformBuffer* optionsBuffer);
+		UniformBuffer* cameraBuffer, UniformBuffer* optionsBuffer, UniformBuffer* prevCameraBuffer);
 	void initSet1DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		StorageBuffer* instanceBuffer);
 	void initSet2DescSet(VulkanContext* context, DescriptorSetLayout* layout,
@@ -127,7 +128,8 @@ private:
 	void initSet7DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		Texture* inputTexture, Texture* outputTexture, Texture* historyTexture, Texture* varianceInputTexture, Texture* varianceOutputTexture);
 	void initSet8DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-		Texture* normalTexture, Texture* depthTexture, Texture* albedoTexture);
+		Texture* normalTexture, Texture* depthTexture, Texture* albedoTexture, Texture* meshIDTexture, Texture* sampleCountTexture, Texture* motionVectorTexture,
+		Texture* prevNormalTexture, Texture* prevDepthTexture, Texture* prevMeshIDTexture);
 	void initSet9DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		Texture* directFilterdTexture, Texture* indirectFilteredTexture, Texture* compositeTexture);
 	void initSet10DescSet(VulkanContext* context, DescriptorSetLayout* layout,

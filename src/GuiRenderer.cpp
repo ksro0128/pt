@@ -126,13 +126,13 @@ void GuiRenderer::render(VkCommandBuffer cmd, float deltaTime, OptionsGPU &optio
 
 		ImGui::Text("Frame time : %.1f ms", deltaTime * 1000.0f);
 		ImGui::Text("FPS : %.1f", 1.0f / deltaTime);
-		ImGui::Text("Sample count : %d", options.sampleCount);
+		// ImGui::Text("Sample count : %d", options.sampleCount);
 
-		// max sample count
-		if (ImGui::InputInt("SPP", (int*)&options.maxSampleCount)) {
-			options.maxSampleCount = std::max(1, options.maxSampleCount);
-			options.sampleCount = -1;
-		}
+		// // max sample count
+		// if (ImGui::InputInt("SPP", (int*)&options.maxSampleCount)) {
+		// 	options.maxSampleCount = std::max(1, options.maxSampleCount);
+		// 	options.sampleCount = -1;
+		// }
 
 		const char* viewportNames[] = { "0", "1", "2" };
 		const int viewportCount = IM_ARRAYSIZE(viewportNames);

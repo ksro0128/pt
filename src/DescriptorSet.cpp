@@ -419,14 +419,14 @@ void DescriptorSet::updateTLAS(VkAccelerationStructureKHR tlas) {
 }
 
 std::unique_ptr<DescriptorSet> DescriptorSet::createSet0DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-	UniformBuffer* cameraBuffer, UniformBuffer* optionsBuffer) {
+	UniformBuffer* cameraBuffer, UniformBuffer* optionsBuffer, UniformBuffer* prevCameraBuffer) {
 	std::unique_ptr<DescriptorSet> descriptorSet = std::unique_ptr<DescriptorSet>(new DescriptorSet());
-	descriptorSet->initSet0DescSet(context, layout, cameraBuffer, optionsBuffer);
+	descriptorSet->initSet0DescSet(context, layout, cameraBuffer, optionsBuffer, prevCameraBuffer);
 	return descriptorSet;
 }
 
 void DescriptorSet::initSet0DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-	UniformBuffer* cameraBuffer, UniformBuffer* optionsBuffer) {
+	UniformBuffer* cameraBuffer, UniformBuffer* optionsBuffer, UniformBuffer* prevCameraBuffer) {
 	this->context = context;
 
 	VkDescriptorSetAllocateInfo allocInfo{};
@@ -468,7 +468,21 @@ void DescriptorSet::initSet0DescSet(VulkanContext* context, DescriptorSetLayout*
 	optionsWrite.descriptorCount = 1;
 	optionsWrite.pBufferInfo = &optionsBufferInfo;
 
-	std::array<VkWriteDescriptorSet, 2> writes{ cameraWrite, optionsWrite };
+	VkDescriptorBufferInfo prevCameraBufferInfo{};
+	prevCameraBufferInfo.buffer = prevCameraBuffer->getBuffer();
+	prevCameraBufferInfo.offset = 0;
+	prevCameraBufferInfo.range = sizeof(CameraGPU);
+
+	VkWriteDescriptorSet prevCameraWrite{};
+	prevCameraWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	prevCameraWrite.dstSet = m_descriptorSet;
+	prevCameraWrite.dstBinding = 2;
+	prevCameraWrite.dstArrayElement = 0;
+	prevCameraWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	prevCameraWrite.descriptorCount = 1;
+	prevCameraWrite.pBufferInfo = &prevCameraBufferInfo;
+	
+	std::array<VkWriteDescriptorSet, 3> writes{ cameraWrite, optionsWrite, prevCameraWrite };
 	vkUpdateDescriptorSets(context->getDevice(), static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 }
 
@@ -1114,14 +1128,16 @@ void DescriptorSet::initSet7DescSet(VulkanContext* context, DescriptorSetLayout*
 }
 
 std::unique_ptr<DescriptorSet> DescriptorSet::createSet8DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-	Texture* normalTexture, Texture* depthTexture, Texture* albedoTexture) {
+	Texture* normalTexture, Texture* depthTexture, Texture* albedoTexture, Texture* meshIDTexture, Texture* sampleCountTexture, Texture* motionVectorTexture,
+	Texture* prevNormalTexture, Texture* prevDepthTexture, Texture* prevMeshIDTexture) {
 	std::unique_ptr<DescriptorSet> descriptorSet = std::unique_ptr<DescriptorSet>(new DescriptorSet());
-	descriptorSet->initSet8DescSet(context, layout, normalTexture, depthTexture, albedoTexture);
+	descriptorSet->initSet8DescSet(context, layout, normalTexture, depthTexture, albedoTexture, meshIDTexture, sampleCountTexture, motionVectorTexture, prevNormalTexture, prevDepthTexture, prevMeshIDTexture);
 	return descriptorSet;
 }
 
 void DescriptorSet::initSet8DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-	Texture* normalTexture, Texture* depthTexture, Texture* albedoTexture) {
+	Texture* normalTexture, Texture* depthTexture, Texture* albedoTexture, Texture* meshIDTexture, Texture* sampleCountTexture, Texture* motionVectorTexture,
+	Texture* prevNormalTexture, Texture* prevDepthTexture, Texture* prevMeshIDTexture) {
 	this->context = context;
 	
 	
@@ -1137,7 +1153,7 @@ void DescriptorSet::initSet8DescSet(VulkanContext* context, DescriptorSetLayout*
 	}
 
 	std::vector<VkWriteDescriptorSet> descriptorWrites;
-	std::vector<VkDescriptorImageInfo> imageInfos(3);
+	std::vector<VkDescriptorImageInfo> imageInfos(9);
 
 	imageInfos[0].sampler = nullptr;
 	imageInfos[0].imageView = normalTexture->getImageView();
@@ -1180,6 +1196,86 @@ void DescriptorSet::initSet8DescSet(VulkanContext* context, DescriptorSetLayout*
 	albedoWrite.descriptorCount = 1;
 	albedoWrite.pImageInfo = &imageInfos[2];
 	descriptorWrites.push_back(albedoWrite);
+
+	imageInfos[3].imageView = meshIDTexture->getImageView();
+	imageInfos[3].sampler = nullptr;
+	imageInfos[3].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkWriteDescriptorSet meshIDWrite{};
+	meshIDWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	meshIDWrite.dstSet = m_descriptorSet;
+	meshIDWrite.dstBinding = 3;
+	meshIDWrite.dstArrayElement = 0;
+	meshIDWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	meshIDWrite.descriptorCount = 1;
+	meshIDWrite.pImageInfo = &imageInfos[3];
+	descriptorWrites.push_back(meshIDWrite);
+
+	imageInfos[4].imageView = sampleCountTexture->getImageView();
+	imageInfos[4].sampler = nullptr;
+	imageInfos[4].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkWriteDescriptorSet sampleCountWrite{};
+	sampleCountWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	sampleCountWrite.dstSet = m_descriptorSet;
+	sampleCountWrite.dstBinding = 4;
+	sampleCountWrite.dstArrayElement = 0;
+	sampleCountWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	sampleCountWrite.descriptorCount = 1;
+	sampleCountWrite.pImageInfo = &imageInfos[4];
+	descriptorWrites.push_back(sampleCountWrite);
+
+	imageInfos[5].imageView = motionVectorTexture->getImageView();
+	imageInfos[5].sampler = nullptr;
+	imageInfos[5].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	VkWriteDescriptorSet motionVectorWrite{};
+	motionVectorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	motionVectorWrite.dstSet = m_descriptorSet;
+	motionVectorWrite.dstBinding = 5;
+	motionVectorWrite.dstArrayElement = 0;
+	motionVectorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	motionVectorWrite.descriptorCount = 1;
+	motionVectorWrite.pImageInfo = &imageInfos[5];
+	descriptorWrites.push_back(motionVectorWrite);
+
+	imageInfos[6].imageView = prevNormalTexture->getImageView();
+	imageInfos[6].sampler = nullptr;
+	imageInfos[6].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	VkWriteDescriptorSet prevNormalWrite{};
+	prevNormalWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	prevNormalWrite.dstSet = m_descriptorSet;
+	prevNormalWrite.dstBinding = 6;
+	prevNormalWrite.dstArrayElement = 0;
+	prevNormalWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	prevNormalWrite.descriptorCount = 1;
+	prevNormalWrite.pImageInfo = &imageInfos[6];
+	descriptorWrites.push_back(prevNormalWrite);
+
+	imageInfos[7].imageView = prevDepthTexture->getImageView();
+	imageInfos[7].sampler = nullptr;
+	imageInfos[7].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	VkWriteDescriptorSet prevDepthWrite{};
+	prevDepthWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	prevDepthWrite.dstSet = m_descriptorSet;
+	prevDepthWrite.dstBinding = 7;
+	prevDepthWrite.dstArrayElement = 0;
+	prevDepthWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	prevDepthWrite.descriptorCount = 1;
+	prevDepthWrite.pImageInfo = &imageInfos[7];
+	descriptorWrites.push_back(prevDepthWrite);
+
+	imageInfos[8].imageView = prevMeshIDTexture->getImageView();
+	imageInfos[8].sampler = nullptr;
+	imageInfos[8].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	VkWriteDescriptorSet prevMeshIDWrite{};
+	prevMeshIDWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	prevMeshIDWrite.dstSet = m_descriptorSet;
+	prevMeshIDWrite.dstBinding = 8;
+	prevMeshIDWrite.dstArrayElement = 0;
+	prevMeshIDWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	prevMeshIDWrite.descriptorCount = 1;
+	prevMeshIDWrite.pImageInfo = &imageInfos[8];
+	descriptorWrites.push_back(prevMeshIDWrite);
 
 	vkUpdateDescriptorSets(context->getDevice(),
 		static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(),

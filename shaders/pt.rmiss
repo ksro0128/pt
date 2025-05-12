@@ -11,10 +11,12 @@ struct RayPayload {
     int bounce;
     uint seed;
     int terminated;
+    float lastPdf;
 
 	vec3 normal;
 	vec3 albedo;
 	float depth;
+	int meshID;
 };
 
 
@@ -26,4 +28,5 @@ void main() {
     payload.normal = vec3(0.0);
     payload.albedo = vec3(0.0);
     payload.depth = 0.0;
+    payload.meshID = -1;
 }
