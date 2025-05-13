@@ -247,20 +247,18 @@ layout(set = 4, binding = 0) uniform accelerationStructureEXT topLevelAS;
 
 struct RayPayload {
     vec3 L_direct;
-    vec3 L_indirect;
-    vec3 beta;
-    vec3 nextOrigin;
-    vec3 nextDir;
-
     int bounce;
+    vec3 L_indirect;
     uint seed;
-    int terminated;
-    float lastPdf;
-
+    vec3 beta;
 	vec3 normal;
-	vec3 albedo;
+    int terminated;
+    vec3 nextOrigin;
 	float depth;
+    vec3 nextDir;
 	int meshID;
+	vec3 albedo;
+    vec3 indirAlbedo;
 };
 
 layout(location = 0) rayPayloadInEXT RayPayload payload;
@@ -574,6 +572,7 @@ void sampleMatte(
         Kd = texture(textures[matte.KdIdx], uv).rgb;
     }
     payload.albedo = Kd;
+    payload.indirAlbedo = Kd;
     f = Kd / PI;
     pdf = max(dot(N, wi), 0.0) / PI;
 }
@@ -611,6 +610,7 @@ void sampleMetal(
     float G = geometrySmith(N, wo, wi, roughness);
 	vec3 F = fresnelConductor(VdotH, eta, k);
     payload.albedo = fresnelConductor(1.0, eta, k);
+    payload.indirAlbedo = fresnelConductor(1.0, eta, k);
 
     f = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
     pdf = D * NdotH / (4.0 * VdotH + 0.01);
@@ -655,6 +655,7 @@ void sampleGlass(
     float G = geometrySmith(N, wo, wi, roughness);
     float F = fresnelDielectric(VdotH, 1.0, eta);
     payload.albedo = vec3(1.0);
+    payload.indirAlbedo = vec3(1.0);
 
     vec3 spec = (D * G * Kr * F) / max(4.0 * NdotV * NdotL, 0.01);
 
@@ -679,6 +680,7 @@ void sampleMirror(
     float NdotL = max(dot(N, wi), 0.0);
 
     payload.albedo = vec3(1.0);
+    payload.indirAlbedo = vec3(1.0);
     if (NdotL > 0.0) {
         f = Kr / NdotL;
         pdf = 1.0;
@@ -720,11 +722,13 @@ void samplePlastic(
         vec2 Xi = sample2D(seed);
         H = importanceSampleGGX(Xi, N, roughness);
         wi = normalize(reflect(-wo, H));
+        payload.indirAlbedo = fresnelSchlick(1.0, F0);
     } else {
         sampledSpecular = 0;
         vec3 localWi = cosineSampleHemisphere(seed);
         wi = toWorld(localWi, N);
         H = normalize(wo + wi);
+        payload.indirAlbedo = Kd;
     }
 
     float NdotL = max(dot(N, wi), 0.01);
@@ -789,11 +793,13 @@ void sampleSubstrate(
         vec2 Xi = sample2D(seed);
         H = importanceSampleGGX(Xi, N, roughness);
         wi = normalize(reflect(-wo, H));
+        payload.indirAlbedo = fresnelSchlick(1.0, F0);
     } else {
         sampledSpecular = 0;
         vec3 localWi = cosineSampleHemisphere(seed);
         wi = toWorld(localWi, N);
         H = normalize(wo + wi);
+        payload.indirAlbedo = Kd;
     }
 
     float NdotL = max(dot(N, wi), 0.01);
@@ -861,11 +867,13 @@ void sampleUber(
         vec2 Xi = sample2D(seed);
         H = importanceSampleGGX(Xi, N, roughness);
         wi = normalize(reflect(-wo, H));
+        payload.indirAlbedo = fresnelSchlick(1.0, F0);
     } else {
         sampledSpecular = 0;
         vec3 localWi = cosineSampleHemisphere(seed);
         wi = toWorld(localWi, N);
         H = normalize(wo + wi);
+        payload.indirAlbedo = Kd;
     }
 
     float NdotL = max(dot(N, wi), 0.01);
@@ -1076,7 +1084,8 @@ void evalPlastic(
     float G = geometrySmith(N, wo, wi, roughness);
     vec3 F = fresnelSchlick(VdotH_final, F0);
 
-    vec3 diffusef = Kd / PI * (vec3(1.0) - F);
+    // vec3 diffusef = Kd / PI * (vec3(1.0) - F);
+    vec3 diffusef = vec3(1.0) / PI * (vec3(1.0) - F);
     vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
 
     f = diffusef + specularf;
@@ -1120,7 +1129,8 @@ void evalSubstrate(
     float G = geometrySmith(N, wo, wi, roughness);
     vec3 F = fresnelSchlick(VdotH_final, F0);
 
-    vec3 diffusef = Kd / PI * (vec3(1.0) - F);
+    // vec3 diffusef = Kd / PI * (vec3(1.0) - F);
+    vec3 diffusef = vec3(1.0) / PI * (vec3(1.0) - F);
     vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
 
     f = diffusef + specularf;
@@ -1169,7 +1179,8 @@ void evalUber(
     float G = geometrySmith(N, wo, wi, roughness);
     vec3 F = fresnelSchlick(VdotH_final, F0);
 
-    vec3 diffusef = Kd / PI * (1.0 - F_spec);
+    // vec3 diffusef = Kd / PI * (1.0 - F_spec);
+    vec3 diffusef = vec3(1.0) / PI * (1.0 - F_spec);
     vec3 specularf = (D * G * F0) / max(4.0 * NdotV * NdotL, 0.01);
 
     f = diffusef + specularf;
@@ -1250,7 +1261,6 @@ void main() {
     payload.nextDir = wi;
     payload.terminated = 0;
     payload.bounce += 1;
-    payload.lastPdf = pdf;
 
     // if (payload.bounce > 1) {
     //     return ;

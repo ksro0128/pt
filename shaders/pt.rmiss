@@ -3,20 +3,18 @@
 
 struct RayPayload {
     vec3 L_direct;
-    vec3 L_indirect;
-    vec3 beta;
-    vec3 nextOrigin;
-    vec3 nextDir;
-
     int bounce;
+    vec3 L_indirect;
     uint seed;
-    int terminated;
-    float lastPdf;
-
+    vec3 beta;
 	vec3 normal;
-	vec3 albedo;
+    int terminated;
+    vec3 nextOrigin;
 	float depth;
+    vec3 nextDir;
 	int meshID;
+	vec3 albedo;
+    vec3 indirAlbedo;
 };
 
 
@@ -27,6 +25,7 @@ void main() {
     payload.terminated = 1;
     payload.normal = vec3(0.0);
     payload.albedo = vec3(0.0);
+    payload.indirAlbedo = vec3(0.0);
     payload.depth = 0.0;
     payload.meshID = -1;
 }
