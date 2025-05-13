@@ -27,7 +27,37 @@ layout(push_constant) uniform PushConsts {
     int stepSize;
 } pc;
 
-const int kernelRadius = 2;
+
+
+// float estimateSpatialVariance(ivec2 coord, vec3 centerNormal, float centerDepth) {
+//     const int spatialKernelRadius = 3;
+//     float totalWeight = 0.0;
+//     float accum = 0.0;
+
+//     for (int dy = -spatialKernelRadius; dy <= spatialKernelRadius; ++dy) {
+//         for (int dx = -spatialKernelRadius; dx <= spatialKernelRadius; ++dx) {
+//             ivec2 offset = ivec2(dx, dy);
+//             ivec2 sampleCoord = clamp(coord + offset, ivec2(0), imageSize(inputImage) - 1);
+
+//             float sampleVar = imageLoad(varianceImage, sampleCoord).r;
+//             vec3 sampleNormal = normalize(imageLoad(normalImage, sampleCoord).rgb);
+//             float sampleDepth = imageLoad(depthImage, sampleCoord).r;
+
+//             float Ndot = max(0.0, dot(centerNormal, sampleNormal));
+//             float w_n = pow(Ndot, sigma_n);
+
+//             float w_z = exp(-abs(centerDepth - sampleDepth) / sigma_z);
+
+//             float w = w_n * w_z;
+
+//             accum += sampleVar * w;
+//             totalWeight += w;
+//         }
+//     }
+
+//     return (totalWeight > 0.0) ? (accum / totalWeight) : 0.0;
+// }
+
 const float sigma_n = 128.0;
 const float sigma_z = 1.0;
 const float sigma_c = 4.0;
@@ -42,68 +72,16 @@ const float kernel[5][5] = float[5][5](
     float[5](1, 4, 6, 4, 1)
 );
 
-float estimateSpatialVariance(ivec2 coord, vec3 centerNormal, float centerDepth) {
-    const int spatialKernelRadius = 3;
-    float totalWeight = 0.0;
-    float accum = 0.0;
+const float kernel77[7][7] = float[7][7](
+    float[7](1,  4,  6,  7,  6,  4,  1),
+    float[7](4, 16, 24, 28, 24, 16, 4),
+    float[7](6, 24, 36, 42, 36, 24, 6),
+    float[7](7, 28, 42, 49, 42, 28, 7),
+    float[7](6, 24, 36, 42, 36, 24, 6),
+    float[7](4, 16, 24, 28, 24, 16, 4),
+    float[7](1,  4,  6,  7,  6,  4,  1)
+);
 
-    for (int dy = -spatialKernelRadius; dy <= spatialKernelRadius; ++dy) {
-        for (int dx = -spatialKernelRadius; dx <= spatialKernelRadius; ++dx) {
-            ivec2 offset = ivec2(dx, dy);
-            ivec2 sampleCoord = clamp(coord + offset, ivec2(0), imageSize(inputImage) - 1);
-
-            float sampleVar = imageLoad(varianceImage, sampleCoord).r;
-            vec3 sampleNormal = normalize(imageLoad(normalImage, sampleCoord).rgb);
-            float sampleDepth = imageLoad(depthImage, sampleCoord).r;
-
-            float Ndot = max(0.0, dot(centerNormal, sampleNormal));
-            float w_n = pow(Ndot, sigma_n);
-
-            float w_z = exp(-abs(centerDepth - sampleDepth) / sigma_z);
-
-            float w = w_n * w_z;
-
-            accum += sampleVar * w;
-            totalWeight += w;
-        }
-    }
-
-    return (totalWeight > 0.0) ? (accum / totalWeight) : 0.0;
-}
-
-float computeSpatialVariance7x7(ivec2 coord, vec3 centerNormal, float centerDepth) {
-    float sumLum = 0.0, sumSqLum = 0.0, totalWeight = 0.0;
-    ivec2 imageSize = imageSize(inputImage);
-
-    for (int dy = -3; dy <= 3; ++dy) {
-        for (int dx = -3; dx <= 3; ++dx) {
-            ivec2 sampleCoord = clamp(coord + ivec2(dx, dy), ivec2(0), imageSize - 1);
-
-            vec3 sampleColor = imageLoad(inputImage, sampleCoord).rgb;
-            float sampleLum = dot(sampleColor, vec3(0.299, 0.587, 0.114));
-
-            vec3 sampleNormal = normalize(imageLoad(normalImage, sampleCoord).rgb);
-            float sampleDepth = imageLoad(depthImage, sampleCoord).r;
-
-            float depthDiff = abs(centerDepth - sampleDepth);
-            float w_z = exp(-depthDiff / (0.1 * centerDepth + 0.001));
-            float w_n = pow(max(0.0, dot(centerNormal, sampleNormal)), 8.0);
-
-            float w = w_z * w_n;
-
-            sumLum += sampleLum * w;
-            sumSqLum += sampleLum * sampleLum * w;
-            totalWeight += w;
-        }
-    }
-
-    if (totalWeight > 0.0) {
-        float mean = sumLum / totalWeight;
-        return max(0.0, (sumSqLum / totalWeight) - (mean * mean));
-    } else {
-        return 0.0;
-    }
-}
 
 void main() {
     ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
@@ -124,14 +102,14 @@ void main() {
 
     float sigma_l = 0.0;
     float spp = imageLoad(sampleCountImage, coord).r;
-    if (spp < 4) {
-        float spatialVar = estimateSpatialVariance(coord, centerNormal, centerDepth);
-        // float spatialVar = computeSpatialVariance7x7(coord, centerNormal, centerDepth);
-        sigma_l = sqrt(max(spatialVar, epsilon));
-    }
-    else {
-        sigma_l = sqrt(max(imageLoad(varianceImage, coord).r, epsilon));
-    } 
+    // if (spp < 4 && pc.stepSize == 1) {
+    //     float spatialVar = estimateSpatialVariance(coord, centerNormal, centerDepth);
+    //     sigma_l = sqrt(max(spatialVar, epsilon));
+    // }
+    // else {
+    //     sigma_l = sqrt(max(imageLoad(varianceImage, coord).r, epsilon));
+    // }
+    sigma_l = sqrt(max(imageLoad(varianceImage, coord).r, epsilon));
 
     // depth gradient
     float dzdx = imageLoad(depthImage, clamp(coord + ivec2(1, 0), ivec2(0), imageSize - 1)).r -
@@ -143,6 +121,14 @@ void main() {
     vec3 accum = vec3(0.0);
     float accumVar = 0.0;
     float totalWeight = 0.0;
+    int kernelRadius = 2;
+    if (spp < 4 && pc.stepSize > 1) {
+        imageStore(outputImage, coord, vec4(centerColor, 1.0));
+        return; 
+    }
+    else if (spp < 4 && pc.stepSize == 1) {
+        kernelRadius = 3;
+    }
 
     for (int dy = -kernelRadius; dy <= kernelRadius; ++dy) {
         for (int dx = -kernelRadius; dx <= kernelRadius; ++dx) {
@@ -166,8 +152,15 @@ void main() {
             float sampleL = dot(sampleColor, vec3(0.299, 0.587, 0.114));
             float deltaL = abs(centerL - sampleL);
             float w_l = exp(-deltaL / (sigma_l * sigma_c + epsilon));
+            float spatialWeight = 0.0;
+            if (spp < 4) {
+                w_l = 1.0;
+                spatialWeight = kernel77[dy + kernelRadius][dx + kernelRadius];
+            }
+            else {
+                spatialWeight = kernel[dy + kernelRadius][dx + kernelRadius];
+            }
 
-            float spatialWeight = kernel[dy + kernelRadius][dx + kernelRadius];
             float w = spatialWeight * w_n * w_z * w_l;
 
             accum += sampleColor * w;

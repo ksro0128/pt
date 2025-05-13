@@ -334,20 +334,20 @@ float rand(inout uint seed) {
 
 vec2 sample2D(inout uint seed)
 {
-    // float u = rand(seed);
-    // float v = rand(seed);
-    // return vec2(u, v);
+    float u = rand(seed);
+    float v = rand(seed);
+    return vec2(u, v);
 
-    return halton(seed);
+    // return halton(seed);
 }
 
 vec3 cosineSampleHemisphere(inout uint seed) {
-    // float u1 = rand(seed);
-    // float u2 = rand(seed);
+    float u1 = rand(seed);
+    float u2 = rand(seed);
 
-    vec2 xy = halton(seed);
-    float u1 = xy.x;
-    float u2 = xy.y;
+    // vec2 xy = halton(seed);
+    // float u1 = xy.x;
+    // float u2 = xy.y;
 
     float r = sqrt(u1);
     float theta = 2.0 * 3.141592 * u2;
