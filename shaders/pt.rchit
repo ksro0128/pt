@@ -247,18 +247,18 @@ layout(set = 4, binding = 0) uniform accelerationStructureEXT topLevelAS;
 
 struct RayPayload {
     vec3 L_direct;
-    int bounce;
     vec3 L_indirect;
-    uint seed;
     vec3 beta;
 	vec3 normal;
-    int terminated;
     vec3 nextOrigin;
-	float depth;
     vec3 nextDir;
-	int meshID;
 	vec3 albedo;
     vec3 indirAlbedo;
+    int bounce;
+    uint seed;
+    int terminated;
+	float depth;
+	int meshID;
     float pdf;
 };
 
@@ -680,6 +680,7 @@ void sampleMirror(
 
     float NdotL = max(dot(N, wi), 0.0);
 
+    payload.bounce = -10;
     payload.albedo = vec3(1.0);
     payload.indirAlbedo = vec3(1.0);
     if (NdotL > 0.0) {
@@ -1074,7 +1075,10 @@ void evalPlastic(
     }
 
     vec3 F0 = Ks;
+    float F_spec = luminance(F0);
     vec3 H = normalize(wo + wi);
+    uint seed = payload.seed;
+    int sampledSpecular = rand(seed) < F_spec ? 1 : 0;
 
     float NdotL = max(dot(N, wi), 0.01);
     float NdotV = max(dot(N, wo), 0.01);
@@ -1086,16 +1090,37 @@ void evalPlastic(
     vec3 F = fresnelSchlick(VdotH_final, F0);
 
     // vec3 diffusef = Kd / PI * (vec3(1.0) - F);
-    vec3 diffusef = vec3(1.0) / PI * (vec3(1.0) - F);
+    // vec3 diffusef = vec3(1.0) / PI * (vec3(1.0) - F);
+    // vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
+
+    vec3 diffusef = vec3(1.0) / PI;
     vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
 
-    f = diffusef + specularf;
+    float pdf_diff = NdotL / PI;
+    float pdf_spec = D * NdotH / (4.0 * VdotH_final + 0.01);
 
-    float diffusePdf = max(dot(N, wi), 0.0) / PI;
-    float specularPdf = (D * NdotH) / (4.0 * VdotH_final + 0.01);
+    float weight_diff = pdf_diff * pdf_diff;
+    float weight_spec = pdf_spec * pdf_spec;
 
-    float wspec = (F.r + F.g + F.b) / 3.0;
-    pdf = diffusePdf * (1.0 - wspec) + specularPdf * wspec;
+    float denom = weight_diff + weight_spec;
+    float misWeight = (sampledSpecular != 0) ? (weight_spec / denom) : (weight_diff / denom);
+
+    if (sampledSpecular != 0) {
+        f = specularf * misWeight;
+        pdf = pdf_spec;
+    } else {
+        f = diffusef * misWeight;
+        pdf = pdf_diff;
+    }
+
+
+    // f = diffusef + specularf;
+
+    // float diffusePdf = max(dot(N, wi), 0.0) / PI;
+    // float specularPdf = (D * NdotH) / (4.0 * VdotH_final + 0.01);
+
+    // float wspec = (F.r + F.g + F.b) / 3.0;
+    // pdf = diffusePdf * (1.0 - wspec) + specularPdf * wspec;
 }
 
 void evalSubstrate(
@@ -1119,7 +1144,11 @@ void evalSubstrate(
     }
 
 	vec3 F0 = Ks;
+    float F_spec = luminance(F0);
     vec3 H = normalize(wo + wi);
+
+    uint seed = payload.seed;
+    int sampledSpecular = rand(seed) < F_spec ? 1 : 0;
 
     float NdotL = max(dot(N, wi), 0.01);
     float NdotV = max(dot(N, wo), 0.01);
@@ -1130,17 +1159,37 @@ void evalSubstrate(
     float G = geometrySmith(N, wo, wi, roughness);
     vec3 F = fresnelSchlick(VdotH_final, F0);
 
-    // vec3 diffusef = Kd / PI * (vec3(1.0) - F);
-    vec3 diffusef = vec3(1.0) / PI * (vec3(1.0) - F);
+    vec3 diffusef = vec3(1.0) / PI;
     vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
 
-    f = diffusef + specularf;
+    float pdf_diff = NdotL / PI;
+    float pdf_spec = D * NdotH / (4.0 * VdotH_final + 0.01);
 
-    float diffusePdf = max(dot(N, wi), 0.0) / PI;
-    float specularPdf = (D * NdotH) / (4.0 * VdotH_final + 0.01);
+    float weight_diff = pdf_diff * pdf_diff;
+    float weight_spec = pdf_spec * pdf_spec;
 
-    float wspec = (F.r + F.g + F.b) / 3.0;
-    pdf = diffusePdf * (1.0 - wspec) + specularPdf * wspec;
+    float denom = weight_diff + weight_spec;
+    float misWeight = (sampledSpecular != 0) ? (weight_spec / denom) : (weight_diff / denom);
+
+    if (sampledSpecular != 0) {
+        f = specularf * misWeight;
+        pdf = pdf_spec;
+    } else {
+        f = diffusef * misWeight;
+        pdf = pdf_diff;
+    }
+
+    // vec3 diffusef = Kd / PI * (vec3(1.0) - F);
+    // vec3 diffusef = vec3(1.0) / PI * (vec3(1.0) - F);
+    // vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
+
+    // f = diffusef + specularf;
+
+    // float diffusePdf = max(dot(N, wi), 0.0) / PI;
+    // float specularPdf = (D * NdotH) / (4.0 * VdotH_final + 0.01);
+
+    // float wspec = (F.r + F.g + F.b) / 3.0;
+    // pdf = diffusePdf * (1.0 - wspec) + specularPdf * wspec;
 }
 
 void evalUber(
@@ -1169,6 +1218,9 @@ void evalUber(
 
     float F_spec = luminance(F0);
 
+    uint seed = payload.seed;
+    int sampledSpecular = rand(seed) < F_spec ? 1 : 0;
+
     vec3 H = normalize(wo + wi);
 
     float NdotL = max(dot(N, wi), 0.01);
@@ -1180,16 +1232,38 @@ void evalUber(
     float G = geometrySmith(N, wo, wi, roughness);
     vec3 F = fresnelSchlick(VdotH_final, F0);
 
+    vec3 diffusef = vec3(1.0) / PI;
+    vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
+
+    float pdf_diff = NdotL / PI;
+    float pdf_spec = D * NdotH / (4.0 * VdotH_final + 0.01);
+
+    float weight_diff = pdf_diff * pdf_diff;
+    float weight_spec = pdf_spec * pdf_spec;
+
+    float denom = weight_diff + weight_spec;
+    float misWeight = (sampledSpecular != 0) ? (weight_spec / denom) : (weight_diff / denom);
+
+    if (sampledSpecular != 0) {
+        f = specularf * misWeight;
+        pdf = pdf_spec;
+    } else {
+        f = diffusef * misWeight;
+        pdf = pdf_diff;
+    }
+
+
+
     // vec3 diffusef = Kd / PI * (1.0 - F_spec);
-    vec3 diffusef = vec3(1.0) / PI * (1.0 - F_spec);
-    vec3 specularf = (D * G * F0) / max(4.0 * NdotV * NdotL, 0.01);
+    // vec3 diffusef = vec3(1.0) / PI * (1.0 - F_spec);
+    // vec3 specularf = (D * G * F0) / max(4.0 * NdotV * NdotL, 0.01);
 
-    f = diffusef + specularf;
+    // f = diffusef + specularf;
 
-    float diffusePdf = max(dot(N, wi), 0.0) / PI;
-    float specularPdf = (D * NdotH) / (4.0 * VdotH_final + 0.01);
+    // float diffusePdf = max(dot(N, wi), 0.0) / PI;
+    // float specularPdf = (D * NdotH) / (4.0 * VdotH_final + 0.01);
 
-    pdf = diffusePdf * (1.0 - F_spec) + specularPdf * F_spec;
+    // pdf = diffusePdf * (1.0 - F_spec) + specularPdf * F_spec;
 }
 
 void main() {
@@ -1198,6 +1272,7 @@ void main() {
 	vec3 wo = -normalize(gl_WorldRayDirectionEXT);
     payload.normal = N;
     payload.depth = length(P - gl_WorldRayOriginEXT);
+    payload.bounce += 1;
 
     const uint instanceID = gl_InstanceCustomIndexEXT;
     payload.meshID = int(instanceID);
@@ -1209,7 +1284,7 @@ void main() {
             L *= 30.0 / luminance(L);
         }
 		payload.terminated = 1;
-        if (payload.bounce == 0) {
+        if (payload.bounce == 1) {
             payload.L_indirect = L;
             return ;
         }
@@ -1285,12 +1360,11 @@ void main() {
     payload.nextOrigin = P + wi * 0.0001;
     payload.nextDir = wi;
     payload.terminated = 0;
-    payload.bounce += 1;
     payload.pdf = max(pdf, 0.01);
 
-    if (payload.bounce > 1) {
-        return ;
-    }
+    // if (payload.bounce > 1) {
+    //     return ;
+    // }
 
     vec3 light_wi = vec3(0.0);
     vec3 le = vec3(0.0);
@@ -1301,7 +1375,7 @@ void main() {
 
     isShadowed = true;
     traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT,
-        0xFF, 0, 0, 1, P + N * 0.01, 0.001, normalize(light_wi), length(light_wi) * 0.999, 1);
+        0xFF, 0, 0, 1, P + N * 0.01, 0.001, normalize(light_wi), length(light_wi) * 0.9, 1);
 
     if (isShadowed || dot(light_wi, N) < 0.0  || light_pdf <= 0.0) {
         // direct light 
@@ -1345,7 +1419,6 @@ void main() {
     if (luminance(direct) > 30.0) {
         direct *= 30.0 / luminance(direct);
     }
-
     payload.L_direct += (beta_pre * direct * misWeightLight);
 
     // direct light 

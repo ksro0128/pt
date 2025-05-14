@@ -412,7 +412,7 @@ struct alignas(16) AreaLightGPU {
 struct alignas(16) OptionsGPU {
 	int frameCount = 0;
 	int sampleCount = 0;
-	int maxSampleCount = 4096;
+	int maxSampleCount = 99999;
 	float pad2 = 0.0f;
 };
 

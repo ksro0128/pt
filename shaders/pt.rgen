@@ -321,21 +321,40 @@ float luminance(vec3 x) {
 	return dot(x, vec3(0.2126, 0.7152, 0.0722));
 }
 
+const vec2 JITTER_SEQ[16] = vec2[16](
+    vec2(0.5,     0.3333),  // Halton(1)
+    vec2(0.25,    0.6667),  // Halton(2)
+    vec2(0.75,    0.1111),  // Halton(3)
+    vec2(0.125,   0.4444),  // Halton(4)
+    vec2(0.625,   0.7778),  // Halton(5)
+    vec2(0.375,   0.2222),  // Halton(6)
+    vec2(0.875,   0.5556),  // Halton(7)
+    vec2(0.0625,  0.8889),  // Halton(8)
+    vec2(0.5625,  0.0370),  // Halton(9)
+    vec2(0.3125,  0.3704),  // Halton(10)
+    vec2(0.8125,  0.7037),  // Halton(11)
+    vec2(0.1875,  0.1481),  // Halton(12)
+    vec2(0.6875,  0.4815),  // Halton(13)
+    vec2(0.4375,  0.8148),  // Halton(14)
+    vec2(0.9375,  0.2593),  // Halton(15)
+    vec2(0.03125, 0.5926)   // Halton(16)
+);
+
 
 struct RayPayload {
     vec3 L_direct;
-    int bounce;
     vec3 L_indirect;
-    uint seed;
     vec3 beta;
 	vec3 normal;
-    int terminated;
     vec3 nextOrigin;
-	float depth;
     vec3 nextDir;
-	int meshID;
 	vec3 albedo;
     vec3 indirAlbedo;
+    int bounce;
+    uint seed;
+    int terminated;
+	float depth;
+	int meshID;
     float pdf;
 };
 
@@ -354,9 +373,19 @@ void main() {
     uvec2 size = gl_LaunchSizeEXT.xy;
     
 	vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(size);
+
+	// vec2 jitterPix  = JITTER_SEQ[options.frameCount % 15] - vec2(0.5);
+	// vec2 uv = (vec2(pixel) + jitterPix) / vec2(size);
+
 	// uint seed = initRandom(size, pixel, options.frameCount);
 	// vec2 jitter = vec2(rand(seed), rand(seed));
 	// vec2 uv = (vec2(pixel) + jitter) / vec2(size);
+
+
+	// uint seed = initRandom(size, pixel, options.frameCount);
+	// float jitter_x = rand(seed);
+	// float jitter_y = rand(seed);
+	// vec2 uv = vec2(float(pixel.x) + jitter_x, float(pixel.y) + jitter_y) / vec2(size);
 
     vec2 screen = uv * 2.0 - 1.0;
 	screen.x = -screen.x;
@@ -379,36 +408,45 @@ void main() {
 	payload.bounce = 0;
 	payload.terminated = 0;
 	payload.normal = vec3(0.0);
-	payload.albedo = vec3(0.0);
+	payload.albedo = vec3(1.0);
 	payload.depth = 0.0;
 	payload.pdf = 0.0;
+	payload.indirAlbedo = vec3(1.0);
 
 	vec3 origin = camera.camPos;
 	ivec2 ipixel = ivec2(pixel);
-	vec3 albedo = vec3(0.0);
-	vec3 indirAlbedo = vec3(0.0);
+	vec3 albedo = vec3(1.0);
+	vec3 indirAlbedo = vec3(1.0);
 
 	vec3 currentNormal = vec3(0.0);
 	float currentDepth = 0.0;
 	int currentMeshID = -1;
+	int mirror = 0;
 
 	for (int i = 0; i < 8; ++i) {
 		payload.bounce = i;
 		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0,
 					origin, 0.0001, dir, 1e30, 0);
 		
-		if (i == 0) {
+		if (mirror == 1) {
 			currentNormal = payload.normal;
 			currentDepth = payload.depth;
 			currentMeshID = payload.meshID;
-
-			imageStore(albedoImage, ipixel, vec4(payload.albedo, 1.0));
-			imageStore(normalImage, ipixel, vec4(payload.normal, 1.0));
-			imageStore(depthImage, ipixel, vec4(payload.depth));
-			imageStore(meshIDImage, ipixel, vec4(float(payload.meshID)));
-
 			albedo = payload.albedo;
 			indirAlbedo = payload.indirAlbedo;
+			mirror = -1;
+		}
+		if (i == 0) {
+			if (payload.bounce != 1) {
+				mirror = 1;
+			}
+			else {
+				currentDepth = payload.depth;
+				currentNormal = payload.normal;
+				currentMeshID = payload.meshID;
+				albedo = payload.albedo;
+				indirAlbedo = payload.indirAlbedo;
+			}
 		}
 		if (payload.terminated != 0) break;
 
@@ -423,6 +461,11 @@ void main() {
 		origin = payload.nextOrigin;
 		dir = payload.nextDir;
 	}
+
+	imageStore(albedoImage, ipixel, vec4(albedo, 1.0));
+	imageStore(normalImage, ipixel, vec4(currentNormal, 1.0));
+	imageStore(depthImage, ipixel, vec4(currentDepth));
+	imageStore(meshIDImage, ipixel, vec4(float(currentMeshID)));
 
 
 	vec3 worldPos = camera.camPos + currentDir * currentDepth;
@@ -442,6 +485,12 @@ void main() {
 	prevNDC.y = dy / (safeDZ * prevScale);
 
 	vec2 prevUV = prevNDC * 0.5 + 0.5;
+
+	// vec2 curJitter = jitterPix / vec2(size);
+	// vec2 prevJitter = (JITTER_SEQ[(options.frameCount - 1) % 15] - vec2(0.5)) / vec2(size);
+	// vec2 prevUV = prevNDC * 0.5 + 0.5 + prevJitter;
+	// prevUV -= curJitter;
+	
 	ivec2 res = ivec2(size);
 	ivec2 prevPixel = ivec2(prevUV * vec2(res) - 0.5);
 	prevPixel = clamp(prevPixel, ivec2(0), res - 1);
@@ -474,7 +523,7 @@ void main() {
 		float ddiff = abs(d - currentDepth) / max(currentDepth, 1e-2);
 		bool match = abs(id - currentMeshID) < 0.5;
 
-		if (ndot > 0.98 && ddiff < 0.01 && match) {
+		if (ndot > 0.98 && ddiff < 0.1 && match) {
 			float w = W[i];
 			acc_direct += imageLoad(directAccumImage, p) * w;
 			acc_m1_dir += imageLoad(directM1Image, p).r * w;
@@ -582,106 +631,4 @@ void main() {
 	imageStore(indirectVarianceImage, ipixel, vec4(indirectVar));
 
 	imageStore(sampleCountImage, ipixel, vec4(fcNext));
-
-
-
-
-
-
-
-
-
-
-
-
-	// vec3 prevNormal = imageLoad(prevNormalImage, prevPixel).xyz;
-	// float prevDepth = imageLoad(prevDepthImage, prevPixel).r;
-	// float prevMeshID = imageLoad(prevMeshIDImage, prevPixel).r;
-
-	// float normalDot = dot(currentNormal, prevNormal);
-	// float depthDiff = abs(prevDepth - currentDepth) / max(currentDepth, 1e-2);
-	// bool meshMatch = abs(prevMeshID - currentMeshID) < 0.5;
-
-	// bool consistent = normalDot > 0.98 && depthDiff < 0.01 && meshMatch;
-
-	// float alpha = 0.0;
-	// if (consistent) {
-	// 	alpha = 0.05;
-	// } else {
-	// 	alpha = 1.0;
-	// }
-
-	// vec3 safeAlbedo = max(albedo, vec3(0.01));
-	// payload.L_direct /= safeAlbedo;
-	// payload.L_indirect /= safeAlbedo;
-
-
-	// vec4 directResult = vec4(payload.L_direct, 1.0);
-
-	// float fc = imageLoad(sampleCountImage, prevPixel).r;
-
-	// float directM1 = imageLoad(directM1Image, prevPixel).r;
-	// float directM2 = imageLoad(directM2Image, prevPixel).r;
-	// vec4 directPrev = imageLoad(directAccumImage, prevPixel);
-
-	// float directLum = luminance(directResult.rgb);
-
-	// float fcNext;
-	// float updatedDirectM1;
-	// float updatedDirectM2;
-	// vec4 directCurrent;
-
-	// if (consistent) {
-	// 	// EMA 누적
-	// 	fcNext = fc + 1.0;
-	// 	updatedDirectM1 = (directM1 * fc + directLum) / fcNext;
-	// 	updatedDirectM2 = (directM2 * fc + directLum * directLum) / fcNext;
-	// 	directCurrent = directPrev * (1.0 - alpha) + directResult * alpha;
-	// } else {
-	// 	// 초기화
-	// 	fcNext = 1.0;
-	// 	updatedDirectM1 = directLum;
-	// 	updatedDirectM2 = directLum * directLum;
-	// 	directCurrent = directResult;
-	// }
-
-
-	// float directVariance = max(updatedDirectM2 - updatedDirectM1 * updatedDirectM1, 0.0);
-
-	// // store result
-	// imageStore(directOutputImage, ipixel, directCurrent);
-	// imageStore(directM1Image, ipixel, vec4(updatedDirectM1));
-	// imageStore(directM2Image, ipixel, vec4(updatedDirectM2));
-	// imageStore(directVarianceImage, ipixel, vec4(directVariance));
-
-
-	// vec4 indirectResult = vec4(payload.L_indirect, 1.0);
-	// vec4 indirectPrev = imageLoad(indirectAccumImage, prevPixel);
-	// float indirectM1 = imageLoad(indirectM1Image, prevPixel).r;
-	// float indirectM2 = imageLoad(indirectM2Image, prevPixel).r;
-	// float indirectLum = luminance(indirectResult.rgb);
-
-	// float updatedIndirectM1;
-	// float updatedIndirectM2;
-	// vec4 indirectCurrent;
-
-	// if (consistent) {
-	// 	fcNext = fc + 1.0;
-	// 	updatedIndirectM1 = (indirectM1 * fc + indirectLum) / fcNext;
-	// 	updatedIndirectM2 = (indirectM2 * fc + indirectLum * indirectLum) / fcNext;
-	// 	indirectCurrent = indirectPrev * (1.0 - alpha) + indirectResult * alpha;
-	// } else {
-	// 	fcNext = 1.0;
-	// 	updatedIndirectM1 = indirectLum;
-	// 	updatedIndirectM2 = indirectLum * indirectLum;
-	// 	indirectCurrent = indirectResult;
-	// }
-
-	// float indirectVariance = max(updatedIndirectM2 - updatedIndirectM1 * updatedIndirectM1, 0.0);
-
-	// imageStore(indirectOutputImage, ipixel, indirectCurrent);
-	// imageStore(indirectM1Image, ipixel, vec4(updatedIndirectM1));
-	// imageStore(indirectM2Image, ipixel, vec4(updatedIndirectM2));
-	// imageStore(indirectVarianceImage, ipixel, vec4(indirectVariance));
-	// imageStore(sampleCountImage, ipixel, vec4(fcNext));
 }
