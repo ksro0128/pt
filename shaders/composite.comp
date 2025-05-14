@@ -16,6 +16,8 @@ void main() {
     vec3 safeAlbedo = max(baseColor, vec3(0.01));
 
     vec3 color = (direct + indirect) * safeAlbedo;
+    // vec3 color = (indirect) * safeAlbedo;
+    
 
     imageStore(compositeImage, coord, vec4(color, 1.0));
 }

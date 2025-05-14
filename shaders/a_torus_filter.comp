@@ -60,7 +60,7 @@ layout(push_constant) uniform PushConsts {
 
 const float sigma_n = 128.0;
 const float sigma_z = 1.0;
-const float sigma_c = 4.0;
+const float sigma_c = 4;
 const float epsilon = 1e-2;
 
 

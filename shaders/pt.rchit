@@ -259,6 +259,7 @@ struct RayPayload {
 	int meshID;
 	vec3 albedo;
     vec3 indirAlbedo;
+    float pdf;
 };
 
 layout(location = 0) rayPayloadInEXT RayPayload payload;
@@ -1204,13 +1205,37 @@ void main() {
 
 	if (shape.areaLightIdx >= 0) {
 		vec3 L = lights[shape.areaLightIdx].L;
-
         if (luminance(L) > 30.0) {
             L *= 30.0 / luminance(L);
         }
-
-        payload.L_indirect += payload.beta * L;
 		payload.terminated = 1;
+        if (payload.bounce == 0) {
+            payload.L_indirect = L;
+            return ;
+        }
+
+        Vertices vertices = Vertices(shape.vertexAddress);
+        Indices indices = Indices(shape.indexAddress);
+
+        uvec3 idx = indices.i[gl_PrimitiveID];
+        
+        vec3 p0 = vec3(shape.modelMatrix * vec4(vertices.v[idx.x].pos, 1.0));
+        vec3 p1 = vec3(shape.modelMatrix * vec4(vertices.v[idx.y].pos, 1.0));
+        vec3 p2 = vec3(shape.modelMatrix * vec4(vertices.v[idx.z].pos, 1.0));
+
+        vec3 e1 = p1 - p0;
+        vec3 e2 = p2 - p0;
+        float area = 0.5 * length(cross(e1, e2));
+
+        float pickPdf =  1 / (float(camera.areaLightTriangleCount) * area);
+        float cosTheta_l = max(dot(N, wo), 0.001);
+
+        float dist2 = dot (P - gl_WorldRayOriginEXT, P - gl_WorldRayOriginEXT);
+        float pdf = pickPdf * dist2 / cosTheta_l;
+
+        float w = payload.pdf / (payload.pdf + pdf);
+
+        payload.L_indirect += payload.beta * L * w;
 		return;
 	}
 
@@ -1261,10 +1286,11 @@ void main() {
     payload.nextDir = wi;
     payload.terminated = 0;
     payload.bounce += 1;
+    payload.pdf = max(pdf, 0.01);
 
-    // if (payload.bounce > 1) {
-    //     return ;
-    // }
+    if (payload.bounce > 1) {
+        return ;
+    }
 
     vec3 light_wi = vec3(0.0);
     vec3 le = vec3(0.0);
