@@ -22,5 +22,7 @@ void main() {
     vec3 bloom = imageLoad(uBloomImage, uv).rgb;
 
     vec3 finalColor = hdr + bloom * pc.bloomStrength;
-    imageStore(uOutputImage, uv, vec4(finalColor, 1.0));
+    // imageStore(uOutputImage, uv, vec4(finalColor, 1.0));
+    imageStore(uOutputImage, uv, vec4(hdr, 1.0));
+
 }

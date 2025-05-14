@@ -248,26 +248,21 @@ layout(set = 4, binding = 1, rgba32f) uniform image2D pingImage;
 layout(set = 4, binding = 2, rgba32f) uniform image2D pongImage;
 
 struct RayPayload {
-    vec4 dummy;
-
     vec3 L;
-    float pad0;
     vec3 beta;
-    float pad1;
     vec3 nextOrigin;
-    float pad2;
     vec3 nextDir;
-    float pad3;
 
     int depth;
     uint seed;
     int terminated;
-    float pad4;
+    int bounce;
+    float pdf;
 };
 
 layout(location = 0) rayPayloadInEXT RayPayload payload;
 
-layout(location = 1) rayPayloadInEXT bool isShadowed;
+layout(location = 1) rayPayloadEXT bool isShadowed;
 
 const int MATERIAL_DISNEY     = 0;
 const int MATERIAL_FOURIER    = 1;
@@ -1143,8 +1138,37 @@ void main() {
 
 	if (shape.areaLightIdx >= 0) {
 		vec3 L = lights[shape.areaLightIdx].L;
-        payload.L += payload.beta * L;
+        // if (luminance(L) > 30.0) {
+        //     L *= 30.0 / luminance(L);
+        // }
 		payload.terminated = 1;
+        if (payload.depth == 0) {
+            payload.L = L;
+            return ;
+        }
+
+        Vertices vertices = Vertices(shape.vertexAddress);
+        Indices indices = Indices(shape.indexAddress);
+
+        uvec3 idx = indices.i[gl_PrimitiveID];
+        
+        vec3 p0 = vec3(shape.modelMatrix * vec4(vertices.v[idx.x].pos, 1.0));
+        vec3 p1 = vec3(shape.modelMatrix * vec4(vertices.v[idx.y].pos, 1.0));
+        vec3 p2 = vec3(shape.modelMatrix * vec4(vertices.v[idx.z].pos, 1.0));
+
+        vec3 e1 = p1 - p0;
+        vec3 e2 = p2 - p0;
+        float area = 0.5 * length(cross(e1, e2));
+
+        float pickPdf =  1 / (float(camera.areaLightTriangleCount) * area);
+        float cosTheta_l = max(dot(N, wo), 0.001);
+
+        float dist2 = dot (P - gl_WorldRayOriginEXT, P - gl_WorldRayOriginEXT);
+        float pdf = pickPdf * dist2 / cosTheta_l;
+
+        float w = payload.pdf / (payload.pdf + pdf);
+
+        payload.L += payload.beta * L * w;
 		return;
 	}
 
@@ -1195,11 +1219,12 @@ void main() {
     payload.nextDir = wi;
     payload.terminated = 0;
     payload.depth += 1;
+    payload.pdf = pdf;
 
 
-    if (payload.depth > 1) {
-        return ;
-    }
+    // if (payload.depth > 1) {
+    //     return ;
+    // }
 
     vec3 light_wi = vec3(0.0);
     vec3 le = vec3(0.0);
