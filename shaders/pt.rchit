@@ -1013,7 +1013,10 @@ void evalPlastic(
     }
 
     vec3 F0 = Ks;
+    float F_spec = luminance(F0);
     vec3 H = normalize(wo + wi);
+    uint seed = payload.seed;
+    int sampledSpecular = rand(seed) < F_spec ? 1 : 0;
 
     float NdotL = max(dot(N, wi), 0.01);
     float NdotV = max(dot(N, wo), 0.01);
@@ -1024,16 +1027,29 @@ void evalPlastic(
     float G = geometrySmith(N, wo, wi, roughness);
     vec3 F = fresnelSchlick(VdotH_final, F0);
 
-    vec3 diffusef = Kd / PI * (vec3(1.0) - F);
+    // vec3 diffusef = Kd / PI * (vec3(1.0) - F);
+    // vec3 diffusef = vec3(1.0) / PI * (vec3(1.0) - F);
+    // vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
+
+    vec3 diffusef = Kd / PI;
     vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
 
-    f = diffusef + specularf;
+    float pdf_diff = NdotL / PI;
+    float pdf_spec = D * NdotH / (4.0 * VdotH_final + 0.01);
 
-    float diffusePdf = max(dot(N, wi), 0.0) / PI;
-    float specularPdf = (D * NdotH) / (4.0 * VdotH_final + 0.01);
+    float weight_diff = pdf_diff * pdf_diff;
+    float weight_spec = pdf_spec * pdf_spec;
 
-    float wspec = (F.r + F.g + F.b) / 3.0;
-    pdf = diffusePdf * (1.0 - wspec) + specularPdf * wspec;
+    float denom = weight_diff + weight_spec;
+    float misWeight = (sampledSpecular != 0) ? (weight_spec / denom) : (weight_diff / denom);
+
+    if (sampledSpecular != 0) {
+        f = specularf * misWeight;
+        pdf = pdf_spec;
+    } else {
+        f = diffusef * misWeight;
+        pdf = pdf_diff;
+    }
 }
 
 void evalSubstrate(
@@ -1057,7 +1073,11 @@ void evalSubstrate(
     }
 
 	vec3 F0 = Ks;
+    float F_spec = luminance(F0);
     vec3 H = normalize(wo + wi);
+
+    uint seed = payload.seed;
+    int sampledSpecular = rand(seed) < F_spec ? 1 : 0;
 
     float NdotL = max(dot(N, wi), 0.01);
     float NdotV = max(dot(N, wo), 0.01);
@@ -1068,16 +1088,25 @@ void evalSubstrate(
     float G = geometrySmith(N, wo, wi, roughness);
     vec3 F = fresnelSchlick(VdotH_final, F0);
 
-    vec3 diffusef = Kd / PI * (vec3(1.0) - F);
+    vec3 diffusef = Kd / PI;
     vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
 
-    f = diffusef + specularf;
+    float pdf_diff = NdotL / PI;
+    float pdf_spec = D * NdotH / (4.0 * VdotH_final + 0.01);
 
-    float diffusePdf = max(dot(N, wi), 0.0) / PI;
-    float specularPdf = (D * NdotH) / (4.0 * VdotH_final + 0.01);
+    float weight_diff = pdf_diff * pdf_diff;
+    float weight_spec = pdf_spec * pdf_spec;
 
-    float wspec = (F.r + F.g + F.b) / 3.0;
-    pdf = diffusePdf * (1.0 - wspec) + specularPdf * wspec;
+    float denom = weight_diff + weight_spec;
+    float misWeight = (sampledSpecular != 0) ? (weight_spec / denom) : (weight_diff / denom);
+
+    if (sampledSpecular != 0) {
+        f = specularf * misWeight;
+        pdf = pdf_spec;
+    } else {
+        f = diffusef * misWeight;
+        pdf = pdf_diff;
+    }
 }
 
 void evalUber(
@@ -1106,6 +1135,9 @@ void evalUber(
 
     float F_spec = luminance(F0);
 
+    uint seed = payload.seed;
+    int sampledSpecular = rand(seed) < F_spec ? 1 : 0;
+
     vec3 H = normalize(wo + wi);
 
     float NdotL = max(dot(N, wi), 0.01);
@@ -1117,15 +1149,25 @@ void evalUber(
     float G = geometrySmith(N, wo, wi, roughness);
     vec3 F = fresnelSchlick(VdotH_final, F0);
 
-    vec3 diffusef = Kd / PI * (1.0 - F_spec);
-    vec3 specularf = (D * G * F0) / max(4.0 * NdotV * NdotL, 0.01);
+    vec3 diffusef = Kd / PI;
+    vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.01);
 
-    f = diffusef + specularf;
+    float pdf_diff = NdotL / PI;
+    float pdf_spec = D * NdotH / (4.0 * VdotH_final + 0.01);
 
-    float diffusePdf = max(dot(N, wi), 0.0) / PI;
-    float specularPdf = (D * NdotH) / (4.0 * VdotH_final + 0.01);
+    float weight_diff = pdf_diff * pdf_diff;
+    float weight_spec = pdf_spec * pdf_spec;
 
-    pdf = diffusePdf * (1.0 - F_spec) + specularPdf * F_spec;
+    float denom = weight_diff + weight_spec;
+    float misWeight = (sampledSpecular != 0) ? (weight_spec / denom) : (weight_diff / denom);
+
+    if (sampledSpecular != 0) {
+        f = specularf * misWeight;
+        pdf = pdf_spec;
+    } else {
+        f = diffusef * misWeight;
+        pdf = pdf_diff;
+    }
 }
 
 void main() {
