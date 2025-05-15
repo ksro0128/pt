@@ -1179,11 +1179,13 @@ void main() {
     ShapeGPU shape = instances[instanceID];
 
 	if (shape.areaLightIdx >= 0) {
-		vec3 L = lights[shape.areaLightIdx].L;
-        // if (luminance(L) > 30.0) {
-        //     L *= 30.0 / luminance(L);
-        // }
 		payload.terminated = 1;
+
+        if (gl_HitKindEXT == gl_HitKindBackFacingTriangleEXT) {
+            return ;
+        }
+
+		vec3 L = lights[shape.areaLightIdx].L;
         if (payload.depth == 0) {
             payload.L = L;
             return ;
