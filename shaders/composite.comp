@@ -2,9 +2,88 @@
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(set = 0, binding = 2, rgba32f) uniform readonly image2D albedo;
+
+layout(set = 0, binding = 0, rgba32f) uniform readonly image2D normalImage;
+layout(set = 0, binding = 1, r32f) uniform readonly image2D depthImage;
+layout(set = 0, binding = 2, rgba32f) uniform readonly image2D albedoImage;
+layout(set = 0, binding = 3, r32f) uniform readonly image2D meshIDImage;
+layout(set = 0, binding = 4, r32f) uniform readonly image2D sampleCountImage;
+
+layout(set = 0, binding = 6, rgba32f) uniform readonly image2D prevNormalImage;
+layout(set = 0, binding = 7, r32f) uniform readonly image2D prevDepthImage;
+layout(set = 0, binding = 8, r32f) uniform readonly image2D prevMeshIDImage;
+
+
 layout(set = 1, binding = 0, rgba32f) uniform readonly image2D directFilteredImage;
 layout(set = 1, binding = 1, rgba32f) uniform readonly image2D indirectFilteredImage;
 layout(set = 1, binding = 2, rgba32f) uniform writeonly image2D compositeImage;
+layout(set = 1, binding = 3, rgba32f) uniform readonly image2D prevCompositeImage;
+
+layout(set = 2, binding = 0) uniform CameraGPU {
+    vec3 camPos;
+    float pad0;
+    vec3 camDir;
+    float pad1;
+    vec3 camUp;
+    float pad2;
+    vec3 camRight;
+    float fovY;
+} camera;
+
+layout(set = 2, binding = 1) uniform OptionsGPU {
+    int frameCount;
+    int sampleCount;
+	int maxSampleCount;
+    float pad2;
+} options;
+
+layout(set = 2, binding = 2) uniform PrevCameraGPU {
+    vec3 camPos;
+    float pad0;
+    vec3 camDir;
+    float pad1;
+    vec3 camUp;
+    float pad2;
+    vec3 camRight;
+    float fovY;
+} prevCamera;
+
+
+vec3 Uncharted2Tonemap(vec3 x) {
+    const float A = 0.15f;
+    const float B = 0.50f;
+    const float C = 0.10f;
+    const float D = 0.20f;
+    const float E = 0.02f;
+    const float F = 0.30f;
+    return ((x*(A*x+C*B)+D*E)/(x*(A*x+B)+D*F)) - E/F;
+}
+
+vec3 RRTAndODTFit(vec3 v) {
+    vec3 a = v * (v + 0.0245786) - 0.000090537;
+    vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081;
+    return a / b;
+}
+
+vec3 toneMapACES(vec3 hdr) {
+    const mat3 ACESInputMat = mat3(
+         0.59719, 0.35458, 0.04823,
+         0.07600, 0.90834, 0.01566,
+         0.02840, 0.13383, 0.83777
+    );
+    const mat3 ACESOutputMat = mat3(
+         1.60475, -0.53108, -0.07367,
+        -0.10208,  1.10813, -0.00605,
+        -0.00327, -0.07276,  1.07602
+    );
+    hdr = ACESInputMat * hdr;
+    hdr = RRTAndODTFit(hdr);
+    return clamp(ACESOutputMat * hdr, 0.0, 1.0);
+}
+
+vec3 toneMapReinhard(vec3 x) {
+    return x / (1.0 + x);
+}
 
 void main() {
     ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
@@ -12,12 +91,119 @@ void main() {
     vec3 direct = imageLoad(directFilteredImage, coord).rgb;
     vec3 indirect = imageLoad(indirectFilteredImage, coord).rgb;
 
-    vec3 baseColor = imageLoad(albedo, coord).rgb;
+    vec3 baseColor = imageLoad(albedoImage, coord).rgb;
     vec3 safeAlbedo = max(baseColor, vec3(0.01));
 
     vec3 color = (direct + indirect) * safeAlbedo;
-    // vec3 color = (indirect) * safeAlbedo;
+    vec3 prevColor = imageLoad(prevCompositeImage, coord).rgb;
+
+
+    float spp = imageLoad(sampleCountImage, coord).r;
+
+    float alpha = 0.1;
+    if (camera.camDir != prevCamera.camDir || camera.camPos != prevCamera.camPos)
+        alpha = 1.0;
+
+    vec3 finalColor = mix(prevColor, color, alpha);
+
+
     
+    // vec3 color = (indirect) * safeAlbedo;
+    // color = toneMapReinhard(color);
 
     imageStore(compositeImage, coord, vec4(color, 1.0));
+    // imageStore(compositeImage, coord, vec4(finalColor, 1.0));
+
+    // ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    // vec2 resolution = vec2(imageSize(depthImage));
+    // vec2 uv = (vec2(coord) + vec2(0.5)) / resolution;
+
+    // float depth = imageLoad(depthImage, coord).r;
+    // float aspect = resolution.x / resolution.y;
+    // float scale = tan(radians(camera.fovY) * 0.5);
+
+    // // 현재 픽셀의 NDC → ray → worldPos
+    // vec2 ndc = uv * 2.0 - 1.0;
+    // ndc.x = -ndc.x;
+    // ndc.y = -ndc.y;
+
+    // vec3 rayDir = normalize(
+    //     ndc.x * aspect * scale * camera.camRight +
+    //     ndc.y * scale * camera.camUp +
+    //     camera.camDir
+    // );
+    // vec3 worldPos = camera.camPos + rayDir * depth;
+
+    // // 이전 프레임 카메라 기준으로 투영
+    // float prevAspect = aspect;
+    // float prevScale = tan(radians(prevCamera.fovY) * 0.5);
+    // vec3 rel = worldPos - prevCamera.camPos;
+    // float dx = -dot(rel, prevCamera.camRight);
+    // float dy = -dot(rel, prevCamera.camUp);
+    // float dz = dot(rel, prevCamera.camDir);
+    // float safeDZ = max(abs(dz), 1e-2);
+
+    // vec2 prevNDC = vec2(
+    //     dx / (safeDZ * prevAspect * prevScale),
+    //     dy / (safeDZ * prevScale)
+    // );
+    // vec2 prevUV = prevNDC * 0.5 + 0.5;
+
+    // ivec2 texSize = imageSize(prevDepthImage);
+    // vec2 texel = prevUV * texSize - 0.5;
+    // ivec2 base = ivec2(floor(texel));
+    // vec2 f = fract(texel);
+
+    // ivec2 OFF[4] = ivec2[4](ivec2(0,0), ivec2(1,0), ivec2(0,1), ivec2(1,1));
+    // float W[4] = float[4](
+    //     (1.0 - f.x) * (1.0 - f.y),
+    //     f.x * (1.0 - f.y),
+    //     (1.0 - f.x) * f.y,
+    //     f.x * f.y
+    // );
+
+    // // 누적용
+    // float totalW = 0.0;
+    // vec3 accColor = vec3(0.0);
+
+    // // 현재 G-buffer
+    // vec3 currN = imageLoad(normalImage, coord).xyz;
+    // float currD = depth;
+    // float currID = imageLoad(meshIDImage, coord).r;
+
+    // // reprojection + 일치도 검사 + weighted fetch
+    // for (int i = 0; i < 4; ++i) {
+    //     ivec2 p = clamp(base + OFF[i], ivec2(0), texSize - 1);
+
+    //     vec3 prevN = imageLoad(prevNormalImage, p).xyz;
+    //     float prevD = imageLoad(prevDepthImage, p).r;
+    //     float prevID = imageLoad(prevMeshIDImage, p).r;
+
+    //     float ndot = dot(prevN, currN);
+    //     float ddiff = abs(prevD - currD) / max(currD, 1e-2);
+    //     bool idMatch = abs(prevID - currID) < 0.5;
+
+    //     float pass = (ndot > 0.98 && ddiff < 0.1 && idMatch) ? 1.0 : 0.0;
+    //     float weight = W[i] * pass;
+
+    //     vec3 prevColor = imageLoad(prevCompositeImage, p).rgb;
+    //     accColor += prevColor * weight;
+    //     totalW += weight;
+    // }
+
+    // // radiance 계산
+    // vec3 direct = imageLoad(directFilteredImage, coord).rgb;
+    // vec3 indirect = imageLoad(indirectFilteredImage, coord).rgb;
+    // vec3 albedo = max(imageLoad(albedoImage, coord).rgb, vec3(0.01));
+    // vec3 curColor = (direct + indirect) * albedo;
+
+    // // 누적 여부 결정
+    // vec3 finalColor = totalW > 0.0
+    //     ? mix(accColor / totalW, curColor, 0.2)
+    //     : curColor;
+
+    // imageStore(compositeImage, coord, vec4(finalColor, 1.0));
+
+
+
 }

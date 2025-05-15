@@ -645,7 +645,7 @@ void DescriptorSetLayout::initSet8DescLayout(VulkanContext* context) {
 	this->context = context;
 
 
-	std::array<VkDescriptorSetLayoutBinding, 9> bindings{};
+	std::array<VkDescriptorSetLayoutBinding, 11> bindings{};
 
 	// 0: Normal image
 	bindings[0].binding = 0;
@@ -701,6 +701,20 @@ void DescriptorSetLayout::initSet8DescLayout(VulkanContext* context) {
 	bindings[8].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	bindings[8].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT;
 
+	// 9: current jitter image
+	bindings[9].binding = 9;
+	bindings[9].descriptorCount = 1;
+	bindings[9].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[9].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT;
+
+	// 10: prev jitter image
+	bindings[10].binding = 10;
+	bindings[10].descriptorCount = 1;
+	bindings[10].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[10].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT;
+
+	
+
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -722,7 +736,7 @@ void DescriptorSetLayout::initSet9DescLayout(VulkanContext* context) {
 	this->context = context;
 
 
-	std::array<VkDescriptorSetLayoutBinding, 3> bindings{};
+	std::array<VkDescriptorSetLayoutBinding, 4> bindings{};
 
 	// 0: direct filtered image
 	bindings[0].binding = 0;
@@ -741,6 +755,12 @@ void DescriptorSetLayout::initSet9DescLayout(VulkanContext* context) {
 	bindings[2].descriptorCount = 1;
 	bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	bindings[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+	// 3: prevComposite image
+	bindings[3].binding = 3;
+	bindings[3].descriptorCount = 1;
+	bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[3].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;

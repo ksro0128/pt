@@ -259,6 +259,8 @@ layout(set = 5, binding = 5, rg32f) uniform image2D motionVectorImage;
 layout(set = 5, binding = 6, rgba32f) uniform image2D prevNormalImage;
 layout(set = 5, binding = 7, r32f) uniform image2D prevDepthImage;
 layout(set = 5, binding = 8, r32f) uniform image2D prevMeshIDImage;
+layout(set = 5, binding = 9, rg32f) uniform image2D jitterImage;
+layout(set = 5, binding = 10, rg32f) uniform image2D prevJitterImage;
 
 
 float rand(inout uint seed) {
@@ -366,8 +368,6 @@ vec3 toneMapACES(vec3 x) {
 }
 
 
-
-
 void main() {
     uvec2 pixel = gl_LaunchIDEXT.xy;
     uvec2 size = gl_LaunchSizeEXT.xy;
@@ -378,14 +378,16 @@ void main() {
 	// vec2 uv = (vec2(pixel) + jitterPix) / vec2(size);
 
 	// uint seed = initRandom(size, pixel, options.frameCount);
-	// vec2 jitter = vec2(rand(seed), rand(seed));
+	// vec2 jitter = vec2(rand(seed), rand(seed)) / 2;
 	// vec2 uv = (vec2(pixel) + jitter) / vec2(size);
-
 
 	// uint seed = initRandom(size, pixel, options.frameCount);
 	// float jitter_x = rand(seed);
 	// float jitter_y = rand(seed);
-	// vec2 uv = vec2(float(pixel.x) + jitter_x, float(pixel.y) + jitter_y) / vec2(size);
+	// vec2 jitter = vec2(jitter_x, jitter_y);
+	// vec2 uv = (vec2(pixel) + vec2(0.5) + jitter / 2 - vec2(0.5)) / vec2(size);
+
+	// imageStore(jitterImage, ivec2(pixel), vec4(jitter, 0.0, 1.0));
 
     vec2 screen = uv * 2.0 - 1.0;
 	screen.x = -screen.x;
@@ -486,11 +488,10 @@ void main() {
 
 	vec2 prevUV = prevNDC * 0.5 + 0.5;
 
-	// vec2 curJitter = jitterPix / vec2(size);
-	// vec2 prevJitter = (JITTER_SEQ[(options.frameCount - 1) % 15] - vec2(0.5)) / vec2(size);
-	// vec2 prevUV = prevNDC * 0.5 + 0.5 + prevJitter;
-	// prevUV -= curJitter;
-	
+	// vec2 jitterPrev = imageLoad(prevJitterImage, ipixel).rg;
+	// vec2 pixelSize = 1.0 / vec2(size);
+	// prevUV += (jitterPrev - jitter) * pixelSize;
+
 	ivec2 res = ivec2(size);
 	ivec2 prevPixel = ivec2(prevUV * vec2(res) - 0.5);
 	prevPixel = clamp(prevPixel, ivec2(0), res - 1);
@@ -591,14 +592,8 @@ void main() {
 		}
 	}
 
-	vec3 safeAlbedo = max(albedo, vec3(0.01));
 	vec3 safeIndirAlbedo = max(indirAlbedo, vec3(0.01));
 
-	// payload.L_direct   /= safeAlbedo;
-	// if (payload.L_direct.r != 0.0 || payload.L_direct.g != 0.0 || payload.L_direct.b != 0.0)
-	// 	payload.L_direct /= safeAlbedo;
-	// payload.L_indirect /= safeAlbedo;
-	// payload.L_direct /= safedirAlbedo;
 	payload.L_indirect /= safeIndirAlbedo;
 
 	vec4 directResult   = vec4(payload.L_direct,   1.0);

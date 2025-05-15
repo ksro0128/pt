@@ -16,7 +16,7 @@ public:
 
     void newFrame();
     void render(VkCommandBuffer cmd, float deltaTime, OptionsGPU &options);
-    void createViewPortDescriptorSet(std::array<Texture*, 3> textures);
+    void createViewPortDescriptorSet(std::array<Texture*, 4> textures);
     void createGBufferDescriptorSet(std::array<Texture*, 3> textures);
     ImVec2 getViewportSize() const { return m_viewportSize; }
 	bool isBenchmarkRunning() const { return m_benchmarkRunning; }

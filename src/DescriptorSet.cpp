@@ -1129,15 +1129,17 @@ void DescriptorSet::initSet7DescSet(VulkanContext* context, DescriptorSetLayout*
 
 std::unique_ptr<DescriptorSet> DescriptorSet::createSet8DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 	Texture* normalTexture, Texture* depthTexture, Texture* albedoTexture, Texture* meshIDTexture, Texture* sampleCountTexture, Texture* motionVectorTexture,
-	Texture* prevNormalTexture, Texture* prevDepthTexture, Texture* prevMeshIDTexture) {
+	Texture* prevNormalTexture, Texture* prevDepthTexture, Texture* prevMeshIDTexture, Texture* jitterTexture, Texture* prevJitterTexture) {
 	std::unique_ptr<DescriptorSet> descriptorSet = std::unique_ptr<DescriptorSet>(new DescriptorSet());
-	descriptorSet->initSet8DescSet(context, layout, normalTexture, depthTexture, albedoTexture, meshIDTexture, sampleCountTexture, motionVectorTexture, prevNormalTexture, prevDepthTexture, prevMeshIDTexture);
+	descriptorSet->initSet8DescSet(context, layout, normalTexture, depthTexture, albedoTexture, 
+		meshIDTexture, sampleCountTexture, motionVectorTexture, prevNormalTexture, prevDepthTexture, 
+		prevMeshIDTexture, jitterTexture, prevJitterTexture);
 	return descriptorSet;
 }
 
 void DescriptorSet::initSet8DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 	Texture* normalTexture, Texture* depthTexture, Texture* albedoTexture, Texture* meshIDTexture, Texture* sampleCountTexture, Texture* motionVectorTexture,
-	Texture* prevNormalTexture, Texture* prevDepthTexture, Texture* prevMeshIDTexture) {
+	Texture* prevNormalTexture, Texture* prevDepthTexture, Texture* prevMeshIDTexture, Texture* jitterTexture, Texture* prevJitterTexture) {
 	this->context = context;
 	
 	
@@ -1153,7 +1155,7 @@ void DescriptorSet::initSet8DescSet(VulkanContext* context, DescriptorSetLayout*
 	}
 
 	std::vector<VkWriteDescriptorSet> descriptorWrites;
-	std::vector<VkDescriptorImageInfo> imageInfos(9);
+	std::vector<VkDescriptorImageInfo> imageInfos(11);
 
 	imageInfos[0].sampler = nullptr;
 	imageInfos[0].imageView = normalTexture->getImageView();
@@ -1277,6 +1279,32 @@ void DescriptorSet::initSet8DescSet(VulkanContext* context, DescriptorSetLayout*
 	prevMeshIDWrite.pImageInfo = &imageInfos[8];
 	descriptorWrites.push_back(prevMeshIDWrite);
 
+	imageInfos[9].imageView = jitterTexture->getImageView();
+	imageInfos[9].sampler = nullptr;
+	imageInfos[9].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	VkWriteDescriptorSet jitterWrite{};
+	jitterWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	jitterWrite.dstSet = m_descriptorSet;
+	jitterWrite.dstBinding = 9;
+	jitterWrite.dstArrayElement = 0;
+	jitterWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	jitterWrite.descriptorCount = 1;
+	jitterWrite.pImageInfo = &imageInfos[9];
+	descriptorWrites.push_back(jitterWrite);
+
+	imageInfos[10].imageView = prevJitterTexture->getImageView();
+	imageInfos[10].sampler = nullptr;
+	imageInfos[10].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	VkWriteDescriptorSet prevJitterWrite{};
+	prevJitterWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	prevJitterWrite.dstSet = m_descriptorSet;
+	prevJitterWrite.dstBinding = 10;
+	prevJitterWrite.dstArrayElement = 0;
+	prevJitterWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	prevJitterWrite.descriptorCount = 1;
+	prevJitterWrite.pImageInfo = &imageInfos[10];
+	descriptorWrites.push_back(prevJitterWrite);
+
 	vkUpdateDescriptorSets(context->getDevice(),
 		static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(),
 		0, nullptr);
@@ -1284,14 +1312,14 @@ void DescriptorSet::initSet8DescSet(VulkanContext* context, DescriptorSetLayout*
 
 
 std::unique_ptr<DescriptorSet> DescriptorSet::createSet9DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-	Texture* directFilteredTexture, Texture* indirectFilteredTexture, Texture* compositeTexture) {
+	Texture* directFilteredTexture, Texture* indirectFilteredTexture, Texture* compositeTexture, Texture* prevCompositeTexture) {
 	std::unique_ptr<DescriptorSet> descriptorSet = std::unique_ptr<DescriptorSet>(new DescriptorSet());
-	descriptorSet->initSet9DescSet(context, layout, directFilteredTexture, indirectFilteredTexture, compositeTexture);
+	descriptorSet->initSet9DescSet(context, layout, directFilteredTexture, indirectFilteredTexture, compositeTexture, prevCompositeTexture);
 	return descriptorSet;
 }
 
 void DescriptorSet::initSet9DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-	Texture* directFilteredTexture, Texture* indirectFilteredTexture, Texture* compositeTexture) {
+	Texture* directFilteredTexture, Texture* indirectFilteredTexture, Texture* compositeTexture, Texture* prevCompositeTexture) {
 	this->context = context;
 	
 	VkDescriptorSetAllocateInfo allocInfo{};
@@ -1306,7 +1334,7 @@ void DescriptorSet::initSet9DescSet(VulkanContext* context, DescriptorSetLayout*
 	}
 
 	std::vector<VkWriteDescriptorSet> descriptorWrites;
-	std::vector<VkDescriptorImageInfo> imageInfos(3);
+	std::vector<VkDescriptorImageInfo> imageInfos(4);
 
 	imageInfos[0].sampler = nullptr;
 	imageInfos[0].imageView = directFilteredTexture->getImageView();
@@ -1349,6 +1377,22 @@ void DescriptorSet::initSet9DescSet(VulkanContext* context, DescriptorSetLayout*
 	compositeWrite.descriptorCount = 1;
 	compositeWrite.pImageInfo = &imageInfos[2];
 	descriptorWrites.push_back(compositeWrite);
+
+
+	imageInfos[3].sampler = nullptr;
+	imageInfos[3].imageView = prevCompositeTexture->getImageView();
+	imageInfos[3].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkWriteDescriptorSet prevCompositeWrite{};
+	prevCompositeWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	prevCompositeWrite.dstSet = m_descriptorSet;
+	prevCompositeWrite.dstBinding = 3;
+	prevCompositeWrite.dstArrayElement = 0;
+	prevCompositeWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	prevCompositeWrite.descriptorCount = 1;
+	prevCompositeWrite.pImageInfo = &imageInfos[3];
+	descriptorWrites.push_back(prevCompositeWrite);
+
 
 	vkUpdateDescriptorSets(context->getDevice(),
 		static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(),

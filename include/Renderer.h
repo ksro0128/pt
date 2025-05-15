@@ -93,6 +93,12 @@ private:
 	std::unique_ptr<Texture> m_gBufferPrevNormalTexture;
 	std::unique_ptr<Texture> m_gBufferPrevDepthTexture;
 	std::unique_ptr<Texture> m_gBufferPrevMeshIDTexture;
+	std::unique_ptr<Texture> m_gBufferJitterTexture;
+	std::unique_ptr<Texture> m_gBufferPrevJitterTexture;
+
+	std::unique_ptr<Texture> m_prevCompositeTexture;
+	std::unique_ptr<Texture> m_curCompositeTexture;
+	
 	
 	
 	std::vector<std::unique_ptr<Texture>> m_textureList;
@@ -175,7 +181,9 @@ private:
 	std::unique_ptr<DescriptorSet> m_set6DescSet;
 	std::array<std::unique_ptr<DescriptorSet>, 4> m_set7DescSets;
 	std::unique_ptr<DescriptorSet> m_set8DescSet;
+	std::array<std::unique_ptr<DescriptorSet>, 2> m_set8DescSets;
 	std::unique_ptr<DescriptorSet> m_set9DescSet;
+	std::array<std::unique_ptr<DescriptorSet>, 2> m_set9DescSets;
 	std::array<std::unique_ptr<DescriptorSet>, 2> m_set10DescSets;
 
 	// pipeline

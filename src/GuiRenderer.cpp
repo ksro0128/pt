@@ -116,6 +116,21 @@ void GuiRenderer::render(VkCommandBuffer cmd, float deltaTime, OptionsGPU &optio
 
     m_viewportSize = ImGui::GetContentRegionAvail();
     // ImGui::Image((ImTextureID)(uint64_t)m_viewPortDescriptorSet[currentFrame], m_viewportSize);
+
+	switch (selectedViewport) {
+		case 0:
+		ImGui::Image((ImTextureID)(uint64_t)m_viewPortDescriptorSet[options.frameCount % 2], m_viewportSize);
+		break;
+		case 1:
+		ImGui::Image((ImTextureID)(uint64_t)m_viewPortDescriptorSet[selectedViewport + 1], m_viewportSize);
+		break;
+		case 2:
+		ImGui::Image((ImTextureID)(uint64_t)m_viewPortDescriptorSet[selectedViewport + 1], m_viewportSize);
+		break;
+		default:
+		break;
+	}
+
 	ImGui::Image((ImTextureID)(uint64_t)m_viewPortDescriptorSet[selectedViewport], m_viewportSize);
 
     ImGui::End();
@@ -166,8 +181,8 @@ void GuiRenderer::render(VkCommandBuffer cmd, float deltaTime, OptionsGPU &optio
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
  }
 
-void GuiRenderer::createViewPortDescriptorSet(std::array<Texture*, 3> textures) {
-	if (m_viewPortDescriptorSet.size() == 3) {
+void GuiRenderer::createViewPortDescriptorSet(std::array<Texture*, 4> textures) {
+	if (m_viewPortDescriptorSet.size() == 4) {
 		for (auto& descSet : m_viewPortDescriptorSet) {
 			ImGui_ImplVulkan_RemoveTexture(descSet);
 		}
@@ -177,6 +192,7 @@ void GuiRenderer::createViewPortDescriptorSet(std::array<Texture*, 3> textures) 
 	m_viewPortDescriptorSet[0] = ImGui_ImplVulkan_AddTexture(textures[0]->getSampler(), textures[0]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_viewPortDescriptorSet[1] = ImGui_ImplVulkan_AddTexture(textures[1]->getSampler(), textures[1]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_viewPortDescriptorSet[2] = ImGui_ImplVulkan_AddTexture(textures[2]->getSampler(), textures[2]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_viewPortDescriptorSet[3] = ImGui_ImplVulkan_AddTexture(textures[3]->getSampler(), textures[3]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void GuiRenderer::createGBufferDescriptorSet(std::array<Texture*, 3> textures) {

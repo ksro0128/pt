@@ -83,9 +83,9 @@ public:
 		Texture* inputTexture, Texture* outputTexture, Texture* historyTexture, Texture* varianceInputTexture, Texture* varianceOutputTexture);
 	static std::unique_ptr<DescriptorSet> createSet8DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		Texture* normalTexture, Texture* depthTexture, Texture* albedoTexture, Texture* meshIDTexture, Texture* sampleCountTexture, Texture* motionVectorTexture,
-		Texture* prevNormalTexture, Texture* prevDepthTexture, Texture* prevMeshIDTexture);
+		Texture* prevNormalTexture, Texture* prevDepthTexture, Texture* prevMeshIDTexture, Texture* jitterTexture, Texture* prevJitterTexture);
 	static std::unique_ptr<DescriptorSet> createSet9DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-		Texture* directFilterdTexture, Texture* indirectFilteredTexture, Texture* compositeTexture);
+		Texture* directFilterdTexture, Texture* indirectFilteredTexture, Texture* compositeTexture, Texture* prevCompositeTexture);
 	static std::unique_ptr<DescriptorSet> createSet10DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		Texture* inputTexture, Texture* outputTexture);
 
@@ -129,9 +129,9 @@ private:
 		Texture* inputTexture, Texture* outputTexture, Texture* historyTexture, Texture* varianceInputTexture, Texture* varianceOutputTexture);
 	void initSet8DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		Texture* normalTexture, Texture* depthTexture, Texture* albedoTexture, Texture* meshIDTexture, Texture* sampleCountTexture, Texture* motionVectorTexture,
-		Texture* prevNormalTexture, Texture* prevDepthTexture, Texture* prevMeshIDTexture);
+		Texture* prevNormalTexture, Texture* prevDepthTexture, Texture* prevMeshIDTexture, Texture* jitterTexture, Texture* prevJitterTexture);
 	void initSet9DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-		Texture* directFilterdTexture, Texture* indirectFilteredTexture, Texture* compositeTexture);
+		Texture* directFilterdTexture, Texture* indirectFilteredTexture, Texture* compositeTexture, Texture* prevCompositeTexture);
 	void initSet10DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		Texture* inputTexture, Texture* outputTexture);
 
