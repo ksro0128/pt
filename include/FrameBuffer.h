@@ -8,7 +8,7 @@
 
 class FrameBuffer {
 public:
-	static std::unique_ptr<FrameBuffer> createGbufferFrameBuffer(VulkanContext* context, RenderPass* renderPass, GbufferAttachment& gBufferAttachment, VkExtent2D extent);
+	static std::unique_ptr<FrameBuffer> createGbufferFrameBuffer(VulkanContext* context, RenderPass* renderPass, Texture* normal, Texture* linearDepth, Texture* meshID, Texture* motionVector, Texture* depthTexture, VkExtent2D extent);
 	static std::unique_ptr<FrameBuffer> createImGuiFrameBuffer(VulkanContext* context, RenderPass* renderPass, VkImageView& swapChainImageView, VkExtent2D extent);
 	static std::unique_ptr<FrameBuffer> createOutputFrameBuffer(VulkanContext* context, RenderPass* renderPass, Texture* texture, VkExtent2D extent);
 	static std::unique_ptr<FrameBuffer> createShadowMapFrameBuffer(VulkanContext* context, RenderPass* renderPass, Texture* texture, VkExtent2D extent);
@@ -21,7 +21,7 @@ private:
 	VulkanContext* context;
 	VkFramebuffer m_frameBuffer;
 
-	void initGbuffer(VulkanContext* context, RenderPass* renderPass, GbufferAttachment& gBufferAttachment, VkExtent2D extent);
+	void initGbuffer(VulkanContext* context, RenderPass* renderPass, Texture* normal, Texture* linearDepth, Texture* meshID, Texture* motionVector, Texture* depthTexture, VkExtent2D extent);
 	void initImGui(VulkanContext* context, RenderPass* renderPass, VkImageView& swapChainImageView, VkExtent2D extent);
 	void initOutput(VulkanContext* context, RenderPass* renderPass, Texture* texture, VkExtent2D extent);
 	void initShadowMap(VulkanContext* context, RenderPass* renderPass, Texture* texture, VkExtent2D extent);

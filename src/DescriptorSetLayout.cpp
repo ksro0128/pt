@@ -254,7 +254,7 @@ std::unique_ptr<DescriptorSetLayout> DescriptorSetLayout::createSet0DescLayout(V
 void DescriptorSetLayout::initSet0DescLayout(VulkanContext* context) {
 	this->context = context;
 
-	std::vector<VkDescriptorSetLayoutBinding> bindings(3);
+	std::vector<VkDescriptorSetLayoutBinding> bindings(4);
 
 	bindings[0].binding = 0;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -273,6 +273,12 @@ void DescriptorSetLayout::initSet0DescLayout(VulkanContext* context) {
 	bindings[2].descriptorCount = 1;
 	bindings[2].stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_COMPUTE_BIT;
 	bindings[2].pImmutableSamplers = nullptr;
+
+	bindings[3].binding = 3;
+	bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	bindings[3].descriptorCount = 1;
+	bindings[3].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+	bindings[3].pImmutableSamplers = nullptr;
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;

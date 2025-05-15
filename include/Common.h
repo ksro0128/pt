@@ -450,3 +450,10 @@ struct alignas(16) CompositeGPU {
     glm::vec2 screenSize;
     float bloomStrength;
 };
+
+struct alignas(16) GbufferCameraGPU {
+	glm::mat4 view;
+	glm::mat4 proj;
+	glm::mat4 viewProj;
+	glm::mat4 prevViewProj;
+};

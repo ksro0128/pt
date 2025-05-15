@@ -12,22 +12,25 @@ void FrameBuffer::cleanup() {
 	}
 }
 
-std::unique_ptr<FrameBuffer> FrameBuffer::createGbufferFrameBuffer(VulkanContext* context, RenderPass* renderPass, GbufferAttachment& gBufferAttachment, VkExtent2D extent) {
+std::unique_ptr<FrameBuffer> FrameBuffer::createGbufferFrameBuffer(VulkanContext* context,
+    RenderPass* renderPass, Texture* normal, Texture* linearDepth,
+    Texture* meshID, Texture* motionVector, Texture* depthTexture, VkExtent2D extent) {
 	std::unique_ptr<FrameBuffer> frameBuffer = std::unique_ptr<FrameBuffer>(new FrameBuffer());
-	frameBuffer->initGbuffer(context, renderPass, gBufferAttachment, extent);
+	frameBuffer->initGbuffer(context, renderPass, normal, linearDepth, meshID, motionVector, depthTexture, extent);
 	return frameBuffer;
 }
 
-void FrameBuffer::initGbuffer(VulkanContext* context, RenderPass* renderPass, GbufferAttachment& gBufferAttachment, VkExtent2D extent) {
+void FrameBuffer::initGbuffer(VulkanContext* context, 
+	RenderPass* renderPass, Texture* normal, Texture* linearDepth, 
+	Texture* meshID, Texture* motionVector, Texture* depthTexture, VkExtent2D extent) {
     this->context = context;
 
-    std::array<VkImageView, 6> attachments = {
-        gBufferAttachment.position->getImageView(),
-        gBufferAttachment.normal->getImageView(),
-        gBufferAttachment.albedo->getImageView(),
-        gBufferAttachment.pbr->getImageView(),
-		gBufferAttachment.emissive->getImageView(),
-        gBufferAttachment.depth->getImageView()
+    std::array<VkImageView, 5> attachments = {
+        normal->getImageView(),         // layout(location = 0)
+        linearDepth->getImageView(),    // layout(location = 1)
+        meshID->getImageView(),         // layout(location = 2)
+        motionVector->getImageView(),   // layout(location = 3)
+        depthTexture->getImageView()    // depth attachment (attachment = 4)
     };
 
     VkFramebufferCreateInfo framebufferInfo{};

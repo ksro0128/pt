@@ -96,6 +96,8 @@ private:
 	std::unique_ptr<Texture> m_gBufferJitterTexture;
 	std::unique_ptr<Texture> m_gBufferPrevJitterTexture;
 
+	std::unique_ptr<Texture> m_depthTexture;
+
 	std::unique_ptr<Texture> m_prevCompositeTexture;
 	std::unique_ptr<Texture> m_curCompositeTexture;
 	
@@ -135,6 +137,7 @@ private:
 	std::unique_ptr<UniformBuffer> m_cameraBuffer;
 	std::unique_ptr<UniformBuffer> m_prevCameraBuffer;
 	std::unique_ptr<UniformBuffer> m_optionsBuffer;
+	std::unique_ptr<UniformBuffer> m_gbufferCameraBuffer;
 	std::unique_ptr<StorageBuffer> m_instanceBuffer;
 
 	std::unique_ptr<StorageBuffer> m_materialBuffer;
@@ -245,7 +248,7 @@ private:
 
 
 	// record command buffer
-	void recordGbufferCommandBuffer(std::vector<ObjectInstance>& objDescs);
+	void recordGbufferCommandBuffer();
 	void recordLightPassCommandBuffer();
 	void recordImGuiCommandBuffer(uint32_t imageIndex, float deltaTime);
 	void recordShadowMapCommandBuffer(std::vector<ObjectInstance>& objDescs);

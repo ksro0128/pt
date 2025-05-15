@@ -44,8 +44,8 @@ void Pipeline::initGbuffer(VulkanContext* context, RenderPass* renderPass, std::
 	this->context = context;
 
 	// Shader modules
-	auto vertShaderCode = VulkanUtil::readFile("spv/GbufferPass.vert.spv");
-	auto fragShaderCode = VulkanUtil::readFile("spv/GbufferPass.frag.spv");
+	auto vertShaderCode = VulkanUtil::readFile("spv/gbuffer.vert.spv");
+	auto fragShaderCode = VulkanUtil::readFile("spv/gbuffer.frag.spv");
 
 	VkShaderModule vertShaderModule = createShaderModule(context, vertShaderCode);
 	VkShaderModule fragShaderModule = createShaderModule(context, fragShaderCode);
@@ -128,8 +128,7 @@ void Pipeline::initGbuffer(VulkanContext* context, RenderPass* renderPass, std::
 	depthStencil.depthBoundsTestEnable = VK_FALSE;
 	depthStencil.stencilTestEnable = VK_FALSE;
 
-	// Color blend
-	std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments(5);
+	std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments(4);
 	for (auto& attachment : colorBlendAttachments) {
 		attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
 			VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -142,18 +141,25 @@ void Pipeline::initGbuffer(VulkanContext* context, RenderPass* renderPass, std::
 	colorBlending.attachmentCount = static_cast<uint32_t>(colorBlendAttachments.size());
 	colorBlending.pAttachments = colorBlendAttachments.data();
 
-	// Descriptor set layouts
+	// Descriptor Set Layouts
 	std::vector<VkDescriptorSetLayout> layouts;
 	for (auto* layout : descriptorSetLayouts) {
 		layouts.push_back(layout->getDescriptorSetLayout());
 	}
+
+	// Push constant: model, meshID
+	VkPushConstantRange pushConstantRange{};
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	pushConstantRange.offset = 0;
+	pushConstantRange.size = sizeof(glm::mat4) + sizeof(uint32_t);
 
 	// Pipeline layout
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
 	pipelineLayoutInfo.pSetLayouts = layouts.data();
-
+	pipelineLayoutInfo.pushConstantRangeCount = 1;
+	pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 	if (vkCreatePipelineLayout(context->getDevice(), &pipelineLayoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create pipeline layout!");
 	}

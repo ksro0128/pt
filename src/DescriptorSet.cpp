@@ -419,14 +419,14 @@ void DescriptorSet::updateTLAS(VkAccelerationStructureKHR tlas) {
 }
 
 std::unique_ptr<DescriptorSet> DescriptorSet::createSet0DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-	UniformBuffer* cameraBuffer, UniformBuffer* optionsBuffer, UniformBuffer* prevCameraBuffer) {
+	UniformBuffer* cameraBuffer, UniformBuffer* optionsBuffer, UniformBuffer* prevCameraBuffer, UniformBuffer* gbufferCameraBuffer) {
 	std::unique_ptr<DescriptorSet> descriptorSet = std::unique_ptr<DescriptorSet>(new DescriptorSet());
-	descriptorSet->initSet0DescSet(context, layout, cameraBuffer, optionsBuffer, prevCameraBuffer);
+	descriptorSet->initSet0DescSet(context, layout, cameraBuffer, optionsBuffer, prevCameraBuffer, gbufferCameraBuffer);
 	return descriptorSet;
 }
 
 void DescriptorSet::initSet0DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-	UniformBuffer* cameraBuffer, UniformBuffer* optionsBuffer, UniformBuffer* prevCameraBuffer) {
+	UniformBuffer* cameraBuffer, UniformBuffer* optionsBuffer, UniformBuffer* prevCameraBuffer, UniformBuffer* gbufferCameraBuffer) {
 	this->context = context;
 
 	VkDescriptorSetAllocateInfo allocInfo{};
@@ -481,8 +481,21 @@ void DescriptorSet::initSet0DescSet(VulkanContext* context, DescriptorSetLayout*
 	prevCameraWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	prevCameraWrite.descriptorCount = 1;
 	prevCameraWrite.pBufferInfo = &prevCameraBufferInfo;
+
+	VkDescriptorBufferInfo gbufferCameraBufferInfo{};
+    gbufferCameraBufferInfo.buffer = gbufferCameraBuffer->getBuffer();
+    gbufferCameraBufferInfo.offset = 0;
+    gbufferCameraBufferInfo.range = sizeof(GbufferCameraGPU);
+
+    VkWriteDescriptorSet gbufferCameraWrite{};
+    gbufferCameraWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    gbufferCameraWrite.dstSet = m_descriptorSet;
+    gbufferCameraWrite.dstBinding = 3;
+    gbufferCameraWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    gbufferCameraWrite.descriptorCount = 1;
+    gbufferCameraWrite.pBufferInfo = &gbufferCameraBufferInfo;
 	
-	std::array<VkWriteDescriptorSet, 3> writes{ cameraWrite, optionsWrite, prevCameraWrite };
+	std::array<VkWriteDescriptorSet, 4> writes{ cameraWrite, optionsWrite, prevCameraWrite, gbufferCameraWrite};
 	vkUpdateDescriptorSets(context->getDevice(), static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 }
 

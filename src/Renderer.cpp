@@ -67,17 +67,19 @@ void Renderer::init(GLFWwindow* window) {
 	m_blurVTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_bloomTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_aTorusTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_gBufferNormalTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_gBufferDepthTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+	m_gBufferNormalTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_gBufferDepthTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_gBufferAlbedoTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_gBufferMeshIDTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_gBufferMeshIDTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_gBufferSampleCountTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_gBufferMotionVectorTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_gBufferPrevNormalTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_gBufferPrevDepthTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_gBufferPrevMeshIDTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_gBufferMotionVectorTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_gBufferPrevNormalTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_gBufferPrevDepthTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_gBufferPrevMeshIDTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_gBufferJitterTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_gBufferPrevJitterTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_depthTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
 
 
 	// layout
@@ -97,6 +99,7 @@ void Renderer::init(GLFWwindow* window) {
 	m_cameraBuffer = UniformBuffer::createUniformBuffer(m_context.get(), sizeof(CameraGPU));
 	m_prevCameraBuffer = UniformBuffer::createUniformBuffer(m_context.get(), sizeof(CameraGPU));
 	m_optionsBuffer = UniformBuffer::createUniformBuffer(m_context.get(), sizeof(OptionsGPU));
+	m_gbufferCameraBuffer = UniformBuffer::createUniformBuffer(m_context.get(), sizeof(GbufferCameraGPU));
 	m_instanceBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(ShapeGPU), m_shapeList.size());
 
 	m_areaLightBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(AreaLightGPU), m_areaLightList.size());
@@ -126,7 +129,7 @@ void Renderer::init(GLFWwindow* window) {
 	updateInitialBuffers();
 
 	// descriptorset
-	m_set0DescSet = DescriptorSet::createSet0DescSet(m_context.get(), m_set0Layout.get(), m_cameraBuffer.get(), m_optionsBuffer.get(), m_prevCameraBuffer.get());
+	m_set0DescSet = DescriptorSet::createSet0DescSet(m_context.get(), m_set0Layout.get(), m_cameraBuffer.get(), m_optionsBuffer.get(), m_prevCameraBuffer.get(), m_gbufferCameraBuffer.get());
 	m_set1DescSet = DescriptorSet::createSet1DescSet(m_context.get(), m_set1Layout.get(), m_instanceBuffer.get());
 
 	if (m_textureList.size() == 0) {
@@ -172,6 +175,7 @@ void Renderer::init(GLFWwindow* window) {
 	// renderpass
 	m_toneMappingRenderPass = RenderPass::createToneMappingRenderPass(m_context.get());
 	m_imguiRenderPass = RenderPass::createImGuiRenderPass(m_context.get(), m_swapChain.get());
+	m_gbufferRenderPass = RenderPass::createGbufferRenderPass(m_context.get());
 
 	// pipeline
 	m_ptPipeline = RayTracingPipeline::createPtPipeline(m_context.get(), {m_set0Layout.get(), m_set1Layout.get(), m_set2Layout.get(), m_set3Layout.get(), m_set4Layout.get(), m_set8Layout.get()});
@@ -184,6 +188,7 @@ void Renderer::init(GLFWwindow* window) {
 	m_aTorusFilterPipeline = Pipeline::createATorusFilterPipeline(m_context.get(), {m_set7Layout.get(), m_set8Layout.get(), m_set0Layout.get()});
 	m_compositePipeline = Pipeline::createCompositePipeline(m_context.get(), {m_set8Layout.get(), m_set9Layout.get(), m_set0Layout.get()});
 	m_gaussianBlurPipeline = Pipeline::createGaussianBlurPipeline(m_context.get(), {m_set10Layout.get()});
+	m_gbufferPipeline = Pipeline::createGbufferPipeline(m_context.get(), m_gbufferRenderPass.get(), {m_set0Layout.get()});
 
 	auto cmd = VulkanUtil::beginSingleTimeCommands(m_context.get());
 	transferImageLayout(cmd, m_ptTexture0.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
@@ -235,6 +240,10 @@ void Renderer::init(GLFWwindow* window) {
 	m_guiRenderer->createGBufferDescriptorSet({m_gBufferNormalTexture.get(), m_gBufferDepthTexture.get(), m_gBufferAlbedoTexture.get()});
 	
 	m_toneMappingFrameBuffer = FrameBuffer::createToneMappingFrameBuffer(m_context.get(), m_toneMappingRenderPass.get(), m_outputTexture.get(), m_extent);
+
+	m_gbufferFrameBuffers.resize(2);
+	m_gbufferFrameBuffers[0] = FrameBuffer::createGbufferFrameBuffer(m_context.get(), m_gbufferRenderPass.get(), m_gBufferNormalTexture.get(), m_gBufferDepthTexture.get(), m_gBufferMeshIDTexture.get(), m_gBufferMotionVectorTexture.get(), m_depthTexture.get(), m_extent);
+	m_gbufferFrameBuffers[1] = FrameBuffer::createGbufferFrameBuffer(m_context.get(), m_gbufferRenderPass.get(), m_gBufferPrevNormalTexture.get(), m_gBufferPrevDepthTexture.get(), m_gBufferPrevMeshIDTexture.get(), m_gBufferMotionVectorTexture.get(), m_depthTexture.get(), m_extent);
 
 	printAllResources();
 }
@@ -737,6 +746,7 @@ void Renderer::render(float deltaTime) {
 	memset(&exposureGPU, 0, sizeof(ExposureGPU));
 	m_exposureBuffer->updateStorageBuffer(&exposureGPU, sizeof(ExposureGPU));
 	
+	recordGbufferCommandBuffer();
 	recordPTCommandBuffer();
 
 	transferImageLayout(m_commandBuffers->getCommandBuffers()[currentFrame],
@@ -1084,6 +1094,9 @@ void Renderer::recreateViewport(ImVec2 newExtent) {
 	m_extent.height = static_cast<uint32_t>(newExtent.y);
 
 
+
+	m_gbufferFrameBuffers.clear();
+
 	m_set4DescSet.reset();
 	m_set5DescSet.reset();
 	m_set6DescSet.reset();
@@ -1133,17 +1146,19 @@ void Renderer::recreateViewport(ImVec2 newExtent) {
 	m_blurVTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_bloomTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_aTorusTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_gBufferNormalTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_gBufferDepthTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	
+	m_gBufferNormalTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_gBufferDepthTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_gBufferAlbedoTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_gBufferMeshIDTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_gBufferMeshIDTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_gBufferSampleCountTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_gBufferMotionVectorTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_gBufferPrevNormalTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_gBufferPrevDepthTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_gBufferPrevMeshIDTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_gBufferMotionVectorTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_gBufferPrevNormalTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_gBufferPrevDepthTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_gBufferPrevMeshIDTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_gBufferJitterTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_gBufferPrevJitterTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_depthTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
 
 	m_directHistoryTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 	m_directCurrentTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -1200,6 +1215,11 @@ void Renderer::recreateViewport(ImVec2 newExtent) {
 	m_guiRenderer->createViewPortDescriptorSet({m_compositeTexture.get(), m_prevCompositeTexture.get(), m_directFilteredTexture.get(), m_indirectFilteredTexture.get()});
 	// m_guiRenderer->createViewPortDescriptorSet({m_ptTexture0.get(), m_ptTexture1.get()});
 	m_guiRenderer->createGBufferDescriptorSet({m_gBufferNormalTexture.get(), m_gBufferDepthTexture.get(), m_gBufferAlbedoTexture.get()});
+
+	m_gbufferFrameBuffers.resize(2);
+	m_gbufferFrameBuffers[0] = FrameBuffer::createGbufferFrameBuffer(m_context.get(), m_gbufferRenderPass.get(), m_gBufferNormalTexture.get(), m_gBufferDepthTexture.get(), m_gBufferMeshIDTexture.get(), m_gBufferMotionVectorTexture.get(), m_depthTexture.get(), m_extent);
+	m_gbufferFrameBuffers[1] = FrameBuffer::createGbufferFrameBuffer(m_context.get(), m_gbufferRenderPass.get(), m_gBufferPrevNormalTexture.get(), m_gBufferPrevDepthTexture.get(), m_gBufferPrevMeshIDTexture.get(), m_gBufferMotionVectorTexture.get(), m_depthTexture.get(), m_extent);
+
 
 	auto cmd = VulkanUtil::beginSingleTimeCommands(m_context.get());
 	transferImageLayout(cmd, m_ptTexture0.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
@@ -1615,6 +1635,111 @@ void Renderer::recordGaussianBlurCommandBuffer() {
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_gaussianBlurPipeline->getPipelineLayout(), 0, 1, sets, 0, nullptr);
 
 	vkCmdDispatch(cmd, groupX, groupY, 1);
+}
+
+void Renderer::recordGbufferCommandBuffer() {
+	VkCommandBuffer cmd = m_commandBuffers->getCommandBuffers()[currentFrame];
+
+	VkRenderPassBeginInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = m_gbufferRenderPass->getRenderPass();
+	renderPassInfo.framebuffer = m_gbufferFrameBuffers[m_options.frameCount % 2]->getFrameBuffer();
+	renderPassInfo.renderArea.offset = {0, 0};
+	renderPassInfo.renderArea.extent = m_extent;
+
+	std::array<VkClearValue, 5> clearValues{};
+	clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f}; // Normal
+	clearValues[1].color = {1.0f, 0.0f, 0.0f, 0.0f}; // View-space depth (max depth)
+	clearValues[2].color = {0.0f, 0.0f, 0.0f, 0.0f}; // Mesh ID
+	clearValues[3].color = {0.0f, 0.0f, 0.0f, 0.0f}; // Motion vector
+	clearValues[4].depthStencil = {1.0f, 0};         // Z-buffer
+
+	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+	renderPassInfo.pClearValues = clearValues.data();
+
+	vkCmdBeginRenderPass(cmd, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	VkViewport viewport{};
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width  = static_cast<float>(m_extent.width);
+	viewport.height = static_cast<float>(m_extent.height);
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+	VkRect2D scissor{};
+	scissor.offset = {0, 0};
+	scissor.extent = m_extent;
+	vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_gbufferPipeline->getPipeline());
+
+	VkDescriptorSet sets[] = {
+		m_set0DescSet->getDescriptorSet() // set=0: camera buffer (binding=3 사용)
+	};
+
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		m_gbufferPipeline->getPipelineLayout(),
+		0, 1, sets,
+		0, nullptr);
+
+	GbufferCameraGPU gbufferCam{};
+
+	float aspect = static_cast<float>(m_extent.width) / static_cast<float>(m_extent.height);
+	float nearZ = 0.1f;
+	float farZ = 1000.0f;
+
+	const glm::vec3 camPos = m_camera.camPos;
+	const glm::vec3 camDir = m_camera.camDir;
+	const glm::vec3 camUp  = m_camera.camUp;
+	const float fovY = m_camera.fovY;
+
+	glm::mat4 view = glm::lookAt(camPos, camPos + camDir, camUp);
+	glm::mat4 proj = glm::perspective(glm::radians(fovY), aspect, nearZ, farZ);
+	proj[1][1] *= -1.0f;
+
+	gbufferCam.view = view;
+	gbufferCam.proj = proj;
+	gbufferCam.viewProj = proj * view;
+
+	const glm::vec3 prevPos = m_prevCamera.camPos;
+	const glm::vec3 prevDir = m_prevCamera.camDir;
+	const glm::vec3 prevUp  = m_prevCamera.camUp;
+	const float prevFovY = m_prevCamera.fovY;
+
+	glm::mat4 prevView = glm::lookAt(prevPos, prevPos + prevDir, prevUp);
+	glm::mat4 prevProj = glm::perspective(glm::radians(prevFovY), aspect, nearZ, farZ);
+	prevProj[1][1] *= -1.0f;
+
+	gbufferCam.prevViewProj = prevProj * prevView;
+
+	m_gbufferCameraBuffer->updateUniformBuffer(&gbufferCam, sizeof(GbufferCameraGPU));
+
+	for (uint32_t i = 0; i < static_cast<uint32_t>(m_shapeList.size()); ++i) {
+		const ShapeGPU& shape = m_shapeList[i];
+		Mesh* mesh = m_meshList[i].get();
+
+		// Push constant: model matrix + mesh ID (float로 저장됨)
+		struct PushConst {
+			glm::mat4 model;
+			uint32_t meshID;
+		} pushConst;
+
+		pushConst.model = shape.modelMatrix;
+		pushConst.meshID = i;
+
+		vkCmdPushConstants(cmd,
+			m_gbufferPipeline->getPipelineLayout(),
+			VK_SHADER_STAGE_VERTEX_BIT,
+			0, sizeof(PushConst),
+			&pushConst);
+
+		// Draw
+		mesh->draw(cmd);
+	}
+
+	vkCmdEndRenderPass(cmd);
 }
 
 

@@ -64,7 +64,7 @@ public:
 	);
 
 	static std::unique_ptr<DescriptorSet> createSet0DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-		UniformBuffer* cameraBuffer, UniformBuffer* optionsBuffer, UniformBuffer* prevCameraBuffer);
+		UniformBuffer* cameraBuffer, UniformBuffer* optionsBuffer, UniformBuffer* prevCameraBuffer, UniformBuffer* gbufferCameraBuffer);
 	static std::unique_ptr<DescriptorSet> createSet1DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		StorageBuffer* instanceBuffer);
 	static std::unique_ptr<DescriptorSet> createSet2DescSet(VulkanContext* context, DescriptorSetLayout* layout,
@@ -110,7 +110,7 @@ private:
 	void initRayTracing(VulkanContext* context, DescriptorSetLayout* layout, Texture* rtReflectionTexture, VkAccelerationStructureKHR tlas);
 	
 	void initSet0DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-		UniformBuffer* cameraBuffer, UniformBuffer* optionsBuffer, UniformBuffer* prevCameraBuffer);
+		UniformBuffer* cameraBuffer, UniformBuffer* optionsBuffer, UniformBuffer* prevCameraBuffer, UniformBuffer* gbufferCameraBuffer);
 	void initSet1DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		StorageBuffer* instanceBuffer);
 	void initSet2DescSet(VulkanContext* context, DescriptorSetLayout* layout,
