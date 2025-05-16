@@ -4,8 +4,6 @@
 #include "VulkanContext.h"
 #include "Buffer.h"
 #include "Mesh.h"
-#include "Model.h"
-#include "Object.h"
 #include "VulkanUtil.h"
 
 
@@ -36,13 +34,13 @@ private:
 
 class TopLevelAS : public AccelerationStructure {
 public:
-	static std::unique_ptr<TopLevelAS> createTopLevelAS(VulkanContext* context, std::vector<std::unique_ptr<BottomLevelAS>>& blasList,
-		std::vector<ShapeGPU>& shapeList);
-	static std::unique_ptr<TopLevelAS> createEmptyTopLevelAS(VulkanContext* context);
-	void rebuild(std::vector<std::unique_ptr<BottomLevelAS>>& blasList,
-		std::vector<ShapeGPU>& shapeList);
+	// static std::unique_ptr<TopLevelAS> createTopLevelAS(VulkanContext* context, std::vector<std::unique_ptr<BottomLevelAS>>& blasList,
+	// 	std::vector<ShapeGPU>& shapeList);
+	// static std::unique_ptr<TopLevelAS> createEmptyTopLevelAS(VulkanContext* context);
+	// void rebuild(std::vector<std::unique_ptr<BottomLevelAS>>& blasList,
+	// 	std::vector<ShapeGPU>& shapeList);
 private:
-	void initTLAS(VulkanContext* context, std::vector<std::unique_ptr<BottomLevelAS>>& blasList,
-		std::vector<ShapeGPU>& shapeList);
-	void initEmptyTLAS(VulkanContext* context);
+	// void initTLAS(VulkanContext* context, std::vector<std::unique_ptr<BottomLevelAS>>& blasList,
+	// 	std::vector<ShapeGPU>& shapeList);
+	// void initEmptyTLAS(VulkanContext* context);
 };

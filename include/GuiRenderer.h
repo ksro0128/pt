@@ -5,8 +5,6 @@
 #include "RenderPass.h"
 #include "SwapChain.h"
 #include "Texture.h"
-#include "Scene.h"
-#include "Model.h"
 #include "VulkanUtil.h"
 
 class GuiRenderer {
@@ -15,9 +13,8 @@ public:
     ~GuiRenderer();
 
     void newFrame();
-    void render(VkCommandBuffer cmd, float deltaTime, OptionsGPU &options);
-    void createViewPortDescriptorSet(std::array<Texture*, 4> textures);
-    void createGBufferDescriptorSet(std::array<Texture*, 4> textures);
+    void render(VkCommandBuffer cmd, uint32_t frameCount);
+    void createViewPortDescriptorSet(std::array<Texture*, 2> textures);
     ImVec2 getViewportSize() const { return m_viewportSize; }
 	bool isBenchmarkRunning() const { return m_benchmarkRunning; }
 

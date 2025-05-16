@@ -125,206 +125,206 @@ void BottomLevelAS::initBLAS(VulkanContext* context, Mesh* mesh) {
 	vkFreeMemory(context->getDevice(), scratchMemory, nullptr);
 }
 
-std::unique_ptr<TopLevelAS> TopLevelAS::createTopLevelAS(VulkanContext* context, std::vector<std::unique_ptr<BottomLevelAS>>& blasList,
-	std::vector<ShapeGPU>& shapeList) {
-	std::unique_ptr<TopLevelAS> as = std::unique_ptr<TopLevelAS>(new TopLevelAS());
-	as->initTLAS(context, blasList, shapeList);
-	return as;
-}
+// std::unique_ptr<TopLevelAS> TopLevelAS::createTopLevelAS(VulkanContext* context, std::vector<std::unique_ptr<BottomLevelAS>>& blasList,
+// 	std::vector<ShapeGPU>& shapeList) {
+// 	std::unique_ptr<TopLevelAS> as = std::unique_ptr<TopLevelAS>(new TopLevelAS());
+// 	as->initTLAS(context, blasList, shapeList);
+// 	return as;
+// }
 
-void TopLevelAS::initTLAS(VulkanContext* context, std::vector<std::unique_ptr<BottomLevelAS>>& blasList,
-	std::vector<ShapeGPU>& shapeList) {
-	this->context = context;
+// void TopLevelAS::initTLAS(VulkanContext* context, std::vector<std::unique_ptr<BottomLevelAS>>& blasList,
+// 	std::vector<ShapeGPU>& shapeList) {
+// 	this->context = context;
 
-	std::vector<VkAccelerationStructureInstanceKHR> instances;
+// 	std::vector<VkAccelerationStructureInstanceKHR> instances;
 
-	for (int i = 0; i < shapeList.size(); i++) {
-		VkAccelerationStructureInstanceKHR tlasInstance{};
-		tlasInstance.transform = glmToVkTransform(shapeList[i].modelMatrix);
-		// tlasInstance.transform = glmToVkTransform(glm::mat4(1.0f));
-		tlasInstance.instanceCustomIndex = i;
-		tlasInstance.mask = 0xFF;
-		tlasInstance.instanceShaderBindingTableRecordOffset = 0;
-		tlasInstance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
-		tlasInstance.accelerationStructureReference = blasList[i]->getDeviceAddress();
-		instances.push_back(tlasInstance);
-	}
+// 	for (int i = 0; i < shapeList.size(); i++) {
+// 		VkAccelerationStructureInstanceKHR tlasInstance{};
+// 		tlasInstance.transform = glmToVkTransform(shapeList[i].modelMatrix);
+// 		// tlasInstance.transform = glmToVkTransform(glm::mat4(1.0f));
+// 		tlasInstance.instanceCustomIndex = i;
+// 		tlasInstance.mask = 0xFF;
+// 		tlasInstance.instanceShaderBindingTableRecordOffset = 0;
+// 		tlasInstance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+// 		tlasInstance.accelerationStructureReference = blasList[i]->getDeviceAddress();
+// 		instances.push_back(tlasInstance);
+// 	}
 
 
 
-	VkDeviceSize instanceBufferSize = sizeof(VkAccelerationStructureInstanceKHR) * instances.size();
+// 	VkDeviceSize instanceBufferSize = sizeof(VkAccelerationStructureInstanceKHR) * instances.size();
 
-	VkBuffer instanceBuffer;
-	VkDeviceMemory instanceMemory;
+// 	VkBuffer instanceBuffer;
+// 	VkDeviceMemory instanceMemory;
 
-	VulkanUtil::createBuffer(
-		context,
-		instanceBufferSize,
-		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		instanceBuffer,
-		instanceMemory
-	);
+// 	VulkanUtil::createBuffer(
+// 		context,
+// 		instanceBufferSize,
+// 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+// 		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+// 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+// 		instanceBuffer,
+// 		instanceMemory
+// 	);
 
-	void* data;
-	vkMapMemory(context->getDevice(), instanceMemory, 0, instanceBufferSize, 0, &data);
-	memcpy(data, instances.data(), static_cast<size_t>(instanceBufferSize));
-	vkUnmapMemory(context->getDevice(), instanceMemory);
+// 	void* data;
+// 	vkMapMemory(context->getDevice(), instanceMemory, 0, instanceBufferSize, 0, &data);
+// 	memcpy(data, instances.data(), static_cast<size_t>(instanceBufferSize));
+// 	vkUnmapMemory(context->getDevice(), instanceMemory);
 
-	VkDeviceAddress instanceAddress = VulkanUtil::getDeviceAddress(context, instanceBuffer);
+// 	VkDeviceAddress instanceAddress = VulkanUtil::getDeviceAddress(context, instanceBuffer);
 
-	VkAccelerationStructureGeometryKHR geometry{};
-	geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
-	geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
-	geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
-	geometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
-	geometry.geometry.instances.arrayOfPointers = VK_FALSE;
-	geometry.geometry.instances.data.deviceAddress = instanceAddress;
+// 	VkAccelerationStructureGeometryKHR geometry{};
+// 	geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+// 	geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+// 	geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+// 	geometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+// 	geometry.geometry.instances.arrayOfPointers = VK_FALSE;
+// 	geometry.geometry.instances.data.deviceAddress = instanceAddress;
 
-	VkAccelerationStructureBuildGeometryInfoKHR buildInfo{};
-	buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
-	buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-	buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
-	buildInfo.geometryCount = 1;
-	buildInfo.pGeometries = &geometry;
-	buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+// 	VkAccelerationStructureBuildGeometryInfoKHR buildInfo{};
+// 	buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+// 	buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+// 	buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+// 	buildInfo.geometryCount = 1;
+// 	buildInfo.pGeometries = &geometry;
+// 	buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 
-	uint32_t primitiveCount = static_cast<uint32_t>(instances.size());
+// 	uint32_t primitiveCount = static_cast<uint32_t>(instances.size());
 
-	VkAccelerationStructureBuildSizesInfoKHR sizeInfo{};
-	sizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+// 	VkAccelerationStructureBuildSizesInfoKHR sizeInfo{};
+// 	sizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
 
-	g_vkGetAccelerationStructureBuildSizesKHR(
-		context->getDevice(),
-		VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-		&buildInfo,
-		&primitiveCount,
-		&sizeInfo
-	);
+// 	g_vkGetAccelerationStructureBuildSizesKHR(
+// 		context->getDevice(),
+// 		VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+// 		&buildInfo,
+// 		&primitiveCount,
+// 		&sizeInfo
+// 	);
 
-	VulkanUtil::createBuffer(context,
-		sizeInfo.accelerationStructureSize,
-		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		m_buffer, m_memory);
+// 	VulkanUtil::createBuffer(context,
+// 		sizeInfo.accelerationStructureSize,
+// 		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+// 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+// 		m_buffer, m_memory);
 
-	VkAccelerationStructureCreateInfoKHR createInfo{};
-	createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
-	createInfo.buffer = m_buffer;
-	createInfo.size = sizeInfo.accelerationStructureSize;
-	createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+// 	VkAccelerationStructureCreateInfoKHR createInfo{};
+// 	createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+// 	createInfo.buffer = m_buffer;
+// 	createInfo.size = sizeInfo.accelerationStructureSize;
+// 	createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
 
-	if (g_vkCreateAccelerationStructureKHR(context->getDevice(), &createInfo, nullptr, &m_as) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create TLAS!");
-	}
+// 	if (g_vkCreateAccelerationStructureKHR(context->getDevice(), &createInfo, nullptr, &m_as) != VK_SUCCESS) {
+// 		throw std::runtime_error("failed to create TLAS!");
+// 	}
 
-	buildInfo.dstAccelerationStructure = m_as;
+// 	buildInfo.dstAccelerationStructure = m_as;
 
-	VkBuffer scratchBuffer;
-	VkDeviceMemory scratchMemory;
-	VulkanUtil::createBuffer(context,
-		sizeInfo.buildScratchSize,
-		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		scratchBuffer, scratchMemory);
+// 	VkBuffer scratchBuffer;
+// 	VkDeviceMemory scratchMemory;
+// 	VulkanUtil::createBuffer(context,
+// 		sizeInfo.buildScratchSize,
+// 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+// 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+// 		scratchBuffer, scratchMemory);
 
-	VkDeviceAddress scratchAddress = VulkanUtil::getDeviceAddress(context, scratchBuffer);
-	buildInfo.scratchData.deviceAddress = scratchAddress;
+// 	VkDeviceAddress scratchAddress = VulkanUtil::getDeviceAddress(context, scratchBuffer);
+// 	buildInfo.scratchData.deviceAddress = scratchAddress;
 
-	VkAccelerationStructureBuildRangeInfoKHR rangeInfo{};
-	rangeInfo.primitiveCount = primitiveCount;
-	rangeInfo.primitiveOffset = 0;
-	rangeInfo.firstVertex = 0;
-	rangeInfo.transformOffset = 0;
+// 	VkAccelerationStructureBuildRangeInfoKHR rangeInfo{};
+// 	rangeInfo.primitiveCount = primitiveCount;
+// 	rangeInfo.primitiveOffset = 0;
+// 	rangeInfo.firstVertex = 0;
+// 	rangeInfo.transformOffset = 0;
 
-	const VkAccelerationStructureBuildRangeInfoKHR* rangeInfos[] = { &rangeInfo };
+// 	const VkAccelerationStructureBuildRangeInfoKHR* rangeInfos[] = { &rangeInfo };
 
-	VkCommandBuffer cmd = VulkanUtil::beginSingleTimeCommands(context);
-	g_vkCmdBuildAccelerationStructuresKHR(cmd, 1, &buildInfo, rangeInfos);
-	VulkanUtil::endSingleTimeCommands(context, cmd);
+// 	VkCommandBuffer cmd = VulkanUtil::beginSingleTimeCommands(context);
+// 	g_vkCmdBuildAccelerationStructuresKHR(cmd, 1, &buildInfo, rangeInfos);
+// 	VulkanUtil::endSingleTimeCommands(context, cmd);
 
-	VkAccelerationStructureDeviceAddressInfoKHR addrInfo{};
-	addrInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
-	addrInfo.accelerationStructure = m_as;
-	m_deviceAddress = g_vkGetAccelerationStructureDeviceAddressKHR(context->getDevice(), &addrInfo);
+// 	VkAccelerationStructureDeviceAddressInfoKHR addrInfo{};
+// 	addrInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+// 	addrInfo.accelerationStructure = m_as;
+// 	m_deviceAddress = g_vkGetAccelerationStructureDeviceAddressKHR(context->getDevice(), &addrInfo);
 
-	vkDestroyBuffer(context->getDevice(), scratchBuffer, nullptr);
-	vkFreeMemory(context->getDevice(), scratchMemory, nullptr);
-	vkDestroyBuffer(context->getDevice(), instanceBuffer, nullptr);
-	vkFreeMemory(context->getDevice(), instanceMemory, nullptr);
-}
+// 	vkDestroyBuffer(context->getDevice(), scratchBuffer, nullptr);
+// 	vkFreeMemory(context->getDevice(), scratchMemory, nullptr);
+// 	vkDestroyBuffer(context->getDevice(), instanceBuffer, nullptr);
+// 	vkFreeMemory(context->getDevice(), instanceMemory, nullptr);
+// }
 
-void TopLevelAS::rebuild(std::vector<std::unique_ptr<BottomLevelAS>>& blasList,
-	std::vector<ShapeGPU>& shapeList) {
+// void TopLevelAS::rebuild(std::vector<std::unique_ptr<BottomLevelAS>>& blasList,
+// 	std::vector<ShapeGPU>& shapeList) {
 
-	cleanup();
-	initTLAS(context, blasList, shapeList);
-}
+// 	cleanup();
+// 	initTLAS(context, blasList, shapeList);
+// }
 
-std::unique_ptr<TopLevelAS> TopLevelAS::createEmptyTopLevelAS(VulkanContext* context) {
-	std::unique_ptr<TopLevelAS> as = std::unique_ptr<TopLevelAS>(new TopLevelAS());
-	as->initEmptyTLAS(context);
-	return as;
-}
+// std::unique_ptr<TopLevelAS> TopLevelAS::createEmptyTopLevelAS(VulkanContext* context) {
+// 	std::unique_ptr<TopLevelAS> as = std::unique_ptr<TopLevelAS>(new TopLevelAS());
+// 	as->initEmptyTLAS(context);
+// 	return as;
+// }
 
-void TopLevelAS::initEmptyTLAS(VulkanContext* context) {
-	this->context = context;
+// void TopLevelAS::initEmptyTLAS(VulkanContext* context) {
+// 	this->context = context;
 
-	// 빈 인스턴스 데이터 설정 (주소는 0)
-	VkAccelerationStructureGeometryKHR geometry{};
-	geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
-	geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
-	geometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
-	geometry.geometry.instances.arrayOfPointers = VK_FALSE;
-	geometry.geometry.instances.data.deviceAddress = 0;
-	geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+// 	// 빈 인스턴스 데이터 설정 (주소는 0)
+// 	VkAccelerationStructureGeometryKHR geometry{};
+// 	geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+// 	geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+// 	geometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+// 	geometry.geometry.instances.arrayOfPointers = VK_FALSE;
+// 	geometry.geometry.instances.data.deviceAddress = 0;
+// 	geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
 
-	// 빌드 정보
-	VkAccelerationStructureBuildGeometryInfoKHR buildInfo{};
-	buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
-	buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-	buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
-	buildInfo.geometryCount = 1;
-	buildInfo.pGeometries = &geometry;
-	buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+// 	// 빌드 정보
+// 	VkAccelerationStructureBuildGeometryInfoKHR buildInfo{};
+// 	buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+// 	buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+// 	buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+// 	buildInfo.geometryCount = 1;
+// 	buildInfo.pGeometries = &geometry;
+// 	buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 
-	uint32_t primitiveCount = 0;
+// 	uint32_t primitiveCount = 0;
 
-	VkAccelerationStructureBuildSizesInfoKHR sizeInfo{};
-	sizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+// 	VkAccelerationStructureBuildSizesInfoKHR sizeInfo{};
+// 	sizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
 
-	g_vkGetAccelerationStructureBuildSizesKHR(
-		context->getDevice(),
-		VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-		&buildInfo,
-		&primitiveCount,
-		&sizeInfo
-	);
+// 	g_vkGetAccelerationStructureBuildSizesKHR(
+// 		context->getDevice(),
+// 		VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+// 		&buildInfo,
+// 		&primitiveCount,
+// 		&sizeInfo
+// 	);
 
-	// 버퍼 생성
-	VulkanUtil::createBuffer(
-		context,
-		sizeInfo.accelerationStructureSize,
-		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		m_buffer,
-		m_memory
-	);
+// 	// 버퍼 생성
+// 	VulkanUtil::createBuffer(
+// 		context,
+// 		sizeInfo.accelerationStructureSize,
+// 		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+// 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+// 		m_buffer,
+// 		m_memory
+// 	);
 
-	VkAccelerationStructureCreateInfoKHR createInfo{};
-	createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
-	createInfo.buffer = m_buffer;
-	createInfo.size = sizeInfo.accelerationStructureSize;
-	createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+// 	VkAccelerationStructureCreateInfoKHR createInfo{};
+// 	createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+// 	createInfo.buffer = m_buffer;
+// 	createInfo.size = sizeInfo.accelerationStructureSize;
+// 	createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
 
-	if (g_vkCreateAccelerationStructureKHR(context->getDevice(), &createInfo, nullptr, &m_as) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create empty TLAS");
-	}
+// 	if (g_vkCreateAccelerationStructureKHR(context->getDevice(), &createInfo, nullptr, &m_as) != VK_SUCCESS) {
+// 		throw std::runtime_error("failed to create empty TLAS");
+// 	}
 
-	VkAccelerationStructureDeviceAddressInfoKHR addrInfo{};
-	addrInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
-	addrInfo.accelerationStructure = m_as;
+// 	VkAccelerationStructureDeviceAddressInfoKHR addrInfo{};
+// 	addrInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+// 	addrInfo.accelerationStructure = m_as;
 
-	m_deviceAddress = g_vkGetAccelerationStructureDeviceAddressKHR(context->getDevice(), &addrInfo);
-}
+// 	m_deviceAddress = g_vkGetAccelerationStructureDeviceAddressKHR(context->getDevice(), &addrInfo);
+// }
