@@ -16,7 +16,10 @@
 #include "GuiRenderer.h"
 #include "AccelerationStructure.h"
 #include "RayTracingPipeline.h"
-#include "minipbrt.h"
+
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
+#include <assimp/scene.h>
 
 class Renderer {
 public:
