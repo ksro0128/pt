@@ -236,7 +236,7 @@ void Renderer::init(GLFWwindow* window) {
 	
 	m_toneMappingFrameBuffer = FrameBuffer::createToneMappingFrameBuffer(m_context.get(), m_toneMappingRenderPass.get(), m_outputTexture.get(), m_extent);
 
-	printAllResources();
+	// printAllResources();
 }
 
 glm::mat4 Renderer::toGlm(const minipbrt::Transform& t) {

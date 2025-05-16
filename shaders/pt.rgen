@@ -372,14 +372,14 @@ void main() {
     uvec2 pixel = gl_LaunchIDEXT.xy;
     uvec2 size = gl_LaunchSizeEXT.xy;
     
-	vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(size);
+	// vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(size);
 
 	// vec2 jitterPix  = JITTER_SEQ[options.frameCount % 15] - vec2(0.5);
 	// vec2 uv = (vec2(pixel) + jitterPix) / vec2(size);
 
-	// uint seed = initRandom(size, pixel, options.frameCount);
-	// vec2 jitter = vec2(rand(seed), rand(seed)) / 2;
-	// vec2 uv = (vec2(pixel) + jitter) / vec2(size);
+	uint seed = initRandom(size, pixel, options.frameCount);
+	vec2 jitter = vec2(rand(seed), rand(seed)) / 2;
+	vec2 uv = (vec2(pixel) + jitter) / vec2(size);
 
 	// uint seed = initRandom(size, pixel, options.frameCount);
 	// float jitter_x = rand(seed);

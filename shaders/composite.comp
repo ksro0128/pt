@@ -111,8 +111,8 @@ void main() {
     // vec3 color = (indirect) * safeAlbedo;
     // color = toneMapReinhard(color);
 
-    imageStore(compositeImage, coord, vec4(color, 1.0));
-    // imageStore(compositeImage, coord, vec4(finalColor, 1.0));
+    // imageStore(compositeImage, coord, vec4(color, 1.0));
+    imageStore(compositeImage, coord, vec4(finalColor, 1.0));
 
     // ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
     // vec2 resolution = vec2(imageSize(depthImage));
