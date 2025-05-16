@@ -234,6 +234,9 @@ private:
 
 	OptionsGPU m_options;
 
+	glm::vec2 curJitter;
+	glm::vec2 prevJitter;
+
 	void loadScene(std::string scenePath);
 	glm::mat4 toGlm(const minipbrt::Transform& t);
 

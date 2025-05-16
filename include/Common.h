@@ -456,4 +456,5 @@ struct alignas(16) GbufferCameraGPU {
 	glm::mat4 proj;
 	glm::mat4 viewProj;
 	glm::mat4 prevViewProj;
+	glm::vec3 comPos;
 };

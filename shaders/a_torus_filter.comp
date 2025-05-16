@@ -11,9 +11,7 @@ layout(set = 1, binding = 0, rgba32f) uniform readonly image2D normalImage;
 layout(set = 1, binding = 1, r32f) uniform readonly image2D depthImage;
 layout(set = 1, binding = 3, r32f) uniform readonly image2D meshIDImage;
 layout(set = 1, binding = 4, r32f) uniform readonly image2D sampleCountImage;
-layout(set = 1, binding = 6, rgba32f) uniform writeonly image2D prevNormalImage;
-layout(set = 1, binding = 7, r32f) uniform writeonly image2D prevDepthImage;
-layout(set = 1, binding = 8, r32f) uniform writeonly image2D prevMeshIDImage;
+
 
 
 layout(set = 2, binding = 1) uniform OptionsGPU {

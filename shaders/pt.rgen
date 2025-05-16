@@ -378,7 +378,7 @@ void main() {
 	// vec2 uv = (vec2(pixel) + jitterPix) / vec2(size);
 
 	// uint seed = initRandom(size, pixel, options.frameCount);
-	// vec2 jitter = vec2(rand(seed), rand(seed)) / 2;
+	// vec2 jitter = vec2(rand(seed), rand(seed));
 	// vec2 uv = (vec2(pixel) + jitter) / vec2(size);
 
 	// uint seed = initRandom(size, pixel, options.frameCount);
@@ -425,7 +425,7 @@ void main() {
 	int currentMeshID = -1;
 	int mirror = 0;
 
-	for (int i = 0; i < 8; ++i) {
+	for (int i = 0; i < 4; ++i) {
 		payload.bounce = i;
 		traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0,
 					origin, 0.0001, dir, 1e30, 0);
@@ -465,32 +465,44 @@ void main() {
 	}
 
 	imageStore(albedoImage, ipixel, vec4(albedo, 1.0));
-	imageStore(normalImage, ipixel, vec4(currentNormal, 1.0));
-	imageStore(depthImage, ipixel, vec4(currentDepth));
-	imageStore(meshIDImage, ipixel, vec4(float(currentMeshID)));
+
+	if (mirror == -1) {
+		imageStore(normalImage, ipixel, vec4(currentNormal, 1.0));
+		imageStore(depthImage, ipixel, vec4(currentDepth));
+		imageStore(meshIDImage, ipixel, vec4(float(currentMeshID)));
+	}
+	else {
+		currentNormal = imageLoad(normalImage, ipixel).xyz;
+		currentDepth = imageLoad(depthImage, ipixel).r;
+		currentMeshID = int(imageLoad(meshIDImage, ipixel).r);
+	}
 
 
-	vec3 worldPos = camera.camPos + currentDir * currentDepth;
 
-	float prevScale = tan(radians(prevCamera.fovY) * 0.5);
-	vec3 rel = worldPos - prevCamera.camPos;
+	// vec3 worldPos = camera.camPos + currentDir * currentDepth;
 
-	float dx = dot(rel, prevCamera.camRight);
-	dx = -dx;
-	float dy = dot(rel, prevCamera.camUp);
-	dy = -dy;
-	float dz = dot(rel, prevCamera.camDir);
-	float safeDZ = max(abs(dz), 1e-2);
+	// float prevScale = tan(radians(prevCamera.fovY) * 0.5);
+	// vec3 rel = worldPos - prevCamera.camPos;
 
-	vec2 prevNDC;
-	prevNDC.x = dx / (safeDZ * aspect * prevScale);
-	prevNDC.y = dy / (safeDZ * prevScale);
+	// float dx = dot(rel, prevCamera.camRight);
+	// dx = -dx;
+	// float dy = dot(rel, prevCamera.camUp);
+	// dy = -dy;
+	// float dz = dot(rel, prevCamera.camDir);
+	// float safeDZ = max(abs(dz), 1e-2);
 
-	vec2 prevUV = prevNDC * 0.5 + 0.5;
+	// vec2 prevNDC;
+	// prevNDC.x = dx / (safeDZ * aspect * prevScale);
+	// prevNDC.y = dy / (safeDZ * prevScale);
+	// vec2 prevUV = prevNDC * 0.5 + 0.5;
 
 	// vec2 jitterPrev = imageLoad(prevJitterImage, ipixel).rg;
 	// vec2 pixelSize = 1.0 / vec2(size);
 	// prevUV += (jitterPrev - jitter) * pixelSize;
+
+	uv = (vec2(pixel) + vec2(0.5)) / vec2(size);
+	vec2 motion = imageLoad(motionVectorImage, ipixel).rg;
+	vec2 prevUV = uv - motion;
 
 	ivec2 res = ivec2(size);
 	ivec2 prevPixel = ivec2(prevUV * vec2(res) - 0.5);
@@ -524,7 +536,7 @@ void main() {
 		float ddiff = abs(d - currentDepth) / max(currentDepth, 1e-2);
 		bool match = abs(id - currentMeshID) < 0.5;
 
-		if (ndot > 0.98 && ddiff < 0.1 && match) {
+		if (ndot > 0.98 && ddiff < 0.2 && match) {
 			float w = W[i];
 			acc_direct += imageLoad(directAccumImage, p) * w;
 			acc_m1_dir += imageLoad(directM1Image, p).r * w;
@@ -567,7 +579,7 @@ void main() {
 				float ddiff = abs(d - currentDepth) / max(currentDepth, 1e-2);
 				bool match = abs(id - currentMeshID) < 0.5;
 
-				if (ndot > 0.98 && ddiff < 0.01 && match) {
+				if (ndot > 0.98 && ddiff < 0.2 && match) {
 					acc_direct += imageLoad(directAccumImage, p);
 					acc_m1_dir += imageLoad(directM1Image, p).r;
 					acc_m2_dir += imageLoad(directM2Image, p).r;

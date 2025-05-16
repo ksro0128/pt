@@ -680,7 +680,8 @@ void sampleMirror(
 
     float NdotL = max(dot(N, wi), 0.0);
 
-    payload.bounce = -10;
+    if (payload.bounce == 1)
+        payload.bounce = -10;
     payload.albedo = vec3(1.0);
     payload.indirAlbedo = vec3(1.0);
     if (NdotL > 0.0) {

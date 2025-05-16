@@ -8,6 +8,7 @@ layout(set = 0, binding = 3) uniform CameraBuffer {
     mat4 proj;
     mat4 viewProj;
     mat4 prevViewProj;
+    vec3 camPos;
 } camera;
 
 layout(push_constant) uniform PushConst {
@@ -17,11 +18,14 @@ layout(push_constant) uniform PushConst {
 
 layout(location = 0) out vec3 vNormal;
 layout(location = 1) out float vViewDepth;
-layout(location = 2) out float vMeshID;
-layout(location = 3) out vec2 vMotionVec;
+layout(location = 2) flat out float vMeshID;
+layout(location = 3) out vec3 vWorldPos;
+layout(location = 4) out vec4 vClipCurr;
+layout(location = 5) out vec4 vClipPrev;
 
 void main() {
     vec4 worldPos = pc.model * vec4(inPosition, 1.0);
+    vWorldPos = worldPos.xyz;
 
     mat3 normalMatrix = transpose(inverse(mat3(pc.model)));
     vNormal = normalize(normalMatrix * inNormal);
@@ -31,20 +35,8 @@ void main() {
 
     vMeshID = float(pc.meshID);
 
-    vec4 clipCurr = camera.viewProj * worldPos;
-    vec4 clipPrev = camera.prevViewProj * worldPos;
+    vClipCurr = camera.viewProj     * worldPos;
+    vClipPrev = camera.prevViewProj * worldPos;
 
-    vec2 uvCurr = clipCurr.xy / clipCurr.w * 0.5 + 0.5;
-
-    vec2 uvPrev;
-    if (abs(clipPrev.w) > 1e-5) {
-        uvPrev = clipPrev.xy / clipPrev.w * 0.5 + 0.5;
-    } else {
-        // 완전한 불일치 유도
-        uvPrev = vec2(-1.0); 
-    }
-
-    vMotionVec = uvCurr - uvPrev;
-
-    gl_Position = clipCurr;
+    gl_Position = vClipCurr;
 }
