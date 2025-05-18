@@ -90,12 +90,6 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif
 
-
-#define LIGHT_TYPE_DIRECTIONAL 0
-#define LIGHT_TYPE_POINT       1
-#define LIGHT_TYPE_SPOT        2
-
-
 const std::vector<const char*> validationLayers = {
 	"VK_LAYER_KHRONOS_validation"
 };
@@ -172,4 +166,101 @@ struct Vertex {
 
 		return attributeDescriptions;
 	}
+};
+
+
+struct Model {
+	std::string name = "";
+    std::vector<int> mesh;
+    std::vector<int> material;
+};
+
+struct alignas(16) MaterialGPU {
+	glm::vec4 baseColor = glm::vec4(1.0f);
+	glm::vec3 emissiveFactor = glm::vec3(0.0f);
+	float roughness = 0.5f;
+	float metallic = 0.04f;
+	float ao = 1.0f;
+
+	int albedoTexIndex = -1;
+	int normalTexIndex = -1;
+	int metallicTexIndex = -1;
+	int roughnessTexIndex = -1;
+	int aoTexIndex = -1;
+	int emissiveTexIndex = -1;
+};
+
+struct ObjectInstance {
+	int modelIndex = -1;
+    glm::vec3 position = glm::vec3(0.0f);
+    glm::vec3 rotation = glm::vec3(0.0f);
+    glm::vec3 scale = glm::vec3(1.0f);
+
+    int overrideMaterial = -1;
+};
+
+struct alignas(16) CameraGPU {
+	glm::vec3 camPos = glm::vec3(0.0f, 0.0f, 10.0f);
+	float pad0 = 0.0f;
+	glm::vec3 camDir = glm::vec3(0.0f, 0.0f, -1.0f);
+	float pad1 = 0.0f;
+	glm::vec3 camUp = glm::vec3(0.0f, 1.0f, 0.0f);
+	float pad2 = 0.0f;
+	glm::vec3 camRight = glm::vec3(1.0f, 0.0f, 0.0f);
+	float fovY = 50.0f;
+};
+
+struct alignas(16) OptionsGPU {
+	int frameCount = 0;
+	int maxSpp = 4096;
+	int currentSpp = 0;
+	float pad0 = 0.0f;
+};
+
+struct AreaLight {
+	glm::vec3 position = glm::vec3(0.0f);
+	glm::vec3 rotation = glm::vec3(0.0f);
+	glm::vec3 scale = glm::vec3(1.0f);
+
+	glm::vec3 color = glm::vec3(1.0f);
+	float intensity = 10.0f;
+
+	float temperature = 6500.0f;
+	bool useTemperature = false;
+};
+
+struct alignas(16) AreaLightGPU {
+	glm::vec3 color = glm::vec3(1.0f);
+	float intensity = 10.0f;
+
+	float area = 1.0f;
+	float pad0 = 0.0f;
+	float pad1 = 0.0f;
+	float pad2 = 0.0f;
+};
+
+struct Object {
+	glm::vec3 position = glm::vec3(0.0f);
+	glm::vec3 rotation = glm::vec3(0.0f);
+	glm::vec3 scale = glm::vec3(1.0f);
+
+	int modelIndex = -1;
+	int overrideMaterialIndex = -1;
+};
+
+struct alignas(16) InstanceGPU {
+	glm::mat4 transform = glm::mat4(1.0f);
+
+	uint64_t vertexAddress = 0;
+	uint64_t indexAddress = 0;
+
+	int lightIndex = -1;
+	int materialIndex = -1;
+	int meshIndex = -1;
+	float pad0 = 0.0f;
+};
+
+struct Scene {
+	std::vector<Object> objects;
+	std::vector<AreaLight> areaLights;
 };

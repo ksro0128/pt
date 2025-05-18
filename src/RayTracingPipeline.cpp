@@ -52,10 +52,10 @@ std::unique_ptr<RayTracingPipeline> RayTracingPipeline::createPtPipeline(VulkanC
 void RayTracingPipeline::initPt(VulkanContext* context, std::vector<DescriptorSetLayout*> descriptorSetLayouts) {
 	this->context = context;
 
-	auto rgenCode = VulkanUtil::readFile("spv/pt.rgen.spv");
-	auto rmissCode = VulkanUtil::readFile("spv/pt.rmiss.spv");
-	auto rchitCode = VulkanUtil::readFile("spv/pt.rchit.spv");
-	auto shodowMissCode = VulkanUtil::readFile("spv/ptShadow.rmiss.spv");
+	auto rgenCode = VulkanUtil::readFile("spv/pathTracing.rgen.spv");
+	auto rmissCode = VulkanUtil::readFile("spv/pathTracing.rmiss.spv");
+	auto rchitCode = VulkanUtil::readFile("spv/pathTracing.rchit.spv");
+	auto shodowMissCode = VulkanUtil::readFile("spv/pathTracingShadow.rmiss.spv");
 
 	VkShaderModule  rgenModule = createShaderModule(context, rgenCode);
 	VkShaderModule rmissModule = createShaderModule(context, rmissCode);
