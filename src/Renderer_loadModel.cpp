@@ -218,6 +218,14 @@ void Renderer::printAllAreaLightInfo() {
 		std::cout << "areaLight.color : " << areaLight.color.x << " " << areaLight.color.y << " " << areaLight.color.z << std::endl;
 		std::cout << "areaLight.intensity : " << areaLight.intensity << std::endl;
 		std::cout << "areaLight.area : " << areaLight.area << std::endl;
+
+		std::cout << "areaLight.p0 : " << areaLight.p0.r << " " << areaLight.p0.g << " " << areaLight.p0.b << std::endl;
+		std::cout << "areaLight.p1 : " << areaLight.p1.r << " " << areaLight.p1.g << " " << areaLight.p1.b << std::endl;
+		std::cout << "areaLight.p2 : " << areaLight.p2.r << " " << areaLight.p2.g << " " << areaLight.p2.b << std::endl;
+		std::cout << "areaLight.p3 : " << areaLight.p3.r << " " << areaLight.p3.g << " " << areaLight.p3.b << std::endl;
+
+		std::cout << "areaLight.normal : " << areaLight.normal.r << " " << areaLight.normal.g << " " << areaLight.normal.b << std::endl;
+
 		std::cout << "--------------------------------" << std::endl;
 	}
 }

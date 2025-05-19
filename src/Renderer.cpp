@@ -54,6 +54,8 @@ void Renderer::updateAssets() {
 	loadGLTFModel("assets/boombox_1k/boombox_1k.gltf");
 	loadGLTFModel("assets/lightbulb_01_1k/lightbulb_01_1k.gltf");
 	loadGLTFModel("assets/Ukulele_01_1k/Ukulele_01_1k.gltf");
+	loadGLTFModel("assets/rocky_terrain_03_1k/rocky_terrain_03_1k.gltf");
+
 }
 
 void Renderer::createScene() {
@@ -143,11 +145,12 @@ void Renderer::createScene() {
 
 	{
 		Object object;
-		object.modelIndex = 2;
+		object.modelIndex = 6;
 		object.overrideMaterialIndex = -1;
 		object.position = glm::vec3(1.0f, 0.0f, 0.0f);
 		object.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
-		object.scale = glm::vec3(1.0f, 1.0f, 1.0f);
+		object.scale = glm::vec3(0.01f, 0.01f, 0.01f);
+		// object.scale = glm::vec3(1.0f, 1.0f, 1.0f);
 		m_scene.objects.push_back(object);
 	}
 
@@ -198,7 +201,6 @@ void Renderer::uploadSceneToGPU() {
 		areaLightGPU.intensity = areaLight.intensity;
 
 		areaLightGPU.area = areaLight.scale.x * areaLight.scale.y;
-		m_areaLightGPU.push_back(areaLightGPU);
 
 		InstanceGPU instance;
 		glm::mat4 transform = glm::mat4(1.0f);
@@ -208,14 +210,33 @@ void Renderer::uploadSceneToGPU() {
 		transform = glm::rotate(transform, glm::radians(areaLight.rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
 		transform = glm::scale(transform, areaLight.scale);
 
+		auto toWorld = [&](const glm::vec3& p) {
+			return glm::vec3(transform * glm::vec4(p, 1.0f));
+		};
+
+		areaLightGPU.p0 = toWorld(glm::vec3(-0.5f, -0.5f, 0.0f));
+		areaLightGPU.p1 = toWorld(glm::vec3( 0.5f, -0.5f, 0.0f));
+		areaLightGPU.p2 = toWorld(glm::vec3( 0.5f,  0.5f, 0.0f));
+		areaLightGPU.p3 = toWorld(glm::vec3(-0.5f,  0.5f, 0.0f));
+		
 		instance.transform = transform;
+
+		glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(transform)));
+		areaLightGPU.normal = glm::normalize(normalMatrix * glm::vec3(0.0f, 0.0f, 1.0f));
+
+
 		instance.meshIndex = m_models[0].mesh[0];
 		instance.vertexAddress = m_meshes[instance.meshIndex]->getVertexBuffer()->getDeviceAddress();
 		instance.indexAddress = m_meshes[instance.meshIndex]->getIndexBuffer()->getDeviceAddress();
 		instance.materialIndex = -1;
 		instance.lightIndex = m_scene.areaLights.size() - 1;
+
+
+		m_areaLightGPU.push_back(areaLightGPU);
 		m_instanceGPU.push_back(instance);
 	}
+
+	m_options.lightCount = m_scene.areaLights.size();
 }
 
 void Renderer::init(GLFWwindow* window) {
@@ -233,7 +254,7 @@ void Renderer::init(GLFWwindow* window) {
 
 	printAllModelInfo();
 	printAllInstanceInfo();
-	// printAllAreaLightInfo();
+	printAllAreaLightInfo();
 
 	//output texture
 	m_outputPingTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -348,14 +369,14 @@ void Renderer::update(float deltaTime) {
         m_camera.camUp = glm::normalize(glm::cross(m_camera.camRight, m_camera.camDir));
     }
 
-    m_mousePressed = rightPressed; // 항상 상태 업데이트
+    m_mousePressed = rightPressed;
 
     glm::vec3 move = glm::vec3(0.0f);
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) move += m_camera.camDir;
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) move -= m_camera.camDir;
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) move += m_camera.camRight;  // ← 반전 수정
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) move -= m_camera.camRight;  // ← 반전 수정
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) move += m_camera.camRight;
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) move -= m_camera.camRight;
     if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) move -= m_camera.camUp;
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) move += m_camera.camUp;
 

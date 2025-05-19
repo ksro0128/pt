@@ -64,6 +64,7 @@ struct RayPayload {
 	int bounce;
 	uint seed;
 	int terminated;
+    float pdf;
 };
 
 layout(location = 0) rayPayloadEXT RayPayload payload;
@@ -84,7 +85,7 @@ layout(set = 0, binding = 1) uniform OptionsGPU {
     int frameCount;
     int maxSpp;
     int currentSpp;
-	float pad0;
+	int lightCount;
 } options;
 
 layout(set = 4, binding = 0) uniform accelerationStructureEXT topLevelAS;

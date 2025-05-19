@@ -11,6 +11,7 @@ struct RayPayload {
 	int bounce;
 	uint seed;
 	int terminated;
+    float pdf;
 };
 
 
@@ -18,7 +19,5 @@ layout(location = 0) rayPayloadInEXT RayPayload payload;
 
 
 void main() {
-    payload.L_direct = vec3(0.0, 0.0, 0.0);
-    payload.L_indirect = vec3(0.0, 0.0, 0.0);
     payload.terminated = 1;
 }

@@ -212,9 +212,9 @@ struct alignas(16) CameraGPU {
 
 struct alignas(16) OptionsGPU {
 	int frameCount = 0;
-	int maxSpp = 4096;
+	int maxSpp = 99999;
 	int currentSpp = 0;
-	float pad0 = 0.0f;
+	int lightCount = 0;
 };
 
 struct AreaLight {
@@ -233,10 +233,16 @@ struct alignas(16) AreaLightGPU {
 	glm::vec3 color = glm::vec3(1.0f);
 	float intensity = 10.0f;
 
+	glm::vec3 p0 = glm::vec3(0.0f);
 	float area = 1.0f;
+	glm::vec3 p1 = glm::vec3(0.0f);
 	float pad0 = 0.0f;
+	glm::vec3 p2 = glm::vec3(0.0f);
 	float pad1 = 0.0f;
+	glm::vec3 p3 = glm::vec3(0.0f);
 	float pad2 = 0.0f;
+	glm::vec3 normal = glm::vec3(0.0f, 1.0f, 0.0f);
+	float pad3 = 0.0f;
 };
 
 struct Object {

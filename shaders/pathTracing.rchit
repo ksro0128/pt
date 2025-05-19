@@ -21,7 +21,7 @@ layout (set = 0, binding = 1) uniform OptionsGPU {
     int frameCount;
     int maxSpp;
     int currentSpp;
-    float pad0;
+    int lightCount;
 } options;
 
 struct MaterialGPU {
@@ -65,10 +65,17 @@ struct AreaLightGPU {
     vec3 color;
     float intensity;
 
+    vec3 p0;
     float area;
+    vec3 p1;
     float pad0;
+    vec3 p2;
     float pad1;
+    vec3 p3;
     float pad2;
+
+    vec3 normal;
+    float pad3;
 };
 layout(set = 3, binding = 1) buffer AreaLightBuffer {
     AreaLightGPU areaLights[];
@@ -85,6 +92,7 @@ struct RayPayload {
 	int bounce;
 	uint seed;
 	int terminated;
+    float pdf;
 };
 
 layout(location = 0) rayPayloadInEXT RayPayload payload;
@@ -196,15 +204,32 @@ void computeHitNormal(inout vec3 N, out vec3 pos) {
     float v = attribs.y;
     float w = 1.0 - u - v;
 
-    // Interpolate normal
     vec3 localNormal = normalize(v0.normal * w + v1.normal * u + v2.normal * v);
     mat3 normalMatrix = transpose(inverse(mat3(instance.transform)));
-    N = normalize(normalMatrix * localNormal);
+
+    int matIdx = instance.materialIndex;
+    if (matIdx < 0) {
+        N = normalize(normalMatrix * localNormal);
+    } else {
+        MaterialGPU mat = materials[matIdx];
+
+        if (mat.normalTexIndex < 0) {
+            N = normalize(normalMatrix * localNormal);
+        } else {
+            vec3 tangent = normalize(v0.tangent * w + v1.tangent * u + v2.tangent * v);
+            vec2 uv = v0.texCoord * w + v1.texCoord * u + v2.texCoord * v;
+            vec3 bitangent = normalize(cross(localNormal, tangent));
+
+            vec3 nTex = texture(textures[nonuniformEXT(mat.normalTexIndex)], uv).rgb;
+            vec3 nTS = normalize(nTex * 2.0 - 1.0);
+
+            mat3 TBN = mat3(tangent, bitangent, localNormal);
+            vec3 normalObject = normalize(TBN * nTS);
+            N = normalize(normalMatrix * normalObject);
+        }
+    }
 
     pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
-
-    if (dot(N, gl_WorldRayDirectionEXT) > 0.0)
-        N = -N;
 }
 
 
@@ -360,53 +385,9 @@ bool isproblem(vec3 v) {
     return any(isnan(v)) || any(isinf(v));
 }
 
-void main() {
-	
-    uint instanceID = gl_InstanceCustomIndexEXT;
-    InstanceGPU instance = instances[instanceID];
 
-    vec3 N, P;
-    computeHitNormal(N, P);
-    vec3 wo = -normalize(gl_WorldRayDirectionEXT);
-
-    if (instance.lightIndex >= 0) {
-        AreaLightGPU light = areaLights[instance.lightIndex];
-        // payload.L_direct = light.color * light.intensity;
-        payload.L_indirect = light.color * light.intensity * payload.beta;
-        payload.terminated = 1;
-        return;
-    }
-
-    int matIdx = instance.materialIndex;
-    MaterialGPU mat = materials[matIdx];
-
-    vec3 Kd = mat.baseColor.rgb;
-    if (mat.albedoTexIndex >= 0) {
-        vec2 uv = getUV();
-        Kd *= texture(textures[nonuniformEXT(mat.albedoTexIndex)], uv).rgb;
-    }
-
-    float roughness = mat.roughness;
-    if (mat.roughnessTexIndex >= 0) {
-        vec2 uv = getUV();
-        roughness *= texture(textures[nonuniformEXT(mat.roughnessTexIndex)], uv).g;
-    }
-    roughness = max(roughness, 0.001);
-
-
-    float metallic = mat.metallic;
-    if (mat.metallicTexIndex >= 0) {
-        vec2 uv = getUV();
-        metallic *= texture(textures[nonuniformEXT(mat.metallicTexIndex)], uv).b;
-    }
-
-
-    vec3 F0 = mix(vec3(0.04), Kd, metallic);
-
-
-    float probSpec = clamp(max(max(F0.r, F0.g), F0.b), 0.1, 0.9);
-
-
+void sampleIndirect(in vec3 N, in vec3 P, in vec3 wo, in vec3 Kd, in float roughness, in float metallic, in vec3 F0, in float probSpec)
+{
     int sampledSpecular = rand(payload.seed) < probSpec ? 1 : 0;
 
     vec3 H = vec3(0.0);
@@ -422,28 +403,25 @@ void main() {
         H = normalize(wo + wi);
     }
 
-    if (dot(wi, N) < 0.0) {
-        payload.terminated = 1;
-        return;
-    }
-
     float NdotL = max(dot(N, wi), 0.001);
     float NdotV = max(dot(N, wo), 0.001);
     float NdotH = max(dot(N, H), 0.001);
     float VdotH = max(dot(wo, H), 0.001);
 
+    if (sampledSpecular == 1 && dot(wo, N) * dot(wi, N) < 0.0) {
+        payload.terminated = 1;
+        return;
+    }
+
     float D = distributionGGX(N, H, roughness);
-
     float G = geometrySmith(N, wo, wi, roughness);
-
     vec3 F  = fresnelSchlick(VdotH, F0);
 
     vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.001);
     vec3 diffusef = Kd / PI;
 
-    float pdf_diff = NdotL / PI;
-    float pdf_spec = D * NdotH / (4.0 * VdotH + 0.001);
-
+    float pdf_diff = NdotL / PI * (1 - probSpec);
+    float pdf_spec = D * NdotH / (4.0 * VdotH + 0.001) * probSpec;
 
     float sumPdf = pdf_diff + pdf_spec;
     float misWeight = (sampledSpecular != 0) ? (pdf_spec / sumPdf) : (pdf_diff / sumPdf);
@@ -451,10 +429,139 @@ void main() {
     vec3 f = (sampledSpecular != 0) ? specularf * misWeight : diffusef * misWeight;
     float pdf = (sampledSpecular != 0) ? pdf_spec : pdf_diff;
 
-
     payload.beta *= f * NdotL / max(pdf, 0.001);
-    payload.nextOrigin = P + wi * 0.001;
+    payload.nextOrigin = P + wi * 0.0001;
     payload.nextDir = wi;
     payload.terminated = 0;
+    payload.pdf = pdf;
+}
+
+void sampleDirect(in vec3 N, in vec3 P, in vec3 wo, in vec3 Kd, in float roughness, in float metallic, in vec3 F0, in float probSpec) {
+    int lightIdx = int(mod(rand(payload.seed) * float(options.lightCount), float(options.lightCount)));
+    AreaLightGPU light = areaLights[lightIdx];
+
+    float u = rand(payload.seed);
+    float v = rand(payload.seed);
+    vec3 sampledPos;
+    if (u + v <= 1.0) {
+        sampledPos = light.p0 * (1.0 - u - v)
+                   + light.p1 * u
+                   + light.p2 * v;
+    } else {
+        u = 1.0 - u;
+        v = 1.0 - v;
+        sampledPos = light.p2 * (1.0 - u - v)
+                   + light.p3 * u
+                   + light.p0 * v;
+    }
+
+    vec3 lightNormal = normalize(light.normal);
+    vec3 dir = sampledPos - P;
+    float dist = length(dir);
+    float dist2 = dist * dist;
+    vec3 L_wi = normalize(dir);
+
+    float cosTheta = max(dot(lightNormal, -L_wi), 0.001);
+    float areaPdf = 1.0 / light.area;
+    float solidAnglePdf = dist2 / (cosTheta + 0.001) * areaPdf;
+    float L_pdf = solidAnglePdf / float(options.lightCount);
+
+    isShadowed = true;
+    traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT,
+        0xFF, 0, 0, 1, P + N * 0.0001, 0.0001, L_wi, dist * 0.99, 1);
+
+    if (isShadowed || dot(L_wi, N) < 0.0  || L_pdf <= 0.0) {
+        return ;
+    }
+    else {
+        int sampledSpecular = rand(payload.seed) < probSpec ? 1 : 0;
+        vec3 H = normalize(wo + L_wi);
+
+        float NdotL = max(dot(N, L_wi), 0.001);
+        float NdotV = max(dot(N, wo), 0.001);
+        float NdotH = max(dot(N, H), 0.001);
+        float VdotH = max(dot(wo, H), 0.001);
+
+        float D = distributionGGX(N, H, roughness);
+        float G = geometrySmith(N, wo, L_wi, roughness);
+        vec3 F  = fresnelSchlick(VdotH, F0);
+
+        vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.001);
+        vec3 diffusef = Kd / PI;
+
+        float pdf_diff = NdotL / PI * (1 - probSpec);
+        float pdf_spec = D * NdotH / (4.0 * VdotH + 0.001) * probSpec;
+
+        float sumPdf = pdf_diff + pdf_spec;
+        float misWeight = (sampledSpecular != 0) ? (pdf_spec / sumPdf) : (pdf_diff / sumPdf);
+
+        vec3 f = (sampledSpecular != 0) ? specularf * misWeight : diffusef * misWeight;
+        float pdfBRDF = (sampledSpecular != 0) ? pdf_spec : pdf_diff;
+
+        vec3 direct = (f * light.color * light.intensity * NdotL) / L_pdf;
+        float w = L_pdf / (L_pdf + pdfBRDF);
+        payload.L_indirect += payload.beta * direct * w; 
+    }
+
+}
+
+void main() {
+    uint instanceID = gl_InstanceCustomIndexEXT;
+    InstanceGPU instance = instances[instanceID];
+
+    vec3 N, P;
+    computeHitNormal(N, P);
+    vec3 wo = -normalize(gl_WorldRayDirectionEXT);
+
+    if (instance.lightIndex >= 0) {
+        AreaLightGPU light = areaLights[instance.lightIndex];
+
+        vec3 lightNormal = normalize(light.normal);
+        vec3 dir = P - gl_WorldRayOriginEXT;
+        float dist = length(dir);
+        float dist2 = dist * dist;
+        vec3 L_wi = normalize(dir);
+
+        float cosTheta = max(dot(lightNormal, -L_wi), 0.001);
+        float areaPdf = 1.0 / light.area;
+        float solidAnglePdf = dist2 / (cosTheta + 0.001) * areaPdf;
+        float L_pdf = solidAnglePdf / float(options.lightCount);
+
+        float w = L_pdf / (L_pdf + payload.pdf);
+
+        payload.L_indirect = light.color * light.intensity * payload.beta * w;
+        payload.terminated = 1;
+        return;
+    }
+
+    int matIdx = instance.materialIndex;
+    MaterialGPU mat = materials[matIdx];
+
+
+    vec3 Kd = mat.baseColor.rgb;
+    if (mat.albedoTexIndex >= 0) {
+        vec2 uv = getUV();
+        Kd *= texture(textures[nonuniformEXT(mat.albedoTexIndex)], uv).rgb;
+    }
+
+    float roughness = mat.roughness;
+    if (mat.roughnessTexIndex >= 0) {
+        vec2 uv = getUV();
+        roughness *= texture(textures[nonuniformEXT(mat.roughnessTexIndex)], uv).g;
+    }
+    roughness = max(roughness, 0.04);
+
+
+    float metallic = mat.metallic;
+    if (mat.metallicTexIndex >= 0) {
+        vec2 uv = getUV();
+        metallic *= texture(textures[nonuniformEXT(mat.metallicTexIndex)], uv).b;
+    }
+
+    vec3 F0 = mix(vec3(0.04), Kd, metallic);
+    float probSpec = max(max(F0.r, F0.g), F0.b);
+    
+    sampleDirect(N, P, wo, Kd, roughness, metallic, F0, probSpec);
+    sampleIndirect(N, P, wo, Kd, roughness, metallic, F0, probSpec);
 
 }
