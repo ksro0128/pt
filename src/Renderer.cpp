@@ -26,6 +26,7 @@ void Renderer::updateAssets() {
 		std::unique_ptr<Mesh> mesh = Mesh::createPlaneMesh(m_context.get());
 		m_meshes.push_back(std::move(mesh));
 		Model model;
+		model.name = "default plane";
 		model.mesh.push_back(m_meshes.size() - 1);
 		model.material.push_back(0);
 		m_models.push_back(model);
@@ -35,6 +36,7 @@ void Renderer::updateAssets() {
 		std::unique_ptr<Mesh> mesh = Mesh::createBoxMesh(m_context.get());
 		m_meshes.push_back(std::move(mesh));
 		Model model;
+		model.name = "default box";
 		model.mesh.push_back(m_meshes.size() - 1);
 		model.material.push_back(0);
 		m_models.push_back(model);
@@ -44,6 +46,7 @@ void Renderer::updateAssets() {
 		std::unique_ptr<Mesh> mesh = Mesh::createSphereMesh(m_context.get());
 		m_meshes.push_back(std::move(mesh));
 		Model model;
+		model.name = "default sphere";
 		model.mesh.push_back(m_meshes.size() - 1);
 		model.material.push_back(0);
 		m_models.push_back(model);
@@ -55,6 +58,7 @@ void Renderer::updateAssets() {
 	loadGLTFModel("assets/lightbulb_01_1k/lightbulb_01_1k.gltf");
 	loadGLTFModel("assets/Ukulele_01_1k/Ukulele_01_1k.gltf");
 	loadGLTFModel("assets/rocky_terrain_03_1k/rocky_terrain_03_1k.gltf");
+	loadGLTFModel("assets/tree_small_02_1k/tree_small_02_1k.gltf");
 
 }
 
@@ -120,14 +124,27 @@ void Renderer::createScene() {
 		m_scene.objects.push_back(object);
 	}
 
-	// 천장 조명
+	// // 천장 조명
+	// {
+	// 	AreaLight areaLight;
+	// 	areaLight.color = glm::vec3(1.0f);
+	// 	areaLight.intensity = 30.0f;
+	// 	areaLight.position = glm::vec3(0.0f, 2.9f, 0.0f);
+	// 	areaLight.rotation = glm::vec3(90.0f, 0.0f, 0.0f); // 아래 방향 (법선 -Y → +Z)
+	// 	areaLight.scale = glm::vec3(0.5f);
+	// 	areaLight.useTemperature = false;
+	// 	areaLight.temperature = 0.0f;
+	// 	m_scene.areaLights.push_back(areaLight);
+	// }
+
+	// 바닥 조명
 	{
 		AreaLight areaLight;
-		areaLight.color = glm::vec3(1.0f);
-		areaLight.intensity = 60.0f;
-		areaLight.position = glm::vec3(0.0f, 2.9f, 0.0f);
-		areaLight.rotation = glm::vec3(90.0f, 0.0f, 0.0f); // 아래 방향 (법선 -Y → +Z)
-		areaLight.scale = glm::vec3(0.5f);
+		areaLight.color = glm::vec3(1.0f, 0.85f, 0.7f);;
+		areaLight.intensity = 10.0f;
+		areaLight.position = glm::vec3(0.0f, -0.9f, 0.0f);
+		areaLight.rotation = glm::vec3(-90.0f, 0.0f, 0.0f); // 아래 방향 (법선 -Y → +Z)
+		areaLight.scale = glm::vec3(1.0f);
 		areaLight.useTemperature = false;
 		areaLight.temperature = 0.0f;
 		m_scene.areaLights.push_back(areaLight);
@@ -135,34 +152,35 @@ void Renderer::createScene() {
 
 	{
 		Object object;
-		object.modelIndex = 5;
+		// object.modelIndex = 5;
+		object.modelIndex = 7;
 		object.overrideMaterialIndex = -1;
-		object.position = glm::vec3(0.0f, 0.0f, 0.0f);
-		object.rotation = glm::vec3(-30.0f, 0.0f, 0.0f);
-		object.scale = glm::vec3(1.0f, 1.0f, 1.0f);
+		object.position = glm::vec3(0.0f, -1.0f, 0.0f);
+		object.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
+		object.scale = glm::vec3(0.5f, 0.5f, 0.5f);
 		m_scene.objects.push_back(object);
 	}
 
-	{
-		Object object;
-		object.modelIndex = 6;
-		object.overrideMaterialIndex = -1;
-		object.position = glm::vec3(1.0f, 0.0f, 0.0f);
-		object.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
-		object.scale = glm::vec3(0.01f, 0.01f, 0.01f);
-		// object.scale = glm::vec3(1.0f, 1.0f, 1.0f);
-		m_scene.objects.push_back(object);
-	}
+	// {
+	// 	Object object;
+	// 	object.modelIndex = 6;
+	// 	object.overrideMaterialIndex = -1;
+	// 	object.position = glm::vec3(1.0f, 0.0f, 0.0f);
+	// 	object.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
+	// 	object.scale = glm::vec3(0.01f, 0.01f, 0.01f);
+	// 	// object.scale = glm::vec3(1.0f, 1.0f, 1.0f);
+	// 	m_scene.objects.push_back(object);
+	// }
 
-	{
-		Object object;
-		object.modelIndex = 3;
-		object.overrideMaterialIndex = -1;
-		object.position = glm::vec3(-1.0f, 0.0f, 0.0f);
-		object.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
-		object.scale = glm::vec3(1.0f, 1.0f, 1.0f);
-		m_scene.objects.push_back(object);
-	}
+	// {
+	// 	Object object;
+	// 	object.modelIndex = 3;
+	// 	object.overrideMaterialIndex = -1;
+	// 	object.position = glm::vec3(-1.0f, 0.0f, 0.0f);
+	// 	object.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
+	// 	object.scale = glm::vec3(1.0f, 1.0f, 1.0f);
+	// 	m_scene.objects.push_back(object);
+	// }
 
 
 }
@@ -229,10 +247,10 @@ void Renderer::uploadSceneToGPU() {
 		instance.vertexAddress = m_meshes[instance.meshIndex]->getVertexBuffer()->getDeviceAddress();
 		instance.indexAddress = m_meshes[instance.meshIndex]->getIndexBuffer()->getDeviceAddress();
 		instance.materialIndex = -1;
-		instance.lightIndex = m_scene.areaLights.size() - 1;
-
-
 		m_areaLightGPU.push_back(areaLightGPU);
+		instance.lightIndex = m_areaLightGPU.size() - 1;
+
+
 		m_instanceGPU.push_back(instance);
 	}
 
@@ -276,9 +294,12 @@ void Renderer::init(GLFWwindow* window) {
 	// buffers
 	m_cameraBuffer = UniformBuffer::createUniformBuffer(m_context.get(), sizeof(CameraGPU));
 	m_optionsBuffer = UniformBuffer::createUniformBuffer(m_context.get(), sizeof(OptionsGPU));
-	m_materialBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(MaterialGPU), m_materials.size());
-	m_instanceBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(InstanceGPU), m_instanceGPU.size());
-	m_areaLightBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(AreaLightGPU), m_areaLightGPU.size());
+	// m_materialBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(MaterialGPU), m_materials.size());
+	m_materialBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(MaterialGPU), MAX_MATERIAL_COUNT);
+	// m_instanceBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(InstanceGPU), m_instanceGPU.size());
+	m_instanceBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(InstanceGPU), MAX_OBJECT_COUNT);
+	// m_areaLightBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(AreaLightGPU), m_areaLightGPU.size());
+	m_areaLightBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(AreaLightGPU), MAX_LIGHT_COUNT);
 
 	// acceleration structure
 	m_blas.resize(m_meshes.size());
@@ -316,6 +337,7 @@ void Renderer::init(GLFWwindow* window) {
 	}
 	m_guiRenderer = GuiRenderer::createGuiRenderer(m_context.get(), window, m_imguiRenderPass.get(), m_swapChain.get());
 	m_guiRenderer->createViewPortDescriptorSet({m_outputPingTexture.get(), m_outputPongTexture.get()});
+	m_guiRenderer->updateModel(m_models);
 
 
 	// transfer image layout
@@ -428,6 +450,21 @@ void Renderer::render(float deltaTime) {
 
 	// start record
 
+	if (m_scene.isDirty)  {
+		std::cout << "scene is dirty!" << std::endl;
+		vkDeviceWaitIdle(m_context->getDevice());
+		uploadSceneToGPU();
+		m_instanceBuffer->updateStorageBuffer(&m_instanceGPU[0], sizeof(InstanceGPU) * m_instanceGPU.size());
+
+		m_tlas->recreate(m_blas, m_instanceGPU);
+		m_set4DescSet.reset();
+		m_set4DescSet = DescriptorSet::createSet4DescSet(m_context.get(), m_set4Layout.get(), m_tlas->getHandle());
+		m_scene.isDirty = false;
+		m_options.currentSpp = 0;
+	}
+
+
+
 	m_cameraBuffer->updateUniformBuffer(&m_camera, sizeof(CameraGPU));
 	
 	m_options.frameCount++;
@@ -437,6 +474,8 @@ void Renderer::render(float deltaTime) {
 		m_options.currentSpp = m_options.maxSpp;
 	}
 	m_optionsBuffer->updateUniformBuffer(&m_options, sizeof(OptionsGPU));
+	m_areaLightBuffer->updateStorageBuffer(&m_areaLightGPU[0], sizeof(AreaLightGPU) * m_areaLightGPU.size());
+
 
 	recordPathTracingCommandBuffer();
 	transferImageLayout(cmd, m_outputPingTexture.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
@@ -520,6 +559,7 @@ void Renderer::recreateSwapChain() {
 void Renderer::recreateViewport(ImVec2 newExtent) {
 	vkDeviceWaitIdle(m_context->getDevice());
 
+	m_options.currentSpp = 0;
 	if (newExtent.x <= 0 || newExtent.y <= 0) {
 		return;
 	}
@@ -617,7 +657,7 @@ void Renderer::recordImGuiCommandBuffer(uint32_t imageIndex) {
 
 	vkCmdBeginRenderPass(cmd, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 	m_guiRenderer->newFrame();
-	m_guiRenderer->render(cmd, m_options.frameCount);
+	m_guiRenderer->render(cmd, m_options.frameCount, m_scene);
 	vkCmdEndRenderPass(cmd);
 }
 

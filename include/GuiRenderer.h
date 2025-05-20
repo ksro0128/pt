@@ -13,10 +13,11 @@ public:
     ~GuiRenderer();
 
     void newFrame();
-    void render(VkCommandBuffer cmd, uint32_t frameCount);
+    void render(VkCommandBuffer cmd, uint32_t frameCount, Scene& scene);
     void createViewPortDescriptorSet(std::array<Texture*, 2> textures);
     ImVec2 getViewportSize() const { return m_viewportSize; }
 	bool isBenchmarkRunning() const { return m_benchmarkRunning; }
+    void updateModel(std::vector<Model>& models);
 
 private:
     VulkanContext* context;
@@ -33,6 +34,7 @@ private:
 
     std::vector<VkDescriptorSet> m_viewPortDescriptorSet;
     std::vector<VkDescriptorSet> m_gBufferDescriptorSet;
+    std::vector<const char*> m_modelNames;
 
     bool m_dockLayoutBuilt;
     ImVec2 m_viewportSize;

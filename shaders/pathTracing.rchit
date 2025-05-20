@@ -513,10 +513,24 @@ void main() {
     computeHitNormal(N, P);
     vec3 wo = -normalize(gl_WorldRayDirectionEXT);
 
+    
+
     if (instance.lightIndex >= 0) {
         AreaLightGPU light = areaLights[instance.lightIndex];
 
         vec3 lightNormal = normalize(light.normal);
+
+        if (dot(lightNormal, wo) < 0) {
+            payload.terminated = 1;
+            return ;
+        }
+
+        if (payload.bounce == 0) {
+            payload.L_indirect = light.color;
+            payload.terminated = 1;
+            return ;
+        }
+
         vec3 dir = P - gl_WorldRayOriginEXT;
         float dist = length(dir);
         float dist2 = dist * dist;
@@ -532,6 +546,11 @@ void main() {
         payload.L_indirect = light.color * light.intensity * payload.beta * w;
         payload.terminated = 1;
         return;
+    }
+
+    if (dot(N, wo) < 0) {
+        payload.terminated = 1;
+        return ;
     }
 
     int matIdx = instance.materialIndex;

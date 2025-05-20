@@ -87,42 +87,127 @@ void GuiRenderer::createDescriptorPool() {
  	ImGui::NewFrame();
  }
 
-void GuiRenderer::render(VkCommandBuffer cmd, uint32_t frameCount) {
-     static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
+ void GuiRenderer::updateModel(std::vector<Model>& models) {
+	for (auto& model : models) {
+		m_modelNames.push_back(model.name.c_str());
+	}
+ }
 
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 1)); // 완전 검정 배경 (원하면 제거)
-
-    ImGuiWindowFlags window_flags =
-        ImGuiWindowFlags_NoTitleBar |
-        ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoScrollbar |
-        ImGuiWindowFlags_NoScrollWithMouse |
-        ImGuiWindowFlags_NoBringToFrontOnFocus |
-        ImGuiWindowFlags_NoNavFocus |
-        ImGuiWindowFlags_NoBackground;
-
+void GuiRenderer::render(VkCommandBuffer cmd, uint32_t frameCount, Scene &scene) {
+    static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
+
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
     ImGui::SetNextWindowViewport(viewport->ID);
-	
-    ImGui::Begin("FullscreenImage", nullptr, window_flags);
+    window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
+                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+    window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
 
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+
+    ImGui::Begin("DockSpaceRoot", nullptr, window_flags);
+    ImGui::PopStyleVar(2);
+
+    ImGuiID dockspace_id = ImGui::GetID("MyDockSpaceSimple");
+    if (!m_dockLayoutBuilt) {
+        ImGui::DockBuilderRemoveNode(dockspace_id);
+        ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
+        ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->WorkSize);
+
+        ImGuiID dock_main_id = dockspace_id;
+        ImGuiID dock_left_id = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.25f, nullptr, &dock_main_id);
+        ImGuiID dock_bottom_id = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.25f, nullptr, &dock_main_id);
+
+        ImGui::DockBuilderDockWindow("Viewport", dock_main_id);
+        ImGui::DockBuilderDockWindow("Scene Objects", dock_left_id);
+
+        ImGui::DockBuilderFinish(dockspace_id);
+        m_dockLayoutBuilt = true;
+    }
+
+    ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+    ImGui::End();
+
+    // Viewport 창
+    ImGui::Begin("Viewport");
     m_viewportSize = ImGui::GetContentRegionAvail();
-	ImGui::Image((ImTextureID)(uint64_t)m_viewPortDescriptorSet[frameCount % 2], m_viewportSize);
+    ImGui::Image((ImTextureID)(uint64_t)m_viewPortDescriptorSet[frameCount % 2], m_viewportSize);
+    ImGui::End();
 
+    // Scene Object Inspector 창
+    ImGui::Begin("Scene Objects");
+	int index = 0;
+
+	for (auto& obj : scene.objects) {
+		std::string label = "Object " + std::to_string(index++);
+		if (ImGui::TreeNode(label.c_str())) {
+			if (ImGui::Combo("Model", &obj.modelIndex, m_modelNames.data(), m_modelNames.size())) {
+				scene.isDirty = true;
+			}
+			if (ImGui::Combo("Override Material", &obj.overrideMaterialIndex, m_modelNames.data(), m_modelNames.size())) {
+				scene.isDirty = true;
+			}
+			if (ImGui::DragFloat3("Position", glm::value_ptr(obj.position), 0.1f) |
+				ImGui::DragFloat3("Rotation", glm::value_ptr(obj.rotation), 1.0f) |
+				ImGui::DragFloat3("Scale",    glm::value_ptr(obj.scale),    0.1f)) {
+				scene.isDirty = true;
+			}
+
+			ImGui::TreePop();
+		}
+	}
+
+	if (ImGui::Button("+ Add Object")) {
+		Object newObj;
+		newObj.modelIndex = 0;
+		newObj.overrideMaterialIndex = -1;
+		newObj.position = glm::vec3(0.0f);
+		newObj.rotation = glm::vec3(0.0f);
+		newObj.scale = glm::vec3(1.0f);
+		scene.objects.push_back(newObj);
+		scene.isDirty = true;
+	}
+	ImGui::End();
+
+
+	ImGui::Begin("Scene Area Lights");
+	std::vector<AreaLight>& areaLights = scene.areaLights;
+    index = 0;
+    for (auto& light : areaLights) {
+        std::string label = "Area Light " + std::to_string(index++);
+        if (ImGui::TreeNode(label.c_str())) {
+            if (ImGui::ColorEdit3("Color", (float*)&light.color, ImGuiColorEditFlags_Float) |
+				ImGui::DragFloat("Intensity", (float*)&light.intensity, 0.1f, 0.0f, 100.0f) |
+				ImGui::DragFloat3("Position", glm::value_ptr(light.position), 0.1f) |
+				ImGui::DragFloat3("Rotation", glm::value_ptr(light.rotation), 1.0f) |
+				ImGui::DragFloat3("Scale",    glm::value_ptr(light.scale),    0.1f) |
+				ImGui::Checkbox("Use Temperature", (bool*)&light.useTemperature) |
+				ImGui::DragFloat("Temperature (K)", (float*)&light.temperature, 10.0f, 1000.0f, 20000.0f)) {
+				scene.isDirty = true;
+			}
+            ImGui::TreePop();
+        }
+    }
+
+	if (ImGui::Button("+ Add Area Light")) {
+		AreaLight newLight;
+		newLight.color = glm::vec3(1.0f);
+		newLight.intensity = 10.0f;
+		newLight.position = glm::vec3(0.0f);
+		newLight.rotation = glm::vec3(0.0f);
+		newLight.scale = glm::vec3(1.0f);
+		newLight.useTemperature = false;
+		newLight.temperature = 6500.0f;
+		scene.areaLights.push_back(newLight);
+		scene.isDirty = true;
+	}
 
     ImGui::End();
 
-
-    ImGui::PopStyleVar(3);
-    ImGui::PopStyleColor();
-
+    // 최종 렌더링
     ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
  }

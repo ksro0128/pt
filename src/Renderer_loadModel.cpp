@@ -5,10 +5,8 @@ void Renderer::loadGLTFModel(const std::string& path) {
     const aiScene* scene = importer.ReadFile(path,
         aiProcess_Triangulate |
         aiProcess_FlipUVs |
-        aiProcess_CalcTangentSpace |
-        aiProcess_JoinIdenticalVertices |
-        aiProcess_OptimizeMeshes |
-        aiProcess_OptimizeGraph);
+        // aiProcess_CalcTangentSpace |
+        aiProcess_JoinIdenticalVertices);
 
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
         throw std::runtime_error("Failed to load glTF: " + path);

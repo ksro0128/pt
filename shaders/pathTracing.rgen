@@ -156,7 +156,7 @@ void main() {
 
 	// 누적 버퍼
 	vec4 prevAccum = vec4(0.0);
-	if (options.currentSpp > 1) {
+	if (options.currentSpp > 2) {
 		prevAccum = imageLoad(indirectAccumImage, ipixel);
 	}
 	vec4 newAccum = prevAccum + vec4(payload.L_indirect, 1.0);

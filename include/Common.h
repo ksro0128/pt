@@ -269,4 +269,5 @@ struct alignas(16) InstanceGPU {
 struct Scene {
 	std::vector<Object> objects;
 	std::vector<AreaLight> areaLights;
+	bool isDirty = false;
 };
