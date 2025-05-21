@@ -20,7 +20,7 @@ public:
 	static std::unique_ptr<DescriptorSet> createSet4DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		VkAccelerationStructureKHR tlas);
 	static std::unique_ptr<DescriptorSet> createSet5DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-		Texture* dirOutput, Texture* indirectOutput, Texture* dirAccum, Texture* indirectAccum, Texture* output);
+		Texture* output, Texture* accum);
 	~DescriptorSet();
 
 private:
@@ -39,5 +39,5 @@ private:
 	void initSet4DescSet(VulkanContext* context, DescriptorSetLayout* layout,
 		VkAccelerationStructureKHR tlas);
 	void initSet5DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-		Texture* dirOutput, Texture* indirectOutput, Texture* dirAccum, Texture* indirectAccum, Texture* output);
+		Texture* output, Texture* accum);
 };

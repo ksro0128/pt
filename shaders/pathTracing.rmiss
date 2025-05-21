@@ -3,8 +3,7 @@
 
 
 struct RayPayload {
-    vec3 L_direct;
-    vec3 L_indirect;
+    vec3 L;
     vec3 beta;
 	vec3 nextOrigin;
 	vec3 nextDir;

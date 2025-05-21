@@ -93,7 +93,7 @@ void GuiRenderer::createDescriptorPool() {
 	}
  }
 
-void GuiRenderer::render(VkCommandBuffer cmd, uint32_t frameCount, Scene &scene) {
+void GuiRenderer::render(VkCommandBuffer cmd, OptionsGPU& options, Scene &scene) {
     static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -119,10 +119,14 @@ void GuiRenderer::render(VkCommandBuffer cmd, uint32_t frameCount, Scene &scene)
 
         ImGuiID dock_main_id = dockspace_id;
         ImGuiID dock_left_id = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.25f, nullptr, &dock_main_id);
-        ImGuiID dock_bottom_id = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.25f, nullptr, &dock_main_id);
+        // ImGuiID dock_bottom_id = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.25f, nullptr, &dock_main_id);
+
+		ImGuiID dock_left_top_id = dock_left_id;
+		ImGuiID dock_left_bottom_id = ImGui::DockBuilderSplitNode(dock_left_top_id, ImGuiDir_Down, 0.5f, nullptr, &dock_left_top_id);
 
         ImGui::DockBuilderDockWindow("Viewport", dock_main_id);
-        ImGui::DockBuilderDockWindow("Scene Objects", dock_left_id);
+        ImGui::DockBuilderDockWindow("Scene Objects", dock_left_top_id);
+		ImGui::DockBuilderDockWindow("Scene Area Lights", dock_left_bottom_id);
 
         ImGui::DockBuilderFinish(dockspace_id);
         m_dockLayoutBuilt = true;
@@ -134,30 +138,37 @@ void GuiRenderer::render(VkCommandBuffer cmd, uint32_t frameCount, Scene &scene)
     // Viewport 창
     ImGui::Begin("Viewport");
     m_viewportSize = ImGui::GetContentRegionAvail();
-    ImGui::Image((ImTextureID)(uint64_t)m_viewPortDescriptorSet[frameCount % 2], m_viewportSize);
+    ImGui::Image((ImTextureID)(uint64_t)m_viewPortDescriptorSet[0], m_viewportSize);
     ImGui::End();
 
     // Scene Object Inspector 창
     ImGui::Begin("Scene Objects");
 	int index = 0;
+	int objectToDelete = -1;
 
 	for (auto& obj : scene.objects) {
-		std::string label = "Object " + std::to_string(index++);
+		std::string label = "Object " + std::to_string(index);
 		if (ImGui::TreeNode(label.c_str())) {
-			if (ImGui::Combo("Model", &obj.modelIndex, m_modelNames.data(), m_modelNames.size())) {
-				scene.isDirty = true;
-			}
-			if (ImGui::Combo("Override Material", &obj.overrideMaterialIndex, m_modelNames.data(), m_modelNames.size())) {
-				scene.isDirty = true;
-			}
-			if (ImGui::DragFloat3("Position", glm::value_ptr(obj.position), 0.1f) |
+			if (ImGui::Combo("Model", &obj.modelIndex, m_modelNames.data(), m_modelNames.size()) |
+				ImGui::Combo("Override Material", &obj.overrideMaterialIndex, m_modelNames.data(), m_modelNames.size()) |
+				ImGui::DragFloat3("Position", glm::value_ptr(obj.position), 0.1f) |
 				ImGui::DragFloat3("Rotation", glm::value_ptr(obj.rotation), 1.0f) |
 				ImGui::DragFloat3("Scale",    glm::value_ptr(obj.scale),    0.1f)) {
 				scene.isDirty = true;
 			}
 
+			if (ImGui::Button(("Remove##" + std::to_string(index)).c_str())) {
+				objectToDelete = index;
+			}
 			ImGui::TreePop();
 		}
+		index++;
+	}
+
+	if (objectToDelete >= 0 && objectToDelete < (int)scene.objects.size()) {
+		scene.objects.erase(scene.objects.begin() + objectToDelete);
+		scene.isDirty = true;
+		std::cout << "delete " << objectToDelete << std::endl;
 	}
 
 	if (ImGui::Button("+ Add Object")) {
@@ -173,11 +184,13 @@ void GuiRenderer::render(VkCommandBuffer cmd, uint32_t frameCount, Scene &scene)
 	ImGui::End();
 
 
+	
 	ImGui::Begin("Scene Area Lights");
 	std::vector<AreaLight>& areaLights = scene.areaLights;
     index = 0;
+	objectToDelete = -1;
     for (auto& light : areaLights) {
-        std::string label = "Area Light " + std::to_string(index++);
+        std::string label = "Area Light " + std::to_string(index);
         if (ImGui::TreeNode(label.c_str())) {
             if (ImGui::ColorEdit3("Color", (float*)&light.color, ImGuiColorEditFlags_Float) |
 				ImGui::DragFloat("Intensity", (float*)&light.intensity, 0.1f, 0.0f, 100.0f) |
@@ -188,9 +201,18 @@ void GuiRenderer::render(VkCommandBuffer cmd, uint32_t frameCount, Scene &scene)
 				ImGui::DragFloat("Temperature (K)", (float*)&light.temperature, 10.0f, 1000.0f, 20000.0f)) {
 				scene.isDirty = true;
 			}
+			if (ImGui::Button(("Remove##" + std::to_string(index)).c_str())) {
+				objectToDelete = index;
+			}
             ImGui::TreePop();
         }
+		index++;
     }
+
+	if (objectToDelete >= 0 && objectToDelete < (int)areaLights.size()) {
+		areaLights.erase(areaLights.begin() + objectToDelete);
+		scene.isDirty = true;
+	}
 
 	if (ImGui::Button("+ Add Area Light")) {
 		AreaLight newLight;

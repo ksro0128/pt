@@ -1,14 +1,15 @@
 #include "include/Mesh.h"
 
-std::unique_ptr<Mesh> Mesh::createMesh(VulkanContext* context, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices) {
+std::unique_ptr<Mesh> Mesh::createMesh(VulkanContext* context, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, bool hasTangent) {
 	std::unique_ptr<Mesh> mesh = std::unique_ptr<Mesh>(new Mesh());
 	mesh->init(context, vertices, indices);
 	return mesh;
 }
 
-void Mesh::init(VulkanContext* context, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices) {
+void Mesh::init(VulkanContext* context, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, bool hasTangent) {
 	this->context = context;
-	calculateTangents(vertices, indices);
+	if (!hasTangent)
+		calculateTangents(vertices, indices);
 
 	m_vertexBuffer = VertexBuffer::createVertexBuffer(context, vertices);
 	m_indexBuffer = IndexBuffer::createIndexBuffer(context, indices);
@@ -16,6 +17,9 @@ void Mesh::init(VulkanContext* context, std::vector<Vertex>& vertices, std::vect
 
 void Mesh::calculateTangents(std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
 {
+	for (auto& v : vertices)
+		v.tangent = glm::vec4(0.0f);
+
 	for (size_t i = 0; i < indices.size(); i += 3)
 	{
 		if (indices[i] >= vertices.size() || indices[i + 1] >= vertices.size() || indices[i + 2] >= vertices.size())
@@ -45,14 +49,21 @@ void Mesh::calculateTangents(std::vector<Vertex>& vertices, const std::vector<ui
 
 		tangent = glm::normalize(tangent);
 
-		v0.tangent += tangent;
-		v1.tangent += tangent;
-		v2.tangent += tangent;
+		v0.tangent += glm::vec4(tangent, 0.0f);
+		v1.tangent += glm::vec4(tangent, 0.0f);
+		v2.tangent += glm::vec4(tangent, 0.0f);
 	}
 
-	for (auto& vertex : vertices)
+
+	for (auto& v : vertices)
 	{
-		vertex.tangent = glm::normalize(vertex.tangent);
+		glm::vec3 T = glm::normalize(glm::vec3(v.tangent));
+		glm::vec3 N = glm::normalize(v.normal);
+		glm::vec3 B = glm::normalize(glm::cross(N, T));
+
+		float w = (glm::dot(glm::cross(N, T), B) < 0.0f) ? -1.0f : 1.0f;
+		v.tangent = glm::vec4(T, w);
+		
 	}
 }
 

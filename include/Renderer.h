@@ -20,6 +20,7 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <filesystem>
+#include <tiny_gltf.h>
 
 class Renderer {
 public:
@@ -93,19 +94,14 @@ private:
 	std::unique_ptr<DescriptorSet> m_set2DescSet;
 	std::unique_ptr<DescriptorSet> m_set3DescSet;
 	std::unique_ptr<DescriptorSet> m_set4DescSet;
-	std::array<std::unique_ptr<DescriptorSet>, 2> m_set5DescSets;
+	std::unique_ptr<DescriptorSet> m_set5DescSet;
 
 	// command buffer
 	std::unique_ptr<CommandBuffers> m_commandBuffers;
 
 	// texture
-	std::unique_ptr<Texture> m_outputPingTexture;
-	std::unique_ptr<Texture> m_outputPongTexture;
-	std::unique_ptr<Texture> m_ptDirectOutputTexture;
-	std::unique_ptr<Texture> m_ptIndirectOutputTexture;
-	// 누적용
-	std::unique_ptr<Texture> m_ptDirectAccumTexture;
-	std::unique_ptr<Texture> m_ptIndirectAccumTexture;
+	std::unique_ptr<Texture> m_outputTexture;
+	std::unique_ptr<Texture> m_accumTexture;
 
 	// gui renderer
 	std::unique_ptr<GuiRenderer> m_guiRenderer;
@@ -131,6 +127,13 @@ private:
 	std::unique_ptr<Mesh> processMesh(aiMesh* mesh);
 	MaterialGPU processMaterial(aiMaterial* aiMat, const aiScene* scene, const std::filesystem::path& basePath);
 	int32_t loadTexture(const aiScene* scene, aiMaterial* aiMat, aiTextureType type, const std::filesystem::path& basePath, TextureFormatType formatType);
+
+	// tiny_gltf
+	void loadTinyGLTFModel(const std::string& path);
+	void processTinyNode(int nodeIndex, const tinygltf::Model& gltfModel, const std::filesystem::path& basePath, Model& model, std::unordered_map<int, int32_t>& materialMap);
+	std::unique_ptr<Mesh> processTinyPrimitive(const tinygltf::Primitive& primitive, const tinygltf::Model& model);
+	MaterialGPU processTinyMaterial(int materialIndex, const tinygltf::Model& model, const std::filesystem::path& basePath);
+	int32_t loadTinyTexture(int textureIndex, const tinygltf::Model& model, const std::filesystem::path& basePath, TextureFormatType formatType);
 
 	// scene
 	void createScene();

@@ -84,8 +84,7 @@ layout(set = 3, binding = 1) buffer AreaLightBuffer {
 layout(set = 4, binding = 0) uniform accelerationStructureEXT topLevelAS;
 
 struct RayPayload {
-    vec3 L_direct;
-    vec3 L_indirect;
+    vec3 L;
     vec3 beta;
 	vec3 nextOrigin;
 	vec3 nextDir;
@@ -177,7 +176,7 @@ struct Vertex {
     vec3 pos; float pad0;
     vec3 normal; float pad1;
     vec2 texCoord; vec2 pad2;
-    vec3 tangent; float pad3;
+    vec4 tangent;
 };
 
 layout(buffer_reference, scalar) buffer Vertices {
@@ -216,9 +215,22 @@ void computeHitNormal(inout vec3 N, out vec3 pos) {
         if (mat.normalTexIndex < 0) {
             N = normalize(normalMatrix * localNormal);
         } else {
-            vec3 tangent = normalize(v0.tangent * w + v1.tangent * u + v2.tangent * v);
+            // vec3 tangent = normalize(v0.tangent * w + v1.tangent * u + v2.tangent * v);
+            // vec2 uv = v0.texCoord * w + v1.texCoord * u + v2.texCoord * v;
+            // vec3 bitangent = normalize(cross(localNormal, tangent));
+
+            // vec3 nTex = texture(textures[nonuniformEXT(mat.normalTexIndex)], uv).rgb;
+            // vec3 nTS = normalize(nTex * 2.0 - 1.0);
+
+            // mat3 TBN = mat3(tangent, bitangent, localNormal);
+            // vec3 normalObject = normalize(TBN * nTS);
+            // N = normalize(normalMatrix * normalObject);
+            vec4 tangent4 = v0.tangent * w + v1.tangent * u + v2.tangent * v;
+            vec3 tangent = normalize(tangent4.xyz);
+            float handedness = tangent4.w;
+
             vec2 uv = v0.texCoord * w + v1.texCoord * u + v2.texCoord * v;
-            vec3 bitangent = normalize(cross(localNormal, tangent));
+            vec3 bitangent = normalize(cross(localNormal, tangent) * handedness);
 
             vec3 nTex = texture(textures[nonuniformEXT(mat.normalTexIndex)], uv).rgb;
             vec3 nTS = normalize(nTex * 2.0 - 1.0);
@@ -228,7 +240,9 @@ void computeHitNormal(inout vec3 N, out vec3 pos) {
             N = normalize(normalMatrix * normalObject);
         }
     }
-
+    if (dot(N, gl_WorldRayDirectionEXT) > 0.0) {
+        N = normalize(-N);
+    }
     pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
 }
 
@@ -500,7 +514,7 @@ void sampleDirect(in vec3 N, in vec3 P, in vec3 wo, in vec3 Kd, in float roughne
 
         vec3 direct = (f * light.color * light.intensity * NdotL) / L_pdf;
         float w = L_pdf / (L_pdf + pdfBRDF);
-        payload.L_indirect += payload.beta * direct * w; 
+        payload.L += payload.beta * direct * w; 
     }
 
 }
@@ -512,9 +526,7 @@ void main() {
     vec3 N, P;
     computeHitNormal(N, P);
     vec3 wo = -normalize(gl_WorldRayDirectionEXT);
-
     
-
     if (instance.lightIndex >= 0) {
         AreaLightGPU light = areaLights[instance.lightIndex];
 
@@ -526,7 +538,7 @@ void main() {
         }
 
         if (payload.bounce == 0) {
-            payload.L_indirect = light.color;
+            payload.L = light.color;
             payload.terminated = 1;
             return ;
         }
@@ -543,7 +555,7 @@ void main() {
 
         float w = L_pdf / (L_pdf + payload.pdf);
 
-        payload.L_indirect = light.color * light.intensity * payload.beta * w;
+        payload.L = light.color * light.intensity * payload.beta * w;
         payload.terminated = 1;
         return;
     }
@@ -581,6 +593,16 @@ void main() {
     float probSpec = max(max(F0.r, F0.g), F0.b);
     
     sampleDirect(N, P, wo, Kd, roughness, metallic, F0, probSpec);
+    
+    float ao = mat.ao;
+    if (mat.aoTexIndex >= 0) {
+        vec2 uv = getUV();
+        ao *= texture(textures[nonuniformEXT(mat.aoTexIndex)], uv).r;
+    }
+    payload.beta *= ao;
+    
+    
+    
     sampleIndirect(N, P, wo, Kd, roughness, metallic, F0, probSpec);
 
 }

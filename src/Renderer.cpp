@@ -54,11 +54,21 @@ void Renderer::updateAssets() {
 
 
 
-	loadGLTFModel("assets/boombox_1k/boombox_1k.gltf");
-	loadGLTFModel("assets/lightbulb_01_1k/lightbulb_01_1k.gltf");
-	loadGLTFModel("assets/Ukulele_01_1k/Ukulele_01_1k.gltf");
-	loadGLTFModel("assets/rocky_terrain_03_1k/rocky_terrain_03_1k.gltf");
-	loadGLTFModel("assets/tree_small_02_1k/tree_small_02_1k.gltf");
+	// loadGLTFModel("assets/boombox_1k/boombox_1k.gltf");
+	// loadGLTFModel("assets/lightbulb_01_1k/lightbulb_01_1k.gltf");
+	// loadGLTFModel("assets/Ukulele_01_1k/Ukulele_01_1k.gltf");
+	// loadGLTFModel("assets/rocky_terrain_03_1k/rocky_terrain_03_1k.gltf");
+	// loadGLTFModel("assets/tree_small_02_1k/tree_small_02_1k.gltf");
+	// loadGLTFModel("assets/ornate_mirror_01_1k/ornate_mirror_01_1k.gltf");
+
+
+	loadTinyGLTFModel("assets/boombox_1k/boombox_1k.gltf");
+	loadTinyGLTFModel("assets/lightbulb_01_1k/lightbulb_01_1k.gltf");
+	loadTinyGLTFModel("assets/Ukulele_01_1k/Ukulele_01_1k.gltf");
+	loadTinyGLTFModel("assets/rocky_terrain_03_1k/rocky_terrain_03_1k.gltf");
+	loadTinyGLTFModel("assets/tree_small_02_1k/tree_small_02_1k.gltf");
+	loadTinyGLTFModel("assets/ornate_mirror_01_1k/ornate_mirror_01_1k.gltf");
+
 
 }
 
@@ -185,78 +195,6 @@ void Renderer::createScene() {
 
 }
 
-void Renderer::uploadSceneToGPU() {
-	m_instanceGPU.clear();
-	m_areaLightGPU.clear();
-
-	for (auto& object : m_scene.objects) {
-		glm::mat4 transform = glm::mat4(1.0f);
-		transform = glm::translate(transform, object.position);
-		transform = glm::rotate(transform, glm::radians(object.rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
-		transform = glm::rotate(transform, glm::radians(object.rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
-		transform = glm::rotate(transform, glm::radians(object.rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
-		transform = glm::scale(transform, object.scale);
-
-		for (int i = 0; i < m_models[object.modelIndex].mesh.size(); i++) {
-			InstanceGPU instance;
-			instance.transform = transform;
-			instance.meshIndex = m_models[object.modelIndex].mesh[i];
-			instance.vertexAddress = m_meshes[instance.meshIndex]->getVertexBuffer()->getDeviceAddress();
-			instance.indexAddress = m_meshes[instance.meshIndex]->getIndexBuffer()->getDeviceAddress();
-			if (object.overrideMaterialIndex != -1) {
-				instance.materialIndex = object.overrideMaterialIndex;
-			}
-			else {
-				instance.materialIndex = m_models[object.modelIndex].material[i];
-			}
-			m_instanceGPU.push_back(instance);
-		}
-	}
-
-	for (auto& areaLight : m_scene.areaLights) {
-		AreaLightGPU areaLightGPU;
-		areaLightGPU.color = areaLight.color;
-		areaLightGPU.intensity = areaLight.intensity;
-
-		areaLightGPU.area = areaLight.scale.x * areaLight.scale.y;
-
-		InstanceGPU instance;
-		glm::mat4 transform = glm::mat4(1.0f);
-		transform = glm::translate(transform, areaLight.position);
-		transform = glm::rotate(transform, glm::radians(areaLight.rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
-		transform = glm::rotate(transform, glm::radians(areaLight.rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
-		transform = glm::rotate(transform, glm::radians(areaLight.rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
-		transform = glm::scale(transform, areaLight.scale);
-
-		auto toWorld = [&](const glm::vec3& p) {
-			return glm::vec3(transform * glm::vec4(p, 1.0f));
-		};
-
-		areaLightGPU.p0 = toWorld(glm::vec3(-0.5f, -0.5f, 0.0f));
-		areaLightGPU.p1 = toWorld(glm::vec3( 0.5f, -0.5f, 0.0f));
-		areaLightGPU.p2 = toWorld(glm::vec3( 0.5f,  0.5f, 0.0f));
-		areaLightGPU.p3 = toWorld(glm::vec3(-0.5f,  0.5f, 0.0f));
-		
-		instance.transform = transform;
-
-		glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(transform)));
-		areaLightGPU.normal = glm::normalize(normalMatrix * glm::vec3(0.0f, 0.0f, 1.0f));
-
-
-		instance.meshIndex = m_models[0].mesh[0];
-		instance.vertexAddress = m_meshes[instance.meshIndex]->getVertexBuffer()->getDeviceAddress();
-		instance.indexAddress = m_meshes[instance.meshIndex]->getIndexBuffer()->getDeviceAddress();
-		instance.materialIndex = -1;
-		m_areaLightGPU.push_back(areaLightGPU);
-		instance.lightIndex = m_areaLightGPU.size() - 1;
-
-
-		m_instanceGPU.push_back(instance);
-	}
-
-	m_options.lightCount = m_scene.areaLights.size();
-}
-
 void Renderer::init(GLFWwindow* window) {
 	std::cout << "Renderer::init" << std::endl;
 	this->window = window;
@@ -275,30 +213,23 @@ void Renderer::init(GLFWwindow* window) {
 	printAllAreaLightInfo();
 
 	//output texture
-	m_outputPingTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_outputPongTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_ptIndirectOutputTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_ptDirectOutputTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_ptDirectAccumTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_ptIndirectAccumTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_outputTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_accumTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
 
 	// descriptorset layout
-	m_set0Layout = DescriptorSetLayout::createSet0Layout(m_context.get());
-	m_set1Layout = DescriptorSetLayout::createSet1Layout(m_context.get());
-	m_set2Layout = DescriptorSetLayout::createSet2Layout(m_context.get());
-	m_set3Layout = DescriptorSetLayout::createSet3Layout(m_context.get());
-	m_set4Layout = DescriptorSetLayout::createSet4Layout(m_context.get());
-	m_set5Layout = DescriptorSetLayout::createSet5Layout(m_context.get());
+	m_set0Layout = DescriptorSetLayout::createSet0Layout(m_context.get()); // camera, options
+	m_set1Layout = DescriptorSetLayout::createSet1Layout(m_context.get()); // material
+	m_set2Layout = DescriptorSetLayout::createSet2Layout(m_context.get()); // texture
+	m_set3Layout = DescriptorSetLayout::createSet3Layout(m_context.get()); // instance, arealight
+	m_set4Layout = DescriptorSetLayout::createSet4Layout(m_context.get()); // tlas
+	m_set5Layout = DescriptorSetLayout::createSet5Layout(m_context.get()); // 
 
 	// buffers
 	m_cameraBuffer = UniformBuffer::createUniformBuffer(m_context.get(), sizeof(CameraGPU));
 	m_optionsBuffer = UniformBuffer::createUniformBuffer(m_context.get(), sizeof(OptionsGPU));
-	// m_materialBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(MaterialGPU), m_materials.size());
 	m_materialBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(MaterialGPU), MAX_MATERIAL_COUNT);
-	// m_instanceBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(InstanceGPU), m_instanceGPU.size());
 	m_instanceBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(InstanceGPU), MAX_OBJECT_COUNT);
-	// m_areaLightBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(AreaLightGPU), m_areaLightGPU.size());
 	m_areaLightBuffer = StorageBuffer::createStorageBuffer(m_context.get(), sizeof(AreaLightGPU), MAX_LIGHT_COUNT);
 
 	// acceleration structure
@@ -319,8 +250,7 @@ void Renderer::init(GLFWwindow* window) {
 	m_set2DescSet = DescriptorSet::createSet2DescSet(m_context.get(), m_set2Layout.get(), m_textures);
 	m_set3DescSet = DescriptorSet::createSet3DescSet(m_context.get(), m_set3Layout.get(), m_instanceBuffer.get(), m_areaLightBuffer.get());
 	m_set4DescSet = DescriptorSet::createSet4DescSet(m_context.get(), m_set4Layout.get(), m_tlas->getHandle());
-	m_set5DescSets[0] = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_ptDirectOutputTexture.get(), m_ptIndirectOutputTexture.get(), m_ptDirectAccumTexture.get(), m_ptIndirectAccumTexture.get(), m_outputPingTexture.get());
-	m_set5DescSets[1] = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_ptDirectOutputTexture.get(), m_ptIndirectOutputTexture.get(), m_ptDirectAccumTexture.get(), m_ptIndirectAccumTexture.get(), m_outputPongTexture.get());
+	m_set5DescSet = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_outputTexture.get(), m_accumTexture.get());
 
 	// update buffers
 	m_cameraBuffer->updateUniformBuffer(&m_camera, sizeof(CameraGPU));
@@ -336,17 +266,15 @@ void Renderer::init(GLFWwindow* window) {
 		m_imguiFrameBuffers[i] = FrameBuffer::createImGuiFrameBuffer(m_context.get(), m_imguiRenderPass.get(), m_swapChain->getSwapChainImageViews()[i], m_swapChain->getSwapChainExtent());
 	}
 	m_guiRenderer = GuiRenderer::createGuiRenderer(m_context.get(), window, m_imguiRenderPass.get(), m_swapChain.get());
-	m_guiRenderer->createViewPortDescriptorSet({m_outputPingTexture.get(), m_outputPongTexture.get()});
+	m_guiRenderer->createViewPortDescriptorSet({m_outputTexture.get(), m_outputTexture.get()});
 	m_guiRenderer->updateModel(m_models);
 
 
 	// transfer image layout
 	auto cmd = VulkanUtil::beginSingleTimeCommands(m_context.get());
 
-	transferImageLayout(cmd, m_outputPingTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-	transferImageLayout(cmd, m_outputPongTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-	transferImageLayout(cmd, m_ptIndirectOutputTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-	transferImageLayout(cmd, m_ptDirectOutputTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_outputTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	transferImageLayout(cmd, m_accumTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
 
 	VulkanUtil::endSingleTimeCommands(m_context.get(), cmd);
 
@@ -368,7 +296,7 @@ void Renderer::update(float deltaTime) {
         glfwGetCursorPos(window, &xpos, &ypos);
 
         float xoffset = static_cast<float>(xpos - m_lastMouseX);
-        float yoffset = static_cast<float>(m_lastMouseY - ypos); // Y축 반전
+        float yoffset = static_cast<float>(m_lastMouseY - ypos);
 
         m_lastMouseX = xpos;
         m_lastMouseY = ypos;
@@ -376,7 +304,7 @@ void Renderer::update(float deltaTime) {
         xoffset *= m_mouseSensitivity;
         yoffset *= m_mouseSensitivity;
 
-        m_yaw += xoffset;  // ← 좌우 반전 수정
+        m_yaw += xoffset;
         m_pitch += yoffset;
         m_pitch = std::clamp(m_pitch, -89.0f, 89.0f);
 
@@ -478,13 +406,11 @@ void Renderer::render(float deltaTime) {
 
 
 	recordPathTracingCommandBuffer();
-	transferImageLayout(cmd, m_outputPingTexture.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-	transferImageLayout(cmd, m_outputPongTexture.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+	transferImageLayout(cmd, m_outputTexture.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
 	recordImGuiCommandBuffer(imageIndex);
 
-	transferImageLayout(cmd, m_outputPingTexture.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-	transferImageLayout(cmd, m_outputPongTexture.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	transferImageLayout(cmd, m_outputTexture.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
 
 	if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
@@ -568,43 +494,26 @@ void Renderer::recreateViewport(ImVec2 newExtent) {
 	m_extent.height = static_cast<uint32_t>(newExtent.y);
 
 	// clear textures
-	m_outputPingTexture.reset();
-	m_outputPongTexture.reset();
-	m_ptDirectOutputTexture.reset();
-	m_ptDirectAccumTexture.reset();
-	m_ptIndirectOutputTexture.reset();
-	m_ptIndirectAccumTexture.reset();
-
+	m_outputTexture.reset();
+	m_accumTexture.reset();
 
 	// clear descriptor set
-	m_set5DescSets[0].reset();
-	m_set5DescSets[1].reset();
+	m_set5DescSet.reset();
 
 	// create textures
-	m_outputPingTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_outputPongTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_ptDirectOutputTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_ptDirectAccumTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_ptIndirectOutputTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_ptIndirectAccumTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-
+	m_outputTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_accumTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
 	// create descriptor set
-	m_set5DescSets[0] = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_ptDirectOutputTexture.get(), m_ptIndirectOutputTexture.get(), m_ptDirectAccumTexture.get(), m_ptIndirectAccumTexture.get(), m_outputPingTexture.get());
-	m_set5DescSets[1] = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_ptDirectOutputTexture.get(), m_ptIndirectOutputTexture.get(), m_ptDirectAccumTexture.get(), m_ptIndirectAccumTexture.get(), m_outputPongTexture.get());
-
+	m_set5DescSet = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_outputTexture.get(), m_accumTexture.get());
 
 	// gui
-	m_guiRenderer->createViewPortDescriptorSet({m_outputPingTexture.get(), m_outputPongTexture.get()});
+	m_guiRenderer->createViewPortDescriptorSet({m_outputTexture.get(), m_outputTexture.get()});
 
 	auto cmd = VulkanUtil::beginSingleTimeCommands(m_context.get());
 
-	transferImageLayout(cmd, m_outputPingTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-	transferImageLayout(cmd, m_outputPongTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-	transferImageLayout(cmd, m_ptDirectOutputTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-	transferImageLayout(cmd, m_ptIndirectOutputTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-	transferImageLayout(cmd, m_ptDirectAccumTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-	transferImageLayout(cmd, m_ptIndirectAccumTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_outputTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_accumTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
 
 	VulkanUtil::endSingleTimeCommands(m_context.get(), cmd);
 }
@@ -620,7 +529,7 @@ void Renderer::recordPathTracingCommandBuffer() {
 		m_set2DescSet->getDescriptorSet(),
 		m_set3DescSet->getDescriptorSet(),
 		m_set4DescSet->getDescriptorSet(),
-		m_set5DescSets[m_options.frameCount % 2]->getDescriptorSet()
+		m_set5DescSet->getDescriptorSet()
 	};
 
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
@@ -657,7 +566,7 @@ void Renderer::recordImGuiCommandBuffer(uint32_t imageIndex) {
 
 	vkCmdBeginRenderPass(cmd, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 	m_guiRenderer->newFrame();
-	m_guiRenderer->render(cmd, m_options.frameCount, m_scene);
+	m_guiRenderer->render(cmd, m_options, m_scene);
 	vkCmdEndRenderPass(cmd);
 }
 
@@ -693,3 +602,75 @@ void Renderer::transferImageLayout( VkCommandBuffer cmd, Texture* texture, VkIma
 }
 
 
+
+void Renderer::uploadSceneToGPU() {
+	m_instanceGPU.clear();
+	m_areaLightGPU.clear();
+
+	for (auto& object : m_scene.objects) {
+		glm::mat4 transform = glm::mat4(1.0f);
+		transform = glm::translate(transform, object.position);
+		transform = glm::rotate(transform, glm::radians(object.rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+		transform = glm::rotate(transform, glm::radians(object.rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+		transform = glm::rotate(transform, glm::radians(object.rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+		transform = glm::scale(transform, object.scale);
+
+		for (int i = 0; i < m_models[object.modelIndex].mesh.size(); i++) {
+			InstanceGPU instance;
+			instance.transform = transform;
+			instance.meshIndex = m_models[object.modelIndex].mesh[i];
+			instance.vertexAddress = m_meshes[instance.meshIndex]->getVertexBuffer()->getDeviceAddress();
+			instance.indexAddress = m_meshes[instance.meshIndex]->getIndexBuffer()->getDeviceAddress();
+			if (object.overrideMaterialIndex != -1) {
+				instance.materialIndex = m_models[object.overrideMaterialIndex].material[0];
+			}
+			else {
+				instance.materialIndex = m_models[object.modelIndex].material[i];
+			}
+			m_instanceGPU.push_back(instance);
+		}
+	}
+
+	for (auto& areaLight : m_scene.areaLights) {
+		AreaLightGPU areaLightGPU;
+		areaLightGPU.color = areaLight.color;
+		areaLightGPU.intensity = areaLight.intensity;
+
+		areaLightGPU.area = areaLight.scale.x * areaLight.scale.y;
+
+		InstanceGPU instance;
+		glm::mat4 transform = glm::mat4(1.0f);
+		transform = glm::translate(transform, areaLight.position);
+		transform = glm::rotate(transform, glm::radians(areaLight.rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+		transform = glm::rotate(transform, glm::radians(areaLight.rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+		transform = glm::rotate(transform, glm::radians(areaLight.rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+		transform = glm::scale(transform, areaLight.scale);
+
+		auto toWorld = [&](const glm::vec3& p) {
+			return glm::vec3(transform * glm::vec4(p, 1.0f));
+		};
+
+		areaLightGPU.p0 = toWorld(glm::vec3(-0.5f, -0.5f, 0.0f));
+		areaLightGPU.p1 = toWorld(glm::vec3( 0.5f, -0.5f, 0.0f));
+		areaLightGPU.p2 = toWorld(glm::vec3( 0.5f,  0.5f, 0.0f));
+		areaLightGPU.p3 = toWorld(glm::vec3(-0.5f,  0.5f, 0.0f));
+		
+		instance.transform = transform;
+
+		glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(transform)));
+		areaLightGPU.normal = glm::normalize(normalMatrix * glm::vec3(0.0f, 0.0f, 1.0f));
+
+
+		instance.meshIndex = m_models[0].mesh[0];
+		instance.vertexAddress = m_meshes[instance.meshIndex]->getVertexBuffer()->getDeviceAddress();
+		instance.indexAddress = m_meshes[instance.meshIndex]->getIndexBuffer()->getDeviceAddress();
+		instance.materialIndex = -1;
+		m_areaLightGPU.push_back(areaLightGPU);
+		instance.lightIndex = m_areaLightGPU.size() - 1;
+
+
+		m_instanceGPU.push_back(instance);
+	}
+
+	m_options.lightCount = m_scene.areaLights.size();
+}

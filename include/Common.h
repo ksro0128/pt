@@ -121,7 +121,7 @@ struct Vertex {
 	glm::vec3 pos;     float _pad0 = 0.0f;
 	glm::vec3 normal;  float _pad1 = 0.0f;
 	glm::vec2 texCoord; glm::vec2 _pad2 = glm::vec2(0.0f);
-	glm::vec3 tangent; float _pad3 = 0.0f;
+	glm::vec4 tangent;
 
 	// 정점 데이터가 전달되는 방법을 알려주는 구조체 반환하는 함수
 	static VkVertexInputBindingDescription getBindingDescription() {

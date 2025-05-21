@@ -1,4 +1,9 @@
 #include "include/Renderer.h"
+#define TINYGLTF_IMPLEMENTATION
+// #define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <tiny_gltf.h>
+
 
 void Renderer::loadGLTFModel(const std::string& path) {
     Assimp::Importer importer;
@@ -66,10 +71,17 @@ std::unique_ptr<Mesh> Renderer::processMesh(aiMesh* mesh) {
 		else
 			vertex.texCoord = glm::vec2(0.0f);
 
-		if (mesh->HasTangentsAndBitangents())
-			vertex.tangent = glm::vec3(mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z);
-		else
-			vertex.tangent = glm::vec3(0.0f);
+		if (mesh->HasTangentsAndBitangents()) {
+			glm::vec3 tangent = glm::vec3(mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z);
+			glm::vec3 bitangent = glm::vec3(mesh->mBitangents[i].x, mesh->mBitangents[i].y, mesh->mBitangents[i].z);
+			glm::vec3 normal = vertex.normal;
+
+			float w = glm::dot(glm::cross(normal, tangent), bitangent) < 0.0f ? -1.0f : 1.0f;
+			vertex.tangent = glm::vec4(tangent, w);
+		}
+		else {
+			vertex.tangent = glm::vec4(0.0f); // fallback
+		}
 
 		vertices.push_back(vertex);
 	}
@@ -226,4 +238,212 @@ void Renderer::printAllAreaLightInfo() {
 
 		std::cout << "--------------------------------" << std::endl;
 	}
+}
+
+
+void Renderer::loadTinyGLTFModel(const std::string& path) {
+    tinygltf::TinyGLTF loader;
+	tinygltf::Model model;
+	std::string err, warn;
+
+	bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, path); // .gltf
+	// 또는
+	// bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, path); // .glb
+
+	if (!ret)
+		throw std::runtime_error("Failed to load glTF: " + path);
+
+	std::filesystem::path basePath = std::filesystem::path(path).parent_path();
+
+    // 새로운 Model 객체 준비
+    Model newModel;
+    newModel.name = std::filesystem::path(path).filename().string();
+
+    // 중복 머티리얼 체크용 맵
+    std::unordered_map<int, int32_t> materialMap;
+
+    // 루트 노드부터 재귀 순회
+    for (int i = 0; i < model.scenes[model.defaultScene].nodes.size(); ++i) {
+        int nodeIndex = model.scenes[model.defaultScene].nodes[i];
+        processTinyNode(nodeIndex, model, basePath, newModel, materialMap);
+    }
+	m_models.push_back(newModel);
+}
+
+void Renderer::processTinyNode(
+	int nodeIndex,
+	const tinygltf::Model& gltfModel,
+	const std::filesystem::path& basePath,
+	Model& model,
+	std::unordered_map<int, int32_t>& materialMap)
+{
+	const auto& node = gltfModel.nodes[nodeIndex];
+
+	if (node.mesh >= 0) {
+		const auto& mesh = gltfModel.meshes[node.mesh];
+
+		// glTF는 하나의 mesh에 여러 primitive가 있을 수 있음
+		for (const auto& prim : mesh.primitives) {
+			int32_t meshIndex = static_cast<int32_t>(m_meshes.size());
+			auto newMesh = processTinyPrimitive(prim, gltfModel);
+			m_meshes.push_back(std::move(newMesh));
+			model.mesh.push_back(meshIndex);
+
+			int materialIndex;
+			auto it = materialMap.find(prim.material);
+			if (it == materialMap.end()) {
+				auto mat = processTinyMaterial(prim.material, gltfModel, basePath);
+				materialIndex = static_cast<int32_t>(m_materials.size());
+				m_materials.push_back(mat);
+				materialMap[prim.material] = materialIndex;
+			}
+			else {
+				materialIndex = it->second;
+			}
+			model.material.push_back(materialIndex);
+		}
+	}
+
+	for (int child : node.children) {
+		processTinyNode(child, gltfModel, basePath, model, materialMap);
+	}
+}
+
+std::unique_ptr<Mesh> Renderer::processTinyPrimitive(
+	const tinygltf::Primitive& primitive,
+	const tinygltf::Model& model)
+{
+	std::vector<Vertex> vertices;
+	std::vector<uint32_t> indices;
+
+	const auto& posAccessor = model.accessors.at(primitive.attributes.at("POSITION"));
+	const auto& posBufferView = model.bufferViews[posAccessor.bufferView];
+	const auto& posBuffer = model.buffers[posBufferView.buffer];
+
+	const float* posData = reinterpret_cast<const float*>(
+		posBuffer.data.data() + posBufferView.byteOffset + posAccessor.byteOffset);
+
+	// NORMAL (optional)
+	const float* normData = nullptr;
+	if (primitive.attributes.count("NORMAL")) {
+		const auto& normAccessor = model.accessors.at(primitive.attributes.at("NORMAL"));
+		const auto& normView = model.bufferViews[normAccessor.bufferView];
+		const auto& normBuffer = model.buffers[normView.buffer];
+		normData = reinterpret_cast<const float*>(normBuffer.data.data() + normView.byteOffset + normAccessor.byteOffset);
+	}
+
+	// TEXCOORD_0 (optional)
+	const float* uvData = nullptr;
+	if (primitive.attributes.count("TEXCOORD_0")) {
+		const auto& uvAccessor = model.accessors.at(primitive.attributes.at("TEXCOORD_0"));
+		const auto& uvView = model.bufferViews[uvAccessor.bufferView];
+		const auto& uvBuffer = model.buffers[uvView.buffer];
+		uvData = reinterpret_cast<const float*>(uvBuffer.data.data() + uvView.byteOffset + uvAccessor.byteOffset);
+	}
+
+	// TANGENT (optional)
+	// const float* tangentData = nullptr;
+	// if (primitive.attributes.count("TANGENT")) {
+	// 	const auto& tanAccessor = model.accessors.at(primitive.attributes.at("TANGENT"));
+	// 	const auto& tanView = model.bufferViews[tanAccessor.bufferView];
+	// 	const auto& tanBuffer = model.buffers[tanView.buffer];
+	// 	tangentData = reinterpret_cast<const float*>(tanBuffer.data.data() + tanView.byteOffset + tanAccessor.byteOffset);
+	// }
+	const float* tangentData = nullptr;
+	bool hasTangent = false;
+
+	if (primitive.attributes.count("TANGENT")) {
+		const auto& tanAccessor = model.accessors.at(primitive.attributes.at("TANGENT"));
+		const auto& tanView = model.bufferViews[tanAccessor.bufferView];
+		const auto& tanBuffer = model.buffers[tanView.buffer];
+		tangentData = reinterpret_cast<const float*>(tanBuffer.data.data() + tanView.byteOffset + tanAccessor.byteOffset);
+		hasTangent = true;
+	}
+
+	for (size_t i = 0; i < posAccessor.count; ++i) {
+		Vertex v{};
+		v.pos = glm::make_vec3(posData + i * 3);
+		v.normal = normData ? glm::make_vec3(normData + i * 3) : glm::vec3(0);
+		v.texCoord = uvData ? glm::make_vec2(uvData + i * 2) : glm::vec2(0);
+		if (hasTangent) {
+			v.tangent = glm::make_vec4(tangentData + i * 4); // vec4(tangent.xyz, handedness)
+		} else {
+			v.tangent = glm::vec4(0.0f); // fallback
+		}
+		vertices.push_back(v);
+	}
+
+	// Index 처리
+	const auto& indexAccessor = model.accessors[primitive.indices];
+	const auto& indexView = model.bufferViews[indexAccessor.bufferView];
+	const auto& indexBuffer = model.buffers[indexView.buffer];
+	const unsigned char* data = indexBuffer.data.data() + indexView.byteOffset + indexAccessor.byteOffset;
+
+	for (size_t i = 0; i < indexAccessor.count; ++i) {
+		if (indexAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+			indices.push_back(((uint16_t*)data)[i]);
+		}
+		else if (indexAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
+			indices.push_back(((uint32_t*)data)[i]);
+		}
+		else {
+			throw std::runtime_error("Unsupported index component type");
+		}
+	}
+
+	return Mesh::createMesh(m_context.get(), vertices, indices, hasTangent);
+}
+
+
+MaterialGPU Renderer::processTinyMaterial(int materialIndex, const tinygltf::Model& model, const std::filesystem::path& basePath) {
+	MaterialGPU mat{};
+
+	if (materialIndex < 0 || materialIndex >= model.materials.size())
+		return mat;
+
+	const auto& material = model.materials[materialIndex];
+
+	// 텍스처 인덱스만 로드 (속성은 무시)
+	mat.albedoTexIndex = loadTinyTexture(material.pbrMetallicRoughness.baseColorTexture.index, model, basePath, TextureFormatType::ColorSRGB);
+	mat.normalTexIndex = loadTinyTexture(material.normalTexture.index, model, basePath, TextureFormatType::LinearUNORM);
+	mat.metallicTexIndex = loadTinyTexture(material.pbrMetallicRoughness.metallicRoughnessTexture.index, model, basePath, TextureFormatType::LinearUNORM);
+	mat.roughnessTexIndex = mat.metallicTexIndex;
+	mat.aoTexIndex = loadTinyTexture(material.occlusionTexture.index, model, basePath, TextureFormatType::LinearUNORM);
+	mat.emissiveTexIndex = loadTinyTexture(material.emissiveTexture.index, model, basePath, TextureFormatType::ColorSRGB);
+
+	return mat;
+}
+
+int32_t Renderer::loadTinyTexture(int textureIndex, const tinygltf::Model& model, const std::filesystem::path& basePath, TextureFormatType formatType) {
+	if (textureIndex < 0 || textureIndex >= model.textures.size()) return -1;
+
+	const auto& tex = model.textures[textureIndex];
+	const auto& image = model.images[tex.source];
+
+	std::string pathStr;
+
+	if (!image.uri.empty()) {
+		std::filesystem::path fullPath = basePath / image.uri;
+		pathStr = fullPath.string();
+	}
+	else {
+		pathStr = "embedded_" + std::to_string(tex.source);
+	}
+
+	auto it = m_texturePathMap.find(pathStr);
+	if (it != m_texturePathMap.end()) {
+		return it->second;
+	}
+
+	std::unique_ptr<Texture> texture;
+	if (image.uri.empty()) {
+		// texture = Texture::createTextureFromMemory(m_context.get(), image.image.data(), image.image.size(), formatType);
+	}
+	else {
+		texture = Texture::createTexture(m_context.get(), pathStr, formatType);
+	}
+
+	m_textures.push_back(std::move(texture));
+	m_texturePathMap[pathStr] = static_cast<int32_t>(m_textures.size()) - 1;
+	return static_cast<int32_t>(m_textures.size()) - 1;
 }
