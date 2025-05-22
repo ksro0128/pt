@@ -256,14 +256,14 @@ void DescriptorSet::initSet4DescSet(VulkanContext* context, DescriptorSetLayout*
 }
 
 std::unique_ptr<DescriptorSet> DescriptorSet::createSet5DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-	Texture* output, Texture* accum) {
+	Texture* output, Texture* accumPrev, Texture* accumCur) {
 	std::unique_ptr<DescriptorSet> descSet = std::unique_ptr<DescriptorSet>(new DescriptorSet());
-	descSet->initSet5DescSet(context, layout, output, accum);
+	descSet->initSet5DescSet(context, layout, output, accumPrev, accumCur);
 	return descSet;
 }
 
 void DescriptorSet::initSet5DescSet(VulkanContext* context, DescriptorSetLayout* layout,
-	Texture* output, Texture* accum) {
+	Texture* output, Texture* accumPrev, Texture* accumCur) {
 	this->context = context;
 
 	VkDescriptorSetAllocateInfo allocInfo{};
@@ -294,20 +294,35 @@ void DescriptorSet::initSet5DescSet(VulkanContext* context, DescriptorSetLayout*
 	outputWrite.pImageInfo = &outputImageInfo;
 	descriptorWrites.push_back(outputWrite);
 
-	VkDescriptorImageInfo accumImageInfo{};
-	accumImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-	accumImageInfo.imageView = accum->getImageView();
-	accumImageInfo.sampler = VK_NULL_HANDLE;
+	VkDescriptorImageInfo accumPrevImageInfo{};
+	accumPrevImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	accumPrevImageInfo.imageView = accumPrev->getImageView();
+	accumPrevImageInfo.sampler = VK_NULL_HANDLE;
 
-	VkWriteDescriptorSet accumWrite{};
-	accumWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	accumWrite.dstSet = m_descriptorSet;
-	accumWrite.dstBinding = 1;
-	accumWrite.dstArrayElement = 0;
-	accumWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-	accumWrite.descriptorCount = 1;
-	accumWrite.pImageInfo = &accumImageInfo;
-	descriptorWrites.push_back(accumWrite);
+	VkWriteDescriptorSet accumPrevWrite{};
+	accumPrevWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	accumPrevWrite.dstSet = m_descriptorSet;
+	accumPrevWrite.dstBinding = 1;
+	accumPrevWrite.dstArrayElement = 0;
+	accumPrevWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	accumPrevWrite.descriptorCount = 1;
+	accumPrevWrite.pImageInfo = &accumPrevImageInfo;
+	descriptorWrites.push_back(accumPrevWrite);
+
+	VkDescriptorImageInfo accumCurImageInfo{};
+	accumCurImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	accumCurImageInfo.imageView = accumCur->getImageView();
+	accumCurImageInfo.sampler = VK_NULL_HANDLE;
+
+	VkWriteDescriptorSet accumCurWrite{};
+	accumCurWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	accumCurWrite.dstSet = m_descriptorSet;
+	accumCurWrite.dstBinding = 2;
+	accumCurWrite.dstArrayElement = 0;
+	accumCurWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	accumCurWrite.descriptorCount = 1;
+	accumCurWrite.pImageInfo = &accumCurImageInfo;
+	descriptorWrites.push_back(accumCurWrite);
 
 	vkUpdateDescriptorSets(context->getDevice(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 }

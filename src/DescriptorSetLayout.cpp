@@ -183,61 +183,10 @@ std::unique_ptr<DescriptorSetLayout> DescriptorSetLayout::createSet5Layout(Vulka
 	return layout;
 }
 
-// void DescriptorSetLayout::initSet5Layout(VulkanContext* context) {
-// 	this->context = context;
-	
-// 	std::vector<VkDescriptorSetLayoutBinding> bindings(5);
-
-// 	// binding 0: 1spp dir image
-// 	bindings[0].binding = 0;
-// 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-// 	bindings[0].descriptorCount = 1;
-// 	bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-// 	bindings[0].pImmutableSamplers = nullptr;
-
-// 	// binding 1: 1spp indirect image
-// 	bindings[1].binding = 1;
-// 	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-// 	bindings[1].descriptorCount = 1;
-// 	bindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-// 	bindings[1].pImmutableSamplers = nullptr;
-
-// 	// binding 2: dir accum image
-// 	bindings[2].binding = 2;
-// 	bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-// 	bindings[2].descriptorCount = 1;
-// 	bindings[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-// 	bindings[2].pImmutableSamplers = nullptr;
-	
-// 	// binding 3: indirect accum image
-// 	bindings[3].binding = 3;
-// 	bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-// 	bindings[3].descriptorCount = 1;
-// 	bindings[3].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-// 	bindings[3].pImmutableSamplers = nullptr;
-	
-// 	// binding 4: output image
-// 	bindings[4].binding = 4;
-// 	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-// 	bindings[4].descriptorCount = 1;
-// 	bindings[4].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-// 	bindings[4].pImmutableSamplers = nullptr;
-
-// 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
-// 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-// 	layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-// 	layoutInfo.pBindings = bindings.data();
-
-// 	if (vkCreateDescriptorSetLayout(context->getDevice(), &layoutInfo, nullptr, &m_layout) != VK_SUCCESS) {
-// 		throw std::runtime_error("failed to create Set5 descriptor set layout!");
-// 	}
-// }
-
-
 void DescriptorSetLayout::initSet5Layout(VulkanContext* context) {
 	this->context = context;
 	
-	std::vector<VkDescriptorSetLayoutBinding> bindings(2);
+	std::vector<VkDescriptorSetLayoutBinding> bindings(3);
 
 	// binding 0: output image
 	bindings[0].binding = 0;
@@ -246,12 +195,20 @@ void DescriptorSetLayout::initSet5Layout(VulkanContext* context) {
 	bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 	bindings[0].pImmutableSamplers = nullptr;
 
-	// binding 1: accum image
+	// binding 1: accum prev image
 	bindings[1].binding = 1;
 	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	bindings[1].descriptorCount = 1;
 	bindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 	bindings[1].pImmutableSamplers = nullptr;
+
+	// binding 2: accum cur image
+	bindings[2].binding = 2;
+	bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	bindings[2].descriptorCount = 1;
+	bindings[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+	bindings[2].pImmutableSamplers = nullptr;
+
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;

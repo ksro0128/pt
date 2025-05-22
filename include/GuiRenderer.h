@@ -13,7 +13,7 @@ public:
     ~GuiRenderer();
 
     void newFrame();
-    void render(VkCommandBuffer cmd, OptionsGPU& options, Scene& scene);
+    void render(VkCommandBuffer cmd, OptionsGPU& options, Scene& scene, float deltaTime);
     void createViewPortDescriptorSet(std::array<Texture*, 2> textures);
     ImVec2 getViewportSize() const { return m_viewportSize; }
 	bool isBenchmarkRunning() const { return m_benchmarkRunning; }

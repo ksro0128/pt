@@ -48,7 +48,7 @@ private:
 	float m_yaw = -90.0f;
 	float m_pitch = 0.0f;
 	float m_mouseSensitivity = 0.2f;
-	float m_moveSpeed = 5.0f;
+	float m_moveSpeed = 3.0f;
 
 	std::vector<AreaLight> m_areaLights;
 	std::vector<Object> m_objects;
@@ -94,14 +94,15 @@ private:
 	std::unique_ptr<DescriptorSet> m_set2DescSet;
 	std::unique_ptr<DescriptorSet> m_set3DescSet;
 	std::unique_ptr<DescriptorSet> m_set4DescSet;
-	std::unique_ptr<DescriptorSet> m_set5DescSet;
+	std::array<std::unique_ptr<DescriptorSet>, 2> m_set5DescSets;
 
 	// command buffer
 	std::unique_ptr<CommandBuffers> m_commandBuffers;
 
 	// texture
 	std::unique_ptr<Texture> m_outputTexture;
-	std::unique_ptr<Texture> m_accumTexture;
+	std::unique_ptr<Texture> m_accum0Texture;
+	std::unique_ptr<Texture> m_accum1Texture;
 
 	// gui renderer
 	std::unique_ptr<GuiRenderer> m_guiRenderer;
@@ -116,17 +117,19 @@ private:
 
 
 	// record command buffer
-	void recordImGuiCommandBuffer(uint32_t imageIndex);
+	void recordImGuiCommandBuffer(uint32_t imageIndex, float deltaTime);
 	void recordPathTracingCommandBuffer();
 
 
 	// model loading
 	void updateAssets();
-	void loadGLTFModel(const std::string& path);
-	void processNode(aiNode* node, const aiScene* scene, const std::filesystem::path& basePath, Model& model, std::unordered_map<aiMaterial*, int32_t>& materialMap);
-	std::unique_ptr<Mesh> processMesh(aiMesh* mesh);
-	MaterialGPU processMaterial(aiMaterial* aiMat, const aiScene* scene, const std::filesystem::path& basePath);
-	int32_t loadTexture(const aiScene* scene, aiMaterial* aiMat, aiTextureType type, const std::filesystem::path& basePath, TextureFormatType formatType);
+
+	// legacy
+	// void loadGLTFModel(const std::string& path);
+	// void processNode(aiNode* node, const aiScene* scene, const std::filesystem::path& basePath, Model& model, std::unordered_map<aiMaterial*, int32_t>& materialMap);
+	// std::unique_ptr<Mesh> processMesh(aiMesh* mesh);
+	// MaterialGPU processMaterial(aiMaterial* aiMat, const aiScene* scene, const std::filesystem::path& basePath);
+	// int32_t loadTexture(const aiScene* scene, aiMaterial* aiMat, aiTextureType type, const std::filesystem::path& basePath, TextureFormatType formatType);
 
 	// tiny_gltf
 	void loadTinyGLTFModel(const std::string& path);

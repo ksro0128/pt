@@ -22,10 +22,6 @@ void Texture::init(VulkanContext* context, std::string path, TextureFormatType f
 		std::cerr << "failed to create image sampler" << std::endl;
 	}
 	m_format = format;
-
-	std::cout << "imageview: " << m_imageView << std::endl;
-	std::cout << "imageSampler: " << m_sampler << std::endl;
-
 }
 
 Texture::~Texture() {
@@ -33,7 +29,6 @@ Texture::~Texture() {
 }
 
 void Texture::cleanup() {
-	// std::cout << "Texture::cleanup" << std::endl;
 	if (m_sampler != VK_NULL_HANDLE)
 	{
 		vkDestroySampler(context->getDevice(), m_sampler, nullptr);
@@ -102,9 +97,6 @@ void Texture::initDefaultTexture(VulkanContext* context, glm::vec4 color) {
 	}
 
 	m_format = VK_FORMAT_R8G8B8A8_UNORM;
-
-	std::cout << "imageview: " << m_imageView << std::endl;
-	std::cout << "imageSampler: " << m_sampler << std::endl;
 }
 
 std::unique_ptr<Texture> Texture::createAttachmentTexture(VulkanContext* context, uint32_t width,

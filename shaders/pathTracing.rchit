@@ -38,6 +38,11 @@ struct MaterialGPU {
     int roughnessTexIndex;
     int aoTexIndex;
     int emissiveTexIndex;
+
+    int doubleSided;
+    float transmissionFactor;
+    float ior;
+    float pad0;
 };
 
 layout (set = 1, binding = 0) buffer MaterialBuffer {
@@ -215,16 +220,6 @@ void computeHitNormal(inout vec3 N, out vec3 pos) {
         if (mat.normalTexIndex < 0) {
             N = normalize(normalMatrix * localNormal);
         } else {
-            // vec3 tangent = normalize(v0.tangent * w + v1.tangent * u + v2.tangent * v);
-            // vec2 uv = v0.texCoord * w + v1.texCoord * u + v2.texCoord * v;
-            // vec3 bitangent = normalize(cross(localNormal, tangent));
-
-            // vec3 nTex = texture(textures[nonuniformEXT(mat.normalTexIndex)], uv).rgb;
-            // vec3 nTS = normalize(nTex * 2.0 - 1.0);
-
-            // mat3 TBN = mat3(tangent, bitangent, localNormal);
-            // vec3 normalObject = normalize(TBN * nTS);
-            // N = normalize(normalMatrix * normalObject);
             vec4 tangent4 = v0.tangent * w + v1.tangent * u + v2.tangent * v;
             vec3 tangent = normalize(tangent4.xyz);
             float handedness = tangent4.w;
@@ -238,11 +233,13 @@ void computeHitNormal(inout vec3 N, out vec3 pos) {
             mat3 TBN = mat3(tangent, bitangent, localNormal);
             vec3 normalObject = normalize(TBN * nTS);
             N = normalize(normalMatrix * normalObject);
+
+        }
+        if (mat.doubleSided != 0 && dot(N, gl_WorldRayDirectionEXT) > 0.0) {
+            N = normalize(-N);
         }
     }
-    if (dot(N, gl_WorldRayDirectionEXT) > 0.0) {
-        N = normalize(-N);
-    }
+
     pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
 }
 
@@ -399,21 +396,92 @@ bool isproblem(vec3 v) {
     return any(isnan(v)) || any(isinf(v));
 }
 
+// void sampleIndirect(in vec3 N, in vec3 P, in vec3 wo, in MaterialGPU mat)
+// {
+//     // Kd, F0, probSpec 계산
+//     vec3 Kd = mat.baseColor.rgb * (1.0 - mat.metallic);
+//     vec3 F0 = mix(vec3(0.04), mat.baseColor.rgb, mat.metallic);
+//     float probSpec = max(max(F0.r, F0.g), F0.b);
 
-void sampleIndirect(in vec3 N, in vec3 P, in vec3 wo, in vec3 Kd, in float roughness, in float metallic, in vec3 F0, in float probSpec)
+//     int sampledSpecular = rand(payload.seed) < probSpec ? 1 : 0;
+
+//     vec3 H = vec3(0.0);
+//     vec3 wi = vec3(0.0);
+
+//     if (sampledSpecular != 0) {
+//         vec2 Xi = sample2D(payload.seed);
+//         H = importanceSampleGGX(Xi, N, mat.roughness);
+//         wi = normalize(reflect(-wo, H));
+//     } else {
+//         vec3 localWi = cosineSampleHemisphere(payload.seed);
+//         wi = normalize(toWorld(localWi, N));
+//         H = normalize(wo + wi);
+//     }
+
+//     float NdotL = max(dot(N, wi), 0.001);
+//     float NdotV = max(dot(N, wo), 0.001);
+//     float NdotH = max(dot(N, H), 0.001);
+//     float VdotH = max(dot(wo, H), 0.001);
+
+//     if (sampledSpecular == 1 && dot(wo, N) * dot(wi, N) < 0.0) {
+//         payload.terminated = 1;
+//         return;
+//     }
+
+//     float D = distributionGGX(N, H, mat.roughness);
+//     float G = geometrySmith(N, wo, wi, mat.roughness);
+//     vec3 F = fresnelSchlick(VdotH, F0);
+
+//     vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.001);
+//     vec3 diffusef = Kd / PI;
+
+//     float pdf_diff = NdotL / PI * (1.0 - probSpec);
+//     float pdf_spec = D * NdotH / (4.0 * VdotH + 0.001) * probSpec;
+
+//     float sumPdf = pdf_diff + pdf_spec;
+//     float misWeight = (sampledSpecular != 0) ? (pdf_spec / sumPdf) : (pdf_diff / sumPdf);
+
+//     vec3 f = (sampledSpecular != 0) ? specularf * misWeight : diffusef * misWeight;
+//     float pdf = (sampledSpecular != 0) ? pdf_spec : pdf_diff;
+
+//     payload.beta *= f * NdotL / max(pdf, 0.001);
+//     payload.nextOrigin = P + wi * 0.0001;
+//     payload.nextDir = wi;
+//     payload.terminated = 0;
+//     payload.pdf = pdf;
+// }
+
+bool refract(vec3 wo, vec3 n, float eta, out vec3 wt) {
+    float cosThetaI = dot(n, wo);
+    float sin2ThetaI = max(0.0, 1.0 - cosThetaI * cosThetaI);
+    float sin2ThetaT = eta * eta * sin2ThetaI;
+    if (sin2ThetaT >= 1.0) return false; // TIR
+    float cosThetaT = sqrt(1.0 - sin2ThetaT);
+    wt = eta * -wo + (eta * cosThetaI - cosThetaT) * n;
+    return true;
+}
+
+void sampleIndirect(in vec3 N, in vec3 P, in vec3 wo, in MaterialGPU mat)
 {
-    int sampledSpecular = rand(payload.seed) < probSpec ? 1 : 0;
+    vec3 baseColor = mat.baseColor.rgb;
+    vec3 Kd = baseColor * (1.0 - mat.metallic);
+    vec3 F0 = mix(vec3(0.04), baseColor, mat.metallic);
+    float probSpec = max(max(F0.r, F0.g), F0.b);
 
     vec3 H = vec3(0.0);
     vec3 wi = vec3(0.0);
+    vec3 f = vec3(0.0);
+    float pdf = 1.0;
+    
+    int sampledSpecular = rand(payload.seed) < probSpec ? 1 : 0;
+
     if (sampledSpecular != 0) {
         vec2 Xi = sample2D(payload.seed);
-        H = importanceSampleGGX(Xi, N, roughness);
+        H = importanceSampleGGX(Xi, N, mat.roughness);
         wi = normalize(reflect(-wo, H));
     } else {
         vec3 localWi = cosineSampleHemisphere(payload.seed);
-        wi = toWorld(localWi, N);
-        wi = normalize(wi);
+        wi = normalize(toWorld(localWi, N));
         H = normalize(wo + wi);
     }
 
@@ -427,46 +495,50 @@ void sampleIndirect(in vec3 N, in vec3 P, in vec3 wo, in vec3 Kd, in float rough
         return;
     }
 
-    float D = distributionGGX(N, H, roughness);
-    float G = geometrySmith(N, wo, wi, roughness);
-    vec3 F  = fresnelSchlick(VdotH, F0);
+    float D = distributionGGX(N, H, mat.roughness);
+    float G = geometrySmith(N, wo, wi, mat.roughness);
+    vec3 F_refl = fresnelSchlick(VdotH, F0);
 
-    vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.001);
+    vec3 specularf = (D * G * F_refl) / max(4.0 * NdotV * NdotL, 1e-4);
     vec3 diffusef = Kd / PI;
 
-    float pdf_diff = NdotL / PI * (1 - probSpec);
-    float pdf_spec = D * NdotH / (4.0 * VdotH + 0.001) * probSpec;
+    float pdf_diff = NdotL / PI * (1.0 - probSpec);
+    float pdf_spec = D * NdotH / (4.0 * VdotH + 1e-4) * probSpec;
 
     float sumPdf = pdf_diff + pdf_spec;
     float misWeight = (sampledSpecular != 0) ? (pdf_spec / sumPdf) : (pdf_diff / sumPdf);
 
-    vec3 f = (sampledSpecular != 0) ? specularf * misWeight : diffusef * misWeight;
-    float pdf = (sampledSpecular != 0) ? pdf_spec : pdf_diff;
+    f = (sampledSpecular != 0) ? specularf * misWeight : diffusef * misWeight;
+    pdf = (sampledSpecular != 0) ? pdf_spec : pdf_diff;
 
-    payload.beta *= f * NdotL / max(pdf, 0.001);
-    payload.nextOrigin = P + wi * 0.0001;
+    payload.beta *= f * NdotL / max(pdf, 1e-4);
+    payload.nextOrigin = P + wi * 0.001;
     payload.nextDir = wi;
     payload.terminated = 0;
     payload.pdf = pdf;
 }
 
-void sampleDirect(in vec3 N, in vec3 P, in vec3 wo, in vec3 Kd, in float roughness, in float metallic, in vec3 F0, in float probSpec) {
+
+void sampleDirect(in vec3 N, in vec3 P, in vec3 wo, in MaterialGPU mat)
+{
+    vec3 Kd = mat.baseColor.rgb * (1.0 - mat.metallic);
+    vec3 F0 = mix(vec3(0.04), mat.baseColor.rgb, mat.metallic);
+    float probSpec = max(max(F0.r, F0.g), F0.b);
+
+    // Light sampling
     int lightIdx = int(mod(rand(payload.seed) * float(options.lightCount), float(options.lightCount)));
     AreaLightGPU light = areaLights[lightIdx];
 
+    // sample point on quad (light.p0~p3)
     float u = rand(payload.seed);
     float v = rand(payload.seed);
     vec3 sampledPos;
     if (u + v <= 1.0) {
-        sampledPos = light.p0 * (1.0 - u - v)
-                   + light.p1 * u
-                   + light.p2 * v;
+        sampledPos = light.p0 * (1.0 - u - v) + light.p1 * u + light.p2 * v;
     } else {
         u = 1.0 - u;
         v = 1.0 - v;
-        sampledPos = light.p2 * (1.0 - u - v)
-                   + light.p3 * u
-                   + light.p0 * v;
+        sampledPos = light.p2 * (1.0 - u - v) + light.p3 * u + light.p0 * v;
     }
 
     vec3 lightNormal = normalize(light.normal);
@@ -480,43 +552,82 @@ void sampleDirect(in vec3 N, in vec3 P, in vec3 wo, in vec3 Kd, in float roughne
     float solidAnglePdf = dist2 / (cosTheta + 0.001) * areaPdf;
     float L_pdf = solidAnglePdf / float(options.lightCount);
 
+    // Shadow test
     isShadowed = true;
-    traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT,
-        0xFF, 0, 0, 1, P + N * 0.0001, 0.0001, L_wi, dist * 0.99, 1);
+    traceRayEXT(topLevelAS, 
+        gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT,
+        0xFF, 0, 0, 1, 
+        P + N * 0.0001, 0.0001, L_wi, dist * 0.99, 1);
 
-    if (isShadowed || dot(L_wi, N) < 0.0  || L_pdf <= 0.0) {
-        return ;
+    if (isShadowed || dot(L_wi, N) < 0.0 || L_pdf <= 0.0)
+        return;
+
+    // BRDF evaluation
+    int sampledSpecular = rand(payload.seed) < probSpec ? 1 : 0;
+    vec3 H = normalize(wo + L_wi);
+
+    float NdotL = max(dot(N, L_wi), 0.001);
+    float NdotV = max(dot(N, wo), 0.001);
+    float NdotH = max(dot(N, H), 0.001);
+    float VdotH = max(dot(wo, H), 0.001);
+
+    float D = distributionGGX(N, H, mat.roughness);
+    float G = geometrySmith(N, wo, L_wi, mat.roughness);
+    vec3 F  = fresnelSchlick(VdotH, F0);
+
+    vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.001);
+    vec3 diffusef = Kd / PI;
+
+    float pdf_diff = NdotL / PI * (1.0 - probSpec);
+    float pdf_spec = D * NdotH / (4.0 * VdotH + 0.001) * probSpec;
+
+    float sumPdf = pdf_diff + pdf_spec;
+    float misWeight = (sampledSpecular != 0) ? (pdf_spec / sumPdf) : (pdf_diff / sumPdf);
+
+    vec3 f = (sampledSpecular != 0) ? specularf * misWeight : diffusef * misWeight;
+    float pdfBRDF = (sampledSpecular != 0) ? pdf_spec : pdf_diff;
+
+    // Final contribution with MIS weight
+    vec3 direct = (f * light.color * light.intensity * NdotL) / L_pdf;
+    float w = L_pdf / (L_pdf + pdfBRDF);
+    payload.L += payload.beta * direct * w;
+}
+
+MaterialGPU copyMaterial(MaterialGPU mat, vec2 uv) {
+    MaterialGPU result = mat;
+
+    // baseColor (albedo)
+    if (mat.albedoTexIndex >= 0) {
+        vec3 texColor = texture(textures[nonuniformEXT(mat.albedoTexIndex)], uv).rgb;
+        result.baseColor.rgb *= texColor;
     }
-    else {
-        int sampledSpecular = rand(payload.seed) < probSpec ? 1 : 0;
-        vec3 H = normalize(wo + L_wi);
 
-        float NdotL = max(dot(N, L_wi), 0.001);
-        float NdotV = max(dot(N, wo), 0.001);
-        float NdotH = max(dot(N, H), 0.001);
-        float VdotH = max(dot(wo, H), 0.001);
+    // roughness
+    if (mat.roughnessTexIndex >= 0) {
+        float texRough = texture(textures[nonuniformEXT(mat.roughnessTexIndex)], uv).g;
+        result.roughness *= texRough;
+    }
+    result.roughness = max(result.roughness, 0.04);
 
-        float D = distributionGGX(N, H, roughness);
-        float G = geometrySmith(N, wo, L_wi, roughness);
-        vec3 F  = fresnelSchlick(VdotH, F0);
-
-        vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.001);
-        vec3 diffusef = Kd / PI;
-
-        float pdf_diff = NdotL / PI * (1 - probSpec);
-        float pdf_spec = D * NdotH / (4.0 * VdotH + 0.001) * probSpec;
-
-        float sumPdf = pdf_diff + pdf_spec;
-        float misWeight = (sampledSpecular != 0) ? (pdf_spec / sumPdf) : (pdf_diff / sumPdf);
-
-        vec3 f = (sampledSpecular != 0) ? specularf * misWeight : diffusef * misWeight;
-        float pdfBRDF = (sampledSpecular != 0) ? pdf_spec : pdf_diff;
-
-        vec3 direct = (f * light.color * light.intensity * NdotL) / L_pdf;
-        float w = L_pdf / (L_pdf + pdfBRDF);
-        payload.L += payload.beta * direct * w; 
+    // metallic
+    if (mat.metallicTexIndex >= 0) {
+        float texMetallic = texture(textures[nonuniformEXT(mat.metallicTexIndex)], uv).b;
+        result.metallic *= texMetallic;
     }
 
+    // AO
+    if (mat.aoTexIndex >= 0) {
+        float texAO = texture(textures[nonuniformEXT(mat.aoTexIndex)], uv).r;
+        result.ao *= texAO;
+    }
+
+    // emissive
+    if (mat.emissiveTexIndex >= 0) {
+        vec3 texEmissive = texture(textures[nonuniformEXT(mat.emissiveTexIndex)], uv).rgb;
+        result.emissiveFactor *= texEmissive;
+    }
+
+    return result;
 }
 
 void main() {
@@ -555,54 +666,28 @@ void main() {
 
         float w = L_pdf / (L_pdf + payload.pdf);
 
-        payload.L = light.color * light.intensity * payload.beta * w;
+        // payload.L = light.color * light.intensity * payload.beta * w;
+        payload.L = light.color * light.intensity * payload.beta;
         payload.terminated = 1;
         return;
     }
 
-    if (dot(N, wo) < 0) {
-        payload.terminated = 1;
-        return ;
-    }
+    // if (dot(N, wo) < 0) {
+    //     payload.terminated = 1;
+    //     return ;
+    // }
 
     int matIdx = instance.materialIndex;
     MaterialGPU mat = materials[matIdx];
 
 
-    vec3 Kd = mat.baseColor.rgb;
-    if (mat.albedoTexIndex >= 0) {
-        vec2 uv = getUV();
-        Kd *= texture(textures[nonuniformEXT(mat.albedoTexIndex)], uv).rgb;
-    }
+    vec2 uv = getUV();
+    mat = copyMaterial(mat, uv);
 
-    float roughness = mat.roughness;
-    if (mat.roughnessTexIndex >= 0) {
-        vec2 uv = getUV();
-        roughness *= texture(textures[nonuniformEXT(mat.roughnessTexIndex)], uv).g;
-    }
-    roughness = max(roughness, 0.04);
+    payload.beta *= mat.ao;
 
+    // if (payload.bounce == 0)
+    //     sampleDirect(N, P, wo, mat);
 
-    float metallic = mat.metallic;
-    if (mat.metallicTexIndex >= 0) {
-        vec2 uv = getUV();
-        metallic *= texture(textures[nonuniformEXT(mat.metallicTexIndex)], uv).b;
-    }
-
-    vec3 F0 = mix(vec3(0.04), Kd, metallic);
-    float probSpec = max(max(F0.r, F0.g), F0.b);
-    
-    sampleDirect(N, P, wo, Kd, roughness, metallic, F0, probSpec);
-    
-    float ao = mat.ao;
-    if (mat.aoTexIndex >= 0) {
-        vec2 uv = getUV();
-        ao *= texture(textures[nonuniformEXT(mat.aoTexIndex)], uv).r;
-    }
-    payload.beta *= ao;
-    
-    
-    
-    sampleIndirect(N, P, wo, Kd, roughness, metallic, F0, probSpec);
-
+    sampleIndirect(N, P, wo, mat);
 }

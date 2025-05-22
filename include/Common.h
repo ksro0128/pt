@@ -177,17 +177,24 @@ struct Model {
 
 struct alignas(16) MaterialGPU {
 	glm::vec4 baseColor = glm::vec4(1.0f);
+
 	glm::vec3 emissiveFactor = glm::vec3(0.0f);
 	float roughness = 0.5f;
+	
 	float metallic = 0.04f;
 	float ao = 1.0f;
-
 	int albedoTexIndex = -1;
 	int normalTexIndex = -1;
+	
 	int metallicTexIndex = -1;
 	int roughnessTexIndex = -1;
 	int aoTexIndex = -1;
 	int emissiveTexIndex = -1;
+
+	int doubleSided = 0;
+	float transmissionFactor = 0.0f;
+	float ior = 1.5f;
+	float padding = 0.0f;
 };
 
 struct ObjectInstance {
@@ -213,7 +220,7 @@ struct alignas(16) CameraGPU {
 struct alignas(16) OptionsGPU {
 	int frameCount = 0;
 	int maxSpp = 99999;
-	int currentSpp = 0;
+	int currentSpp = -1;
 	int lightCount = 0;
 };
 

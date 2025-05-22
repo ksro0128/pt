@@ -93,7 +93,7 @@ void GuiRenderer::createDescriptorPool() {
 	}
  }
 
-void GuiRenderer::render(VkCommandBuffer cmd, OptionsGPU& options, Scene &scene) {
+void GuiRenderer::render(VkCommandBuffer cmd, OptionsGPU& options, Scene &scene, float deltaTime) {
     static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -135,6 +135,38 @@ void GuiRenderer::render(VkCommandBuffer cmd, OptionsGPU& options, Scene &scene)
     ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
     ImGui::End();
 
+
+	ImGuiWindowFlags statsFlags =
+		ImGuiWindowFlags_NoTitleBar |
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoSavedSettings |
+		ImGuiWindowFlags_NoFocusOnAppearing |
+		ImGuiWindowFlags_NoNav |
+		ImGuiWindowFlags_NoBackground;
+
+	ImGui::SetNextWindowBgAlpha(0.35f); // 반투명
+	ImVec2 windowSize = ImVec2(140, 120);
+	ImVec2 windowPos = ImVec2(
+		viewport->WorkPos.x + viewport->WorkSize.x - windowSize.x - 20.0f,
+		viewport->WorkPos.y + 50.0f
+	);
+
+	ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always);
+	ImGui::SetNextWindowSize(windowSize, ImGuiCond_Always);
+
+	ImGui::Begin("Stats", nullptr, statsFlags);
+	ImGui::Text("Res: %d x %d", (int)m_viewportSize.x, (int)m_viewportSize.y);
+	ImGui::Text("Frame: %.2f ms", deltaTime * 1000.0f);
+	ImGui::Text("FPS: %.1f", 1.0f / std::max(deltaTime, 1e-6f));
+	ImGui::Separator();
+	// ImGui::Text("SPP: %d / %d", options.currentSpp, options.maxSpp);
+	ImGui::Text("SPP: %d", options.currentSpp);
+	if (ImGui::DragInt("Max SPP", &options.maxSpp, 1, 1, 99999)) {
+		options.currentSpp = -1;
+	}
+	ImGui::End();
+
     // Viewport 창
     ImGui::Begin("Viewport");
     m_viewportSize = ImGui::GetContentRegionAvail();
@@ -149,8 +181,11 @@ void GuiRenderer::render(VkCommandBuffer cmd, OptionsGPU& options, Scene &scene)
 	for (auto& obj : scene.objects) {
 		std::string label = "Object " + std::to_string(index);
 		if (ImGui::TreeNode(label.c_str())) {
-			if (ImGui::Combo("Model", &obj.modelIndex, m_modelNames.data(), m_modelNames.size()) |
-				ImGui::Combo("Override Material", &obj.overrideMaterialIndex, m_modelNames.data(), m_modelNames.size()) |
+			if (ImGui::Combo("Model", &obj.modelIndex, m_modelNames.data(), m_modelNames.size())) {
+				obj.overrideMaterialIndex = -1;
+				scene.isDirty = true;
+			}
+			if (ImGui::Combo("Override Material", &obj.overrideMaterialIndex, m_modelNames.data(), m_modelNames.size()) |
 				ImGui::DragFloat3("Position", glm::value_ptr(obj.position), 0.1f) |
 				ImGui::DragFloat3("Rotation", glm::value_ptr(obj.rotation), 1.0f) |
 				ImGui::DragFloat3("Scale",    glm::value_ptr(obj.scale),    0.1f)) {

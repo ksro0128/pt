@@ -5,163 +5,163 @@
 #include <tiny_gltf.h>
 
 
-void Renderer::loadGLTFModel(const std::string& path) {
-    Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(path,
-        aiProcess_Triangulate |
-        aiProcess_FlipUVs |
-        // aiProcess_CalcTangentSpace |
-        aiProcess_JoinIdenticalVertices);
+// void Renderer::loadGLTFModel(const std::string& path) {
+//     Assimp::Importer importer;
+//     const aiScene* scene = importer.ReadFile(path,
+//         aiProcess_Triangulate |
+//         aiProcess_FlipUVs |
+//         // aiProcess_CalcTangentSpace |
+//         aiProcess_JoinIdenticalVertices);
 
-    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
-        throw std::runtime_error("Failed to load glTF: " + path);
+//     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
+//         throw std::runtime_error("Failed to load glTF: " + path);
 
-    std::filesystem::path basePath = std::filesystem::path(path).parent_path();
+//     std::filesystem::path basePath = std::filesystem::path(path).parent_path();
 
-	std::unordered_map<aiMaterial*, int32_t> materialMap;
+// 	std::unordered_map<aiMaterial*, int32_t> materialMap;
 
-    Model model;
-	model.name = std::filesystem::path(path).filename().string();
-    processNode(scene->mRootNode, scene, basePath, model, materialMap);
-    m_models.push_back(model);
-}
+//     Model model;
+// 	model.name = std::filesystem::path(path).filename().string();
+//     processNode(scene->mRootNode, scene, basePath, model, materialMap);
+//     m_models.push_back(model);
+// }
 
-void Renderer::processNode(aiNode* node, const aiScene* scene, const std::filesystem::path& basePath, Model& model, std::unordered_map<aiMaterial*, int32_t>& materialMap) {
+// void Renderer::processNode(aiNode* node, const aiScene* scene, const std::filesystem::path& basePath, Model& model, std::unordered_map<aiMaterial*, int32_t>& materialMap) {
     
-	for (unsigned int i = 0; i < node->mNumMeshes; ++i) {
-        aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-        auto newMesh = processMesh(mesh);
-        int32_t meshIndex = static_cast<int32_t>(m_meshes.size());
-        m_meshes.push_back(std::move(newMesh));
-        model.mesh.push_back(meshIndex);
+// 	for (unsigned int i = 0; i < node->mNumMeshes; ++i) {
+//         aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+//         auto newMesh = processMesh(mesh);
+//         int32_t meshIndex = static_cast<int32_t>(m_meshes.size());
+//         m_meshes.push_back(std::move(newMesh));
+//         model.mesh.push_back(meshIndex);
 
-        aiMaterial* aiMat = scene->mMaterials[mesh->mMaterialIndex];
-		auto it = materialMap.find(aiMat);
-		int32_t materialIndex;
-		if (it == materialMap.end()) {
-			auto mat = processMaterial(aiMat, scene, basePath);
-			materialIndex = static_cast<int32_t>(m_materials.size());
-			m_materials.push_back(mat);
-			materialMap[aiMat] = materialIndex;
-		}
-		else {
-			materialIndex = it->second;
-		}
-        model.material.push_back(materialIndex);
-    }
+//         aiMaterial* aiMat = scene->mMaterials[mesh->mMaterialIndex];
+// 		auto it = materialMap.find(aiMat);
+// 		int32_t materialIndex;
+// 		if (it == materialMap.end()) {
+// 			auto mat = processMaterial(aiMat, scene, basePath);
+// 			materialIndex = static_cast<int32_t>(m_materials.size());
+// 			m_materials.push_back(mat);
+// 			materialMap[aiMat] = materialIndex;
+// 		}
+// 		else {
+// 			materialIndex = it->second;
+// 		}
+//         model.material.push_back(materialIndex);
+//     }
 
-    for (unsigned int i = 0; i < node->mNumChildren; ++i) {
-        processNode(node->mChildren[i], scene, basePath, model, materialMap);
-    }
-}
+//     for (unsigned int i = 0; i < node->mNumChildren; ++i) {
+//         processNode(node->mChildren[i], scene, basePath, model, materialMap);
+//     }
+// }
 
 
-std::unique_ptr<Mesh> Renderer::processMesh(aiMesh* mesh) {
-    std::vector<Vertex> vertices;
-	std::vector<uint32_t> indices;
+// std::unique_ptr<Mesh> Renderer::processMesh(aiMesh* mesh) {
+//     std::vector<Vertex> vertices;
+// 	std::vector<uint32_t> indices;
 
-	for (unsigned int i = 0; i < mesh->mNumVertices; ++i)
-	{
-		Vertex vertex{};
-		vertex.pos = glm::vec3(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
-		vertex.normal = glm::vec3(mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z);
+// 	for (unsigned int i = 0; i < mesh->mNumVertices; ++i)
+// 	{
+// 		Vertex vertex{};
+// 		vertex.pos = glm::vec3(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
+// 		vertex.normal = glm::vec3(mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z);
 
-		if (mesh->HasTextureCoords(0))
-			vertex.texCoord = glm::vec2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y);
-		else
-			vertex.texCoord = glm::vec2(0.0f);
+// 		if (mesh->HasTextureCoords(0))
+// 			vertex.texCoord = glm::vec2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y);
+// 		else
+// 			vertex.texCoord = glm::vec2(0.0f);
 
-		if (mesh->HasTangentsAndBitangents()) {
-			glm::vec3 tangent = glm::vec3(mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z);
-			glm::vec3 bitangent = glm::vec3(mesh->mBitangents[i].x, mesh->mBitangents[i].y, mesh->mBitangents[i].z);
-			glm::vec3 normal = vertex.normal;
+// 		if (mesh->HasTangentsAndBitangents()) {
+// 			glm::vec3 tangent = glm::vec3(mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z);
+// 			glm::vec3 bitangent = glm::vec3(mesh->mBitangents[i].x, mesh->mBitangents[i].y, mesh->mBitangents[i].z);
+// 			glm::vec3 normal = vertex.normal;
 
-			float w = glm::dot(glm::cross(normal, tangent), bitangent) < 0.0f ? -1.0f : 1.0f;
-			vertex.tangent = glm::vec4(tangent, w);
-		}
-		else {
-			vertex.tangent = glm::vec4(0.0f); // fallback
-		}
+// 			float w = glm::dot(glm::cross(normal, tangent), bitangent) < 0.0f ? -1.0f : 1.0f;
+// 			vertex.tangent = glm::vec4(tangent, w);
+// 		}
+// 		else {
+// 			vertex.tangent = glm::vec4(0.0f); // fallback
+// 		}
 
-		vertices.push_back(vertex);
-	}
+// 		vertices.push_back(vertex);
+// 	}
 
-	for (unsigned int i = 0; i < mesh->mNumFaces; ++i)
-	{
-		const aiFace& face = mesh->mFaces[i];
-		for (unsigned int j = 0; j < face.mNumIndices; ++j)
-			indices.push_back(face.mIndices[j]);
-	}
+// 	for (unsigned int i = 0; i < mesh->mNumFaces; ++i)
+// 	{
+// 		const aiFace& face = mesh->mFaces[i];
+// 		for (unsigned int j = 0; j < face.mNumIndices; ++j)
+// 			indices.push_back(face.mIndices[j]);
+// 	}
 
-	return Mesh::createMesh(m_context.get(), vertices, indices);
-}
+// 	return Mesh::createMesh(m_context.get(), vertices, indices);
+// }
 
-MaterialGPU Renderer::processMaterial(aiMaterial* aiMat, const aiScene* scene, const std::filesystem::path& basePath) {
-    MaterialGPU mat{};
+// MaterialGPU Renderer::processMaterial(aiMaterial* aiMat, const aiScene* scene, const std::filesystem::path& basePath) {
+//     MaterialGPU mat{};
 
-    mat.albedoTexIndex = loadTexture(scene, aiMat, aiTextureType_BASE_COLOR, basePath, TextureFormatType::ColorSRGB);
-    mat.normalTexIndex = loadTexture(scene, aiMat, aiTextureType_NORMALS, basePath, TextureFormatType::LinearUNORM);
-    mat.metallicTexIndex = loadTexture(scene, aiMat, aiTextureType_METALNESS, basePath, TextureFormatType::LinearUNORM);
-    mat.roughnessTexIndex = loadTexture(scene, aiMat, aiTextureType_DIFFUSE_ROUGHNESS, basePath, TextureFormatType::LinearUNORM);
-    mat.aoTexIndex = loadTexture(scene, aiMat, aiTextureType_AMBIENT_OCCLUSION, basePath, TextureFormatType::LinearUNORM);
-    mat.emissiveTexIndex = loadTexture(scene, aiMat, aiTextureType_EMISSIVE, basePath, TextureFormatType::ColorSRGB);
+//     mat.albedoTexIndex = loadTexture(scene, aiMat, aiTextureType_BASE_COLOR, basePath, TextureFormatType::ColorSRGB);
+//     mat.normalTexIndex = loadTexture(scene, aiMat, aiTextureType_NORMALS, basePath, TextureFormatType::LinearUNORM);
+//     mat.metallicTexIndex = loadTexture(scene, aiMat, aiTextureType_METALNESS, basePath, TextureFormatType::LinearUNORM);
+//     mat.roughnessTexIndex = loadTexture(scene, aiMat, aiTextureType_DIFFUSE_ROUGHNESS, basePath, TextureFormatType::LinearUNORM);
+//     mat.aoTexIndex = loadTexture(scene, aiMat, aiTextureType_AMBIENT_OCCLUSION, basePath, TextureFormatType::LinearUNORM);
+//     mat.emissiveTexIndex = loadTexture(scene, aiMat, aiTextureType_EMISSIVE, basePath, TextureFormatType::ColorSRGB);
 
-    float metallic = 0.0f, roughness = 0.5f;
-    aiMat->Get(AI_MATKEY_METALLIC_FACTOR, metallic);
-    aiMat->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
-    mat.metallic = metallic;
-    mat.roughness = roughness;
+//     float metallic = 0.0f, roughness = 0.5f;
+//     aiMat->Get(AI_MATKEY_METALLIC_FACTOR, metallic);
+//     aiMat->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
+//     mat.metallic = metallic;
+//     mat.roughness = roughness;
 
-    aiColor4D baseColor;
-    if (aiMat->Get(AI_MATKEY_BASE_COLOR, baseColor) == AI_SUCCESS)
-        mat.baseColor = glm::vec4(baseColor.r, baseColor.g, baseColor.b, baseColor.a);
+//     aiColor4D baseColor;
+//     if (aiMat->Get(AI_MATKEY_BASE_COLOR, baseColor) == AI_SUCCESS)
+//         mat.baseColor = glm::vec4(baseColor.r, baseColor.g, baseColor.b, baseColor.a);
 
-    aiColor3D emissive;
-    if (aiMat->Get(AI_MATKEY_COLOR_EMISSIVE, emissive) == AI_SUCCESS)
-        mat.emissiveFactor = glm::vec3(emissive.r, emissive.g, emissive.b);
+//     aiColor3D emissive;
+//     if (aiMat->Get(AI_MATKEY_COLOR_EMISSIVE, emissive) == AI_SUCCESS)
+//         mat.emissiveFactor = glm::vec3(emissive.r, emissive.g, emissive.b);
 
-    return mat;
-}
+//     return mat;
+// }
 
-int32_t Renderer::loadTexture(const aiScene* scene, aiMaterial* aiMat, aiTextureType type, const std::filesystem::path& basePath, TextureFormatType formatType) {
-    if (aiMat->GetTextureCount(type) > 0)
-	{
-		aiString texPath;
-		if (aiMat->GetTexture(type, 0, &texPath) == AI_SUCCESS)
-		{
-			std::string texPathStr = texPath.C_Str();
+// int32_t Renderer::loadTexture(const aiScene* scene, aiMaterial* aiMat, aiTextureType type, const std::filesystem::path& basePath, TextureFormatType formatType) {
+//     if (aiMat->GetTextureCount(type) > 0)
+// 	{
+// 		aiString texPath;
+// 		if (aiMat->GetTexture(type, 0, &texPath) == AI_SUCCESS)
+// 		{
+// 			std::string texPathStr = texPath.C_Str();
 			
-			std::filesystem::path fullPath = basePath / texPath.C_Str();
-			std::string pathStr = fullPath.string();
+// 			std::filesystem::path fullPath = basePath / texPath.C_Str();
+// 			std::string pathStr = fullPath.string();
 			
-			auto it = m_texturePathMap.find(pathStr);
-			if (it != m_texturePathMap.end()) {
-				return it->second;
-			}
+// 			auto it = m_texturePathMap.find(pathStr);
+// 			if (it != m_texturePathMap.end()) {
+// 				return it->second;
+// 			}
 
-			std::unique_ptr<Texture> texture = nullptr;
-			if (texPathStr[0] == '*') {
-				int index = std::stoi(texPathStr.substr(1));
+// 			std::unique_ptr<Texture> texture = nullptr;
+// 			if (texPathStr[0] == '*') {
+// 				int index = std::stoi(texPathStr.substr(1));
 
-				const aiTexture* embeddedTex = scene->mTextures[index];
-				if (!embeddedTex) {
-					std::cerr << "Failed to get embedded texture: " << texPathStr << std::endl;
-					return -1;
-				}
-				std::cout << "glb texture" << pathStr << std::endl;
-				texture = Texture::createTextureFromMemory(m_context.get(), embeddedTex, formatType);
-			}
-			else {
-				texture = Texture::createTexture(m_context.get(), fullPath.string(), formatType);
+// 				const aiTexture* embeddedTex = scene->mTextures[index];
+// 				if (!embeddedTex) {
+// 					std::cerr << "Failed to get embedded texture: " << texPathStr << std::endl;
+// 					return -1;
+// 				}
+// 				std::cout << "glb texture" << pathStr << std::endl;
+// 				texture = Texture::createTextureFromMemory(m_context.get(), embeddedTex, formatType);
+// 			}
+// 			else {
+// 				texture = Texture::createTexture(m_context.get(), fullPath.string(), formatType);
 
-			}
-			m_textures.push_back(std::move(texture));
-			m_texturePathMap[pathStr] = static_cast<int32_t>(m_textures.size()) - 1;
-			return static_cast<int32_t>(m_textures.size()) - 1;
-		}
-	}
-	return -1;
-}
+// 			}
+// 			m_textures.push_back(std::move(texture));
+// 			m_texturePathMap[pathStr] = static_cast<int32_t>(m_textures.size()) - 1;
+// 			return static_cast<int32_t>(m_textures.size()) - 1;
+// 		}
+// 	}
+// 	return -1;
+// }
 
 
 void Renderer::printAllModelInfo() {
@@ -342,13 +342,6 @@ std::unique_ptr<Mesh> Renderer::processTinyPrimitive(
 	}
 
 	// TANGENT (optional)
-	// const float* tangentData = nullptr;
-	// if (primitive.attributes.count("TANGENT")) {
-	// 	const auto& tanAccessor = model.accessors.at(primitive.attributes.at("TANGENT"));
-	// 	const auto& tanView = model.bufferViews[tanAccessor.bufferView];
-	// 	const auto& tanBuffer = model.buffers[tanView.buffer];
-	// 	tangentData = reinterpret_cast<const float*>(tanBuffer.data.data() + tanView.byteOffset + tanAccessor.byteOffset);
-	// }
 	const float* tangentData = nullptr;
 	bool hasTangent = false;
 
@@ -402,6 +395,55 @@ MaterialGPU Renderer::processTinyMaterial(int materialIndex, const tinygltf::Mod
 		return mat;
 
 	const auto& material = model.materials[materialIndex];
+
+	// baseColorFactor
+	if (material.pbrMetallicRoughness.baseColorFactor.size() == 4) {
+		mat.baseColor = glm::vec4(
+			static_cast<float>(material.pbrMetallicRoughness.baseColorFactor[0]),
+			static_cast<float>(material.pbrMetallicRoughness.baseColorFactor[1]),
+			static_cast<float>(material.pbrMetallicRoughness.baseColorFactor[2]),
+			static_cast<float>(material.pbrMetallicRoughness.baseColorFactor[3])
+		);
+	}
+
+	// emissiveFactor
+	if (material.emissiveFactor.size() == 3) {
+		mat.emissiveFactor = glm::vec3(
+			static_cast<float>(material.emissiveFactor[0]),
+			static_cast<float>(material.emissiveFactor[1]),
+			static_cast<float>(material.emissiveFactor[2])
+		);
+	}
+
+	// occlusionTexture.strength
+	if (material.occlusionTexture.strength > 0.0) {
+		mat.ao = static_cast<float>(material.occlusionTexture.strength);
+	}
+
+	// transmissionFactor (KHR_materials_transmission)
+	auto extTransmission = material.extensions.find("KHR_materials_transmission");
+	if (extTransmission != material.extensions.end()) {
+		const auto& transmission = extTransmission->second;
+		if (transmission.Has("transmissionFactor")) {
+			mat.transmissionFactor = static_cast<float>(transmission.Get("transmissionFactor").Get<double>());
+		}
+	}
+
+	// ior (KHR_materials_ior)
+	auto extIor = material.extensions.find("KHR_materials_ior");
+	if (extIor != material.extensions.end()) {
+		const auto& ior = extIor->second;
+		if (ior.Has("ior")) {
+			mat.ior = static_cast<float>(ior.Get("ior").Get<double>());
+		}
+	}
+
+
+	mat.doubleSided = material.doubleSided ? 1 : 0;
+
+	mat.roughness = static_cast<float>(material.pbrMetallicRoughness.roughnessFactor);
+	mat.metallic = static_cast<float>(material.pbrMetallicRoughness.metallicFactor);
+
 
 	// 텍스처 인덱스만 로드 (속성은 무시)
 	mat.albedoTexIndex = loadTinyTexture(material.pbrMetallicRoughness.baseColorTexture.index, model, basePath, TextureFormatType::ColorSRGB);

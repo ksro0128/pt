@@ -151,9 +151,7 @@ bool ImageBuffer::init(VulkanContext* context, std::string path, VkFormat format
 	this->context = context;
 
 	int texWidth, texHeight, texChannels;
-	std::cout << "load: " << path << std::endl;
 	stbi_uc* pixels = stbi_load(path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-	std::cout << "done" << std::endl;
 	VkDeviceSize imageSize = texWidth * texHeight * 4;
 
 	if (!pixels) {
@@ -185,7 +183,6 @@ bool ImageBuffer::init(VulkanContext* context, std::string path, VkFormat format
 	vkFreeMemory(context->getDevice(), stagingBufferMemory, nullptr);
 
 	generateMipmaps(m_image, format, texWidth, texHeight, m_mipLevels);
-	std::cout << "create image" << std::endl;
 	return true;
 }
 

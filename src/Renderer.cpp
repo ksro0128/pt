@@ -52,22 +52,21 @@ void Renderer::updateAssets() {
 		m_models.push_back(model);
 	}
 
-
-
-	// loadGLTFModel("assets/boombox_1k/boombox_1k.gltf");
-	// loadGLTFModel("assets/lightbulb_01_1k/lightbulb_01_1k.gltf");
-	// loadGLTFModel("assets/Ukulele_01_1k/Ukulele_01_1k.gltf");
-	// loadGLTFModel("assets/rocky_terrain_03_1k/rocky_terrain_03_1k.gltf");
-	// loadGLTFModel("assets/tree_small_02_1k/tree_small_02_1k.gltf");
-	// loadGLTFModel("assets/ornate_mirror_01_1k/ornate_mirror_01_1k.gltf");
-
-
+	// 3
 	loadTinyGLTFModel("assets/boombox_1k/boombox_1k.gltf");
+	// 4
 	loadTinyGLTFModel("assets/lightbulb_01_1k/lightbulb_01_1k.gltf");
+	// 5
 	loadTinyGLTFModel("assets/Ukulele_01_1k/Ukulele_01_1k.gltf");
+	// 6
 	loadTinyGLTFModel("assets/rocky_terrain_03_1k/rocky_terrain_03_1k.gltf");
+	// 7
 	loadTinyGLTFModel("assets/tree_small_02_1k/tree_small_02_1k.gltf");
+	// 8
 	loadTinyGLTFModel("assets/ornate_mirror_01_1k/ornate_mirror_01_1k.gltf");
+	// 9
+	loadTinyGLTFModel("assets/glass/glass.gltf");
+
 
 
 }
@@ -160,14 +159,23 @@ void Renderer::createScene() {
 		m_scene.areaLights.push_back(areaLight);
 	}
 
+	// {
+	// 	Object object;
+	// 	object.modelIndex = 7;
+	// 	object.overrideMaterialIndex = -1;
+	// 	object.position = glm::vec3(0.0f, -1.0f, 0.0f);
+	// 	object.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
+	// 	object.scale = glm::vec3(0.5f, 0.5f, 0.5f);
+	// 	m_scene.objects.push_back(object);
+	// }
+
 	{
 		Object object;
-		// object.modelIndex = 5;
-		object.modelIndex = 7;
+		object.modelIndex = 4;
 		object.overrideMaterialIndex = -1;
-		object.position = glm::vec3(0.0f, -1.0f, 0.0f);
+		object.position = glm::vec3(0.0f, 0.0f, 0.0f);
 		object.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
-		object.scale = glm::vec3(0.5f, 0.5f, 0.5f);
+		object.scale = glm::vec3(3.0f, 3.0f, 3.0f);
 		m_scene.objects.push_back(object);
 	}
 
@@ -208,13 +216,14 @@ void Renderer::init(GLFWwindow* window) {
 	createScene();
 	uploadSceneToGPU();
 
-	printAllModelInfo();
-	printAllInstanceInfo();
-	printAllAreaLightInfo();
+	// printAllModelInfo();
+	// printAllInstanceInfo();
+	// printAllAreaLightInfo();
 
 	//output texture
 	m_outputTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_accumTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_accum0Texture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_accum1Texture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
 
 	// descriptorset layout
@@ -250,7 +259,8 @@ void Renderer::init(GLFWwindow* window) {
 	m_set2DescSet = DescriptorSet::createSet2DescSet(m_context.get(), m_set2Layout.get(), m_textures);
 	m_set3DescSet = DescriptorSet::createSet3DescSet(m_context.get(), m_set3Layout.get(), m_instanceBuffer.get(), m_areaLightBuffer.get());
 	m_set4DescSet = DescriptorSet::createSet4DescSet(m_context.get(), m_set4Layout.get(), m_tlas->getHandle());
-	m_set5DescSet = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_outputTexture.get(), m_accumTexture.get());
+	m_set5DescSets[0] = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_outputTexture.get(), m_accum0Texture.get(), m_accum1Texture.get());
+	m_set5DescSets[1] = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_outputTexture.get(), m_accum1Texture.get(), m_accum0Texture.get());
 
 	// update buffers
 	m_cameraBuffer->updateUniformBuffer(&m_camera, sizeof(CameraGPU));
@@ -273,8 +283,9 @@ void Renderer::init(GLFWwindow* window) {
 	// transfer image layout
 	auto cmd = VulkanUtil::beginSingleTimeCommands(m_context.get());
 
-	transferImageLayout(cmd, m_outputTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-	transferImageLayout(cmd, m_accumTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_outputTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_accum0Texture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_accum1Texture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
 
 	VulkanUtil::endSingleTimeCommands(m_context.get(), cmd);
 
@@ -336,7 +347,7 @@ void Renderer::update(float deltaTime) {
     }
 
 	if (prevCamera.camPos != m_camera.camPos || prevCamera.camDir != m_camera.camDir) {
-		m_options.currentSpp = 0;
+		m_options.currentSpp = -1;
 	}
 }
 
@@ -362,8 +373,6 @@ void Renderer::render(float deltaTime) {
 		recreateViewport(newExtent);
 	}
 
-
-
 	vkResetFences(m_context->getDevice(), 1, &m_syncObjects->getInFlightFences()[currentFrame]);
 
 	vkResetCommandBuffer(m_commandBuffers->getCommandBuffers()[currentFrame], 0);
@@ -388,10 +397,8 @@ void Renderer::render(float deltaTime) {
 		m_set4DescSet.reset();
 		m_set4DescSet = DescriptorSet::createSet4DescSet(m_context.get(), m_set4Layout.get(), m_tlas->getHandle());
 		m_scene.isDirty = false;
-		m_options.currentSpp = 0;
+		m_options.currentSpp = -1;
 	}
-
-
 
 	m_cameraBuffer->updateUniformBuffer(&m_camera, sizeof(CameraGPU));
 	
@@ -408,7 +415,7 @@ void Renderer::render(float deltaTime) {
 	recordPathTracingCommandBuffer();
 	transferImageLayout(cmd, m_outputTexture.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
-	recordImGuiCommandBuffer(imageIndex);
+	recordImGuiCommandBuffer(imageIndex, deltaTime);
 
 	transferImageLayout(cmd, m_outputTexture.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
@@ -485,7 +492,7 @@ void Renderer::recreateSwapChain() {
 void Renderer::recreateViewport(ImVec2 newExtent) {
 	vkDeviceWaitIdle(m_context->getDevice());
 
-	m_options.currentSpp = 0;
+	m_options.currentSpp = -1;
 	if (newExtent.x <= 0 || newExtent.y <= 0) {
 		return;
 	}
@@ -495,17 +502,21 @@ void Renderer::recreateViewport(ImVec2 newExtent) {
 
 	// clear textures
 	m_outputTexture.reset();
-	m_accumTexture.reset();
+	m_accum0Texture.reset();
+	m_accum1Texture.reset();
 
 	// clear descriptor set
-	m_set5DescSet.reset();
+	m_set5DescSets[0].reset();
+	m_set5DescSets[1].reset();
 
 	// create textures
 	m_outputTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_accumTexture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_accum0Texture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_accum1Texture = Texture::createAttachmentTexture(m_context.get(), m_extent.width, m_extent.height, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
 
 	// create descriptor set
-	m_set5DescSet = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_outputTexture.get(), m_accumTexture.get());
+	m_set5DescSets[0] = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_outputTexture.get(), m_accum0Texture.get(), m_accum1Texture.get());
+	m_set5DescSets[1] = DescriptorSet::createSet5DescSet(m_context.get(), m_set5Layout.get(), m_outputTexture.get(), m_accum1Texture.get(), m_accum0Texture.get());
 
 	// gui
 	m_guiRenderer->createViewPortDescriptorSet({m_outputTexture.get(), m_outputTexture.get()});
@@ -513,7 +524,8 @@ void Renderer::recreateViewport(ImVec2 newExtent) {
 	auto cmd = VulkanUtil::beginSingleTimeCommands(m_context.get());
 
 	transferImageLayout(cmd, m_outputTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-	transferImageLayout(cmd, m_accumTexture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_accum0Texture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	transferImageLayout(cmd, m_accum1Texture.get(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
 
 	VulkanUtil::endSingleTimeCommands(m_context.get(), cmd);
 }
@@ -529,7 +541,7 @@ void Renderer::recordPathTracingCommandBuffer() {
 		m_set2DescSet->getDescriptorSet(),
 		m_set3DescSet->getDescriptorSet(),
 		m_set4DescSet->getDescriptorSet(),
-		m_set5DescSet->getDescriptorSet()
+		m_set5DescSets[m_options.frameCount % 2]->getDescriptorSet()
 	};
 
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
@@ -548,7 +560,7 @@ void Renderer::recordPathTracingCommandBuffer() {
 }
 
 
-void Renderer::recordImGuiCommandBuffer(uint32_t imageIndex) {
+void Renderer::recordImGuiCommandBuffer(uint32_t imageIndex, float deltaTime) {
 	VkCommandBuffer cmd = m_commandBuffers->getCommandBuffers()[currentFrame];
 	
 	VkRenderPassBeginInfo renderPassInfo{};
@@ -566,7 +578,7 @@ void Renderer::recordImGuiCommandBuffer(uint32_t imageIndex) {
 
 	vkCmdBeginRenderPass(cmd, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 	m_guiRenderer->newFrame();
-	m_guiRenderer->render(cmd, m_options, m_scene);
+	m_guiRenderer->render(cmd, m_options, m_scene, deltaTime);
 	vkCmdEndRenderPass(cmd);
 }
 
