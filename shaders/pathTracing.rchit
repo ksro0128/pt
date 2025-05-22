@@ -235,9 +235,9 @@ void computeHitNormal(inout vec3 N, out vec3 pos) {
             N = normalize(normalMatrix * normalObject);
 
         }
-        if (mat.doubleSided != 0 && dot(N, gl_WorldRayDirectionEXT) > 0.0) {
-            N = normalize(-N);
-        }
+        // if (mat.doubleSided != 0 && dot(N, gl_WorldRayDirectionEXT) > 0.0) {
+        //     N = normalize(-N);
+        // }
     }
 
     pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
@@ -396,71 +396,6 @@ bool isproblem(vec3 v) {
     return any(isnan(v)) || any(isinf(v));
 }
 
-// void sampleIndirect(in vec3 N, in vec3 P, in vec3 wo, in MaterialGPU mat)
-// {
-//     // Kd, F0, probSpec 계산
-//     vec3 Kd = mat.baseColor.rgb * (1.0 - mat.metallic);
-//     vec3 F0 = mix(vec3(0.04), mat.baseColor.rgb, mat.metallic);
-//     float probSpec = max(max(F0.r, F0.g), F0.b);
-
-//     int sampledSpecular = rand(payload.seed) < probSpec ? 1 : 0;
-
-//     vec3 H = vec3(0.0);
-//     vec3 wi = vec3(0.0);
-
-//     if (sampledSpecular != 0) {
-//         vec2 Xi = sample2D(payload.seed);
-//         H = importanceSampleGGX(Xi, N, mat.roughness);
-//         wi = normalize(reflect(-wo, H));
-//     } else {
-//         vec3 localWi = cosineSampleHemisphere(payload.seed);
-//         wi = normalize(toWorld(localWi, N));
-//         H = normalize(wo + wi);
-//     }
-
-//     float NdotL = max(dot(N, wi), 0.001);
-//     float NdotV = max(dot(N, wo), 0.001);
-//     float NdotH = max(dot(N, H), 0.001);
-//     float VdotH = max(dot(wo, H), 0.001);
-
-//     if (sampledSpecular == 1 && dot(wo, N) * dot(wi, N) < 0.0) {
-//         payload.terminated = 1;
-//         return;
-//     }
-
-//     float D = distributionGGX(N, H, mat.roughness);
-//     float G = geometrySmith(N, wo, wi, mat.roughness);
-//     vec3 F = fresnelSchlick(VdotH, F0);
-
-//     vec3 specularf = (D * G * F) / max(4.0 * NdotV * NdotL, 0.001);
-//     vec3 diffusef = Kd / PI;
-
-//     float pdf_diff = NdotL / PI * (1.0 - probSpec);
-//     float pdf_spec = D * NdotH / (4.0 * VdotH + 0.001) * probSpec;
-
-//     float sumPdf = pdf_diff + pdf_spec;
-//     float misWeight = (sampledSpecular != 0) ? (pdf_spec / sumPdf) : (pdf_diff / sumPdf);
-
-//     vec3 f = (sampledSpecular != 0) ? specularf * misWeight : diffusef * misWeight;
-//     float pdf = (sampledSpecular != 0) ? pdf_spec : pdf_diff;
-
-//     payload.beta *= f * NdotL / max(pdf, 0.001);
-//     payload.nextOrigin = P + wi * 0.0001;
-//     payload.nextDir = wi;
-//     payload.terminated = 0;
-//     payload.pdf = pdf;
-// }
-
-bool refract(vec3 wo, vec3 n, float eta, out vec3 wt) {
-    float cosThetaI = dot(n, wo);
-    float sin2ThetaI = max(0.0, 1.0 - cosThetaI * cosThetaI);
-    float sin2ThetaT = eta * eta * sin2ThetaI;
-    if (sin2ThetaT >= 1.0) return false; // TIR
-    float cosThetaT = sqrt(1.0 - sin2ThetaT);
-    wt = eta * -wo + (eta * cosThetaI - cosThetaT) * n;
-    return true;
-}
-
 void sampleIndirect(in vec3 N, in vec3 P, in vec3 wo, in MaterialGPU mat)
 {
     vec3 baseColor = mat.baseColor.rgb;
@@ -517,6 +452,141 @@ void sampleIndirect(in vec3 N, in vec3 P, in vec3 wo, in MaterialGPU mat)
     payload.terminated = 0;
     payload.pdf = pdf;
 }
+// -----------------------------------------------------------------------------
+//  Microfacet refraction helper (그대로 사용)
+// bool refractGGX(vec3 wo, vec3 H, float eta, out vec3 wi)
+// {
+//     float cosThetaI   = dot(wo, H);
+//     float sin2ThetaI  = max(0.0, 1.0 - cosThetaI * cosThetaI);
+//     float sin2ThetaT  = eta * eta * sin2ThetaI;
+//     if (sin2ThetaT >= 1.0)       // 전반사
+//         return false;
+//     float cosThetaT = sqrt(max(0.0, 1.0 - sin2ThetaT));
+//     wi = normalize(eta * -wo + (eta * cosThetaI - cosThetaT) * H);
+//     return true;
+// }
+// // -----------------------------------------------------------------------------
+
+// void sampleIndirect(in vec3 N, in vec3 P, in vec3 wo, in MaterialGPU mat)
+// {
+//     //-------------------------------------------------------------------------
+//     // 0. 입사 측 기준 노멀 / 굴절률 정렬
+//     //-------------------------------------------------------------------------
+//     vec3  Ns   = N;            // 표면 밖으로 향하는 노멀
+//     float etaI = 1.0;          // 입사 매질
+//     float etaT = mat.ior;      // 투과 매질
+//     bool  entering = dot(wo, N) > 0.0;   // 공기 → 매질 ?
+
+//     if (!entering) {           // 물체 내부 → 바깥
+//         Ns   = -N;
+//         etaI = mat.ior;
+//         etaT = 1.0;
+//     }
+//     float eta = etaI / etaT;   // 최종 η
+
+//     //-------------------------------------------------------------------------
+//     // 1. 가중치 / 선택 확률
+//     //-------------------------------------------------------------------------
+//     vec3  F0       = mix(vec3(0.04), mat.baseColor.rgb, mat.metallic);
+//     vec3  Kd       = mat.baseColor.rgb * (1.0 - mat.metallic) * (1.0 - mat.transmissionFactor);
+
+//     float w_diff   = luminance(Kd);
+//     float w_spec   = maxComponent(F0) * (1.0 - mat.transmissionFactor);
+//     float w_trans  = mat.transmissionFactor;
+//     float w_sum    = w_diff + w_spec + w_trans;
+
+//     float probDiff  = w_diff   / w_sum;
+//     float probSpec  = w_spec   / w_sum;
+//     float probTrans = w_trans  / w_sum;
+
+//     //-------------------------------------------------------------------------
+//     // 2. 로브 선택
+//     //-------------------------------------------------------------------------
+//     float sel = rand(payload.seed);
+//     int   lobe = (sel < probDiff)              ? 0 :
+//                  (sel < probDiff + probSpec)   ? 1 : 2;   // 0:diff 1:spec 2:trans
+
+//     //-------------------------------------------------------------------------
+//     // 3. 샘플링
+//     //-------------------------------------------------------------------------
+//     vec3  wi, H;
+//     float pdf = 1.0;
+//     vec3  f   = vec3(0.0);
+
+//     if (lobe == 0)   //------------------------------------------------- Lambert
+//     {
+//         vec3 localWi = cosineSampleHemisphere(payload.seed);
+//         wi  = normalize(toWorld(localWi, Ns));
+//         pdf = max(dot(Ns, wi), 0.0) / PI * probDiff;
+//         f   = Kd / PI;
+//     }
+//     else
+//     {
+//         // 공통 : GGX Half-vector
+//         H = importanceSampleGGX(sample2D(payload.seed), Ns, mat.roughness);
+
+//         float NdotH = max(dot(Ns, H), 1e-4);
+//         float VdotH = max(dot(wo, H), 1e-4);
+//         float D     = distributionGGX(Ns, H, mat.roughness);
+
+//         // ----------------------------- GGX Specular **Reflection**
+//         if (lobe == 1)
+//         {
+//             wi = normalize(reflect(-wo, H));
+//             if (dot(wi, Ns) <= 0.0) { payload.terminated = 1; return; }
+
+//             float G = geometrySmith(Ns, wo, wi, mat.roughness);
+//             vec3  F = fresnelSchlick(VdotH, F0);
+//             f       = D * G * F /
+//                       max(4.0 * max(dot(Ns, wo), 1e-4) * max(dot(Ns, wi), 1e-4), 1e-4);
+
+//             pdf = D * NdotH / (4.0 * VdotH) * probSpec;
+//         }
+//         // ----------------------------- GGX Specular **Transmission**
+//         else
+//         {
+//             if (!refractGGX(wo, H, eta, wi))
+//             {                             // 전반사 → 반사 로브로 대체
+//                 wi   = normalize(reflect(-wo, H));
+//                 float G = geometrySmith(Ns, wo, wi, mat.roughness);
+//                 vec3  F = fresnelSchlick(VdotH, F0);
+//                 f       = D * G * F /
+//                           max(4.0 * max(dot(Ns, wo), 1e-4) * max(dot(Ns, wi), 1e-4), 1e-4);
+//                 pdf     = D * NdotH / (4.0 * VdotH) * probSpec;
+//             }
+//             else
+//             {
+//                 float WiDotN = dot(wi, Ns);
+//                 if (WiDotN == 0.0) { payload.terminated = 1; return; }
+
+//                 float WoDotN = dot(wo, Ns);
+//                 float WiDotH = dot(wi, H);
+//                 float denom  = eta * WiDotH + VdotH;
+//                 float Fdiel  = fresnelDielectric(VdotH, etaI, etaT);
+//                 float G12    = geometrySmith(Ns, wo, wi, mat.roughness);
+
+//                 float btScalar = abs(WiDotH * VdotH) * (1.0 - Fdiel) * D * G12 * eta * eta /
+//                                  (max(abs(WoDotN) * abs(WiDotN), 1e-4) * denom * denom);
+
+//                 f   = btScalar * mat.baseColor.rgb;          // 색 유리
+//                 pdf = D * NdotH * abs(WiDotH) / (denom * denom) * probTrans;
+//             }
+//         }
+//     }
+
+//     //-------------------------------------------------------------------------
+//     // 4. 경로 갱신
+//     //-------------------------------------------------------------------------
+//     float cosTerm = abs(dot(Ns, wi));               // 반사·투과 모두 절댓값
+//     payload.beta       *= f * cosTerm / max(pdf, 1e-4);
+//     payload.nextOrigin  = P + wi * 0.0005 * sign(cosTerm);   // 노멀 방향 따름
+//     payload.nextDir     = wi;
+//     payload.terminated  = 0;
+//     payload.pdf         = pdf;
+// }
+
+
+
 
 
 void sampleDirect(in vec3 N, in vec3 P, in vec3 wo, in MaterialGPU mat)
