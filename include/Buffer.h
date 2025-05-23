@@ -5,6 +5,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#include <tiny_gltf.h>
 
 
 class Buffer {
@@ -61,6 +62,9 @@ public:
 	static std::unique_ptr<ImageBuffer> createCubeMapImageBuffer(VulkanContext* context, uint32_t width,
 		uint32_t height, VkFormat format, VkImageUsageFlags usage, VkImageAspectFlags aspectFlags);
 	static std::unique_ptr<ImageBuffer> createImageBufferFromMemory(VulkanContext* context, const aiTexture* aiTexture, VkFormat format);
+	static std::unique_ptr<ImageBuffer> createImageBufferFromMemory(VulkanContext* context, const tinygltf::Image& image, VkFormat format);
+
+
 	~ImageBuffer();
 	void cleanup() override;
 
@@ -81,6 +85,7 @@ private:
 	void initCubeMap(VulkanContext* context, uint32_t width,
 		uint32_t height, VkFormat format, VkImageUsageFlags usage, VkImageAspectFlags aspectFlags);
 	bool initFromMemory(VulkanContext* context, const aiTexture* aiTexture, VkFormat format);
+	bool initFromMemory(VulkanContext* context, const tinygltf::Image& image, VkFormat format);
 	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 	void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);

@@ -572,6 +572,57 @@ bool ImageBuffer::initFromMemory(VulkanContext* context, const aiTexture* textur
 	generateMipmaps(m_image, format, texWidth, texHeight, m_mipLevels);
 }
 
+std::unique_ptr<ImageBuffer> ImageBuffer::createImageBufferFromMemory(VulkanContext* context, const tinygltf::Image& image, VkFormat format) {
+	std::unique_ptr<ImageBuffer> imageBuffer = std::unique_ptr<ImageBuffer>(new ImageBuffer());
+	if (!imageBuffer->initFromMemory(context, image, format))
+		return nullptr;
+	return imageBuffer;
+}
+
+bool ImageBuffer::initFromMemory(VulkanContext* context, const tinygltf::Image& image, VkFormat format) {
+	this->context = context;
+
+	int texWidth = image.width;
+	int texHeight = image.height;
+	int texChannels = image.component;
+
+	if (image.image.empty()) {
+		throw std::runtime_error("Empty image buffer from tinygltf::Image");
+	}
+
+	// 스테이징 버퍼에 업로드
+	m_mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
+	VkDeviceSize imageSize = texWidth * texHeight * 4;
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer, stagingBufferMemory);
+
+	void* data;
+	vkMapMemory(context->getDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
+	memcpy(data, image.image.data(), static_cast<size_t>(imageSize));
+	vkUnmapMemory(context->getDevice(), stagingBufferMemory);
+
+	VulkanUtil::createImage(context,
+		texWidth, texHeight, m_mipLevels, VK_SAMPLE_COUNT_1_BIT, format, VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_image, m_textureImageMemory);
+
+	transitionImageLayout(m_image, format, VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, m_mipLevels);
+	copyBufferToImage(stagingBuffer, m_image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+
+	vkDestroyBuffer(context->getDevice(), stagingBuffer, nullptr);
+	vkFreeMemory(context->getDevice(), stagingBufferMemory, nullptr);
+
+	generateMipmaps(m_image, format, texWidth, texHeight, m_mipLevels);
+
+	return true;
+}
+
+
 
 
 std::unique_ptr<UniformBuffer> UniformBuffer::createUniformBuffer(VulkanContext* context, VkDeviceSize buffersize) {

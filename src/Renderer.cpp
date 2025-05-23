@@ -21,6 +21,14 @@ void Renderer::updateAssets() {
 	m_textures.push_back(Texture::createDefaultTexture(m_context.get(), glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)));
 	m_materials.push_back(MaterialGPU());
 
+	// glass
+	MaterialGPU mat;
+	mat.transmissionFactor = 1.0f;
+	mat.metallic = 0.5f;
+	mat.roughness = 0.04f;
+	mat.doubleSided = 1;
+	m_materials.push_back(mat);
+
 
 	{ // plane - default material
 		std::unique_ptr<Mesh> mesh = Mesh::createPlaneMesh(m_context.get());
@@ -48,7 +56,7 @@ void Renderer::updateAssets() {
 		Model model;
 		model.name = "default sphere";
 		model.mesh.push_back(m_meshes.size() - 1);
-		model.material.push_back(0);
+		model.material.push_back(1);
 		m_models.push_back(model);
 	}
 
@@ -65,7 +73,13 @@ void Renderer::updateAssets() {
 	// 8
 	loadTinyGLTFModel("assets/ornate_mirror_01_1k/ornate_mirror_01_1k.gltf");
 	// 9
-	loadTinyGLTFModel("assets/glass/glass.gltf");
+	loadTinyGLTFModel("assets/lion_head_1k/lion_head_1k.gltf");
+	// 10
+	loadTinyGLTFModel("assets/fancy_picture_frame_01_1k/fancy_picture_frame_01_1k.gltf");
+	// 11
+	loadTinyGLTFModel("assets/Carafe_with_stopper.glb");
+
+
 
 
 
@@ -133,49 +147,69 @@ void Renderer::createScene() {
 		m_scene.objects.push_back(object);
 	}
 
-	// // 천장 조명
-	// {
-	// 	AreaLight areaLight;
-	// 	areaLight.color = glm::vec3(1.0f);
-	// 	areaLight.intensity = 30.0f;
-	// 	areaLight.position = glm::vec3(0.0f, 2.9f, 0.0f);
-	// 	areaLight.rotation = glm::vec3(90.0f, 0.0f, 0.0f); // 아래 방향 (법선 -Y → +Z)
-	// 	areaLight.scale = glm::vec3(0.5f);
-	// 	areaLight.useTemperature = false;
-	// 	areaLight.temperature = 0.0f;
-	// 	m_scene.areaLights.push_back(areaLight);
-	// }
-
-	// 바닥 조명
+	// 천장 조명
 	{
 		AreaLight areaLight;
-		areaLight.color = glm::vec3(1.0f, 0.85f, 0.7f);;
-		areaLight.intensity = 10.0f;
-		areaLight.position = glm::vec3(0.0f, -0.9f, 0.0f);
-		areaLight.rotation = glm::vec3(-90.0f, 0.0f, 0.0f); // 아래 방향 (법선 -Y → +Z)
-		areaLight.scale = glm::vec3(1.0f);
+		areaLight.color = glm::vec3(1.0f, 0.85f, 0.7f);
+		areaLight.intensity = 30.0f;
+		areaLight.position = glm::vec3(0.0f, 2.9f, 0.0f);
+		areaLight.rotation = glm::vec3(90.0f, 0.0f, 0.0f); // 아래 방향 (법선 -Y → +Z)
+		areaLight.scale = glm::vec3(0.5f);
 		areaLight.useTemperature = false;
 		areaLight.temperature = 0.0f;
 		m_scene.areaLights.push_back(areaLight);
 	}
 
+	// // 바닥 조명
 	// {
-	// 	Object object;
-	// 	object.modelIndex = 7;
-	// 	object.overrideMaterialIndex = -1;
-	// 	object.position = glm::vec3(0.0f, -1.0f, 0.0f);
-	// 	object.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
-	// 	object.scale = glm::vec3(0.5f, 0.5f, 0.5f);
-	// 	m_scene.objects.push_back(object);
+	// 	AreaLight areaLight;
+	// 	areaLight.color = glm::vec3(1.0f, 0.85f, 0.7f);;
+	// 	areaLight.intensity = 10.0f;
+	// 	areaLight.position = glm::vec3(0.0f, -0.9f, 0.0f);
+	// 	areaLight.rotation = glm::vec3(-90.0f, 0.0f, 0.0f); // 아래 방향 (법선 -Y → +Z)
+	// 	areaLight.scale = glm::vec3(1.0f);
+	// 	areaLight.useTemperature = false;
+	// 	areaLight.temperature = 0.0f;
+	// 	m_scene.areaLights.push_back(areaLight);
 	// }
 
-	{
+	{ // 나무
+		Object object;
+		object.modelIndex = 7;
+		object.overrideMaterialIndex = -1;
+		object.position = glm::vec3(-1.5f, -1.0f, 1.3f);
+		object.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
+		object.scale = glm::vec3(0.5f, 0.5f, 0.5f);
+		m_scene.objects.push_back(object);
+	}
+
+	{ // 전구
 		Object object;
 		object.modelIndex = 4;
 		object.overrideMaterialIndex = -1;
 		object.position = glm::vec3(0.0f, 0.0f, 0.0f);
 		object.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
-		object.scale = glm::vec3(3.0f, 3.0f, 3.0f);
+		object.scale = glm::vec3(7.0f, 7.0f, 7.0f);
+		m_scene.objects.push_back(object);
+	}
+
+	// { // 유리 구슬
+	// 	Object object;
+	// 	object.modelIndex = 2;
+	// 	object.overrideMaterialIndex = -1;
+	// 	object.position = glm::vec3(0.0f, 0.0f, 1.0f);
+	// 	object.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
+	// 	object.scale = glm::vec3(1.0f, 1.0f, 1.0f);
+	// 	m_scene.objects.push_back(object);
+	// }
+
+	{ // 그림
+		Object object;
+		object.modelIndex = 10;
+		object.overrideMaterialIndex = -1;
+		object.position = glm::vec3(0.0f, 0.0f, -1.0f);
+		object.rotation = glm::vec3(0.0f, 0.0f, 0.0f);
+		object.scale = glm::vec3(4.0f, 4.0f, 4.0f);
 		m_scene.objects.push_back(object);
 	}
 

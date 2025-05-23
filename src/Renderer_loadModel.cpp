@@ -246,7 +246,19 @@ void Renderer::loadTinyGLTFModel(const std::string& path) {
 	tinygltf::Model model;
 	std::string err, warn;
 
-	bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, path); // .gltf
+	std::filesystem::path fsPath(path);
+    std::string ext = fsPath.extension().string();
+
+    bool ret = false;
+    if (ext == ".glb") {
+        ret = loader.LoadBinaryFromFile(&model, &err, &warn, path);
+    } else {
+        ret = loader.LoadASCIIFromFile(&model, &err, &warn, path);
+    }
+
+
+
+	// bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, path); // .gltf
 	// 또는
 	// bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, path); // .glb
 
@@ -479,7 +491,8 @@ int32_t Renderer::loadTinyTexture(int textureIndex, const tinygltf::Model& model
 
 	std::unique_ptr<Texture> texture;
 	if (image.uri.empty()) {
-		// texture = Texture::createTextureFromMemory(m_context.get(), image.image.data(), image.image.size(), formatType);
+		std::cout << "createTextureFromMemory" << std::endl;
+		texture = Texture::createTextureFromMemory(m_context.get(), image, formatType);
 	}
 	else {
 		texture = Texture::createTexture(m_context.get(), pathStr, formatType);

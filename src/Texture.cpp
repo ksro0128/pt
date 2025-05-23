@@ -205,4 +205,36 @@ void Texture::initTextureFromMemory(VulkanContext* context, const aiTexture* aiT
 	if (vkCreateSampler(context->getDevice(), &samplerInfo, nullptr, &m_sampler) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create image sampler from memory!");
 	}
-}	
+}
+
+
+
+std::unique_ptr<Texture> Texture::createTextureFromMemory(VulkanContext* context, const tinygltf::Image& image, TextureFormatType formatType) {
+	std::unique_ptr<Texture> texture = std::unique_ptr<Texture>(new Texture());
+	texture->initTextureFromMemory(context, image, formatType);
+	return texture;
+}
+
+
+void Texture::initTextureFromMemory(VulkanContext* context, const tinygltf::Image& image, TextureFormatType formatType) {
+	this->context = context;
+
+	VkFormat format = (formatType == TextureFormatType::ColorSRGB)
+		? VK_FORMAT_R8G8B8A8_SRGB
+		: VK_FORMAT_R8G8B8A8_UNORM;
+
+	m_imageBuffer = ImageBuffer::createImageBufferFromMemory(context, image, format);
+	m_imageView = VulkanUtil::createImageView(
+		context,
+		m_imageBuffer->getImage(),
+		format,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		m_imageBuffer->getMipLevels()
+	);
+	m_format = format;
+
+	VkSamplerCreateInfo samplerInfo = createDefaultSamplerInfo();
+	if (vkCreateSampler(context->getDevice(), &samplerInfo, nullptr, &m_sampler) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create image sampler from memory!");
+	}
+}
